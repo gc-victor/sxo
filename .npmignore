@@ -1,0 +1,9 @@
+*
+!src/js/**/*
+!jsx-precompiler/*
+!README.md
+!CHANGELOG.md
+!LICENSE
+!package.json
+
+src/js/**/*.test.js

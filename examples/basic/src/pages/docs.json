@@ -1,0 +1,7 @@
+{
+    "title": "Title",
+    "subtitle": "Subtitle",
+    "content": "This is the main content of the JSON.",
+    "description": "A brief description of the JSON file.",
+    "keywords": "title, subtitle, content"
+}

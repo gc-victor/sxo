@@ -1,0 +1,19 @@
+{
+    "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+    "linter": {
+        "enabled": true,
+        "rules": {
+            "recommended": true,
+            "correctness": {
+                "useJsxKeyInIterable": "off"
+            }
+        }
+    },
+    "formatter": {
+        "enabled": true,
+        "formatWithErrors": false,
+        "indentStyle": "space",
+        "indentWidth": 4,
+        "lineWidth": 140
+    }
+}

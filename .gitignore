@@ -1,0 +1,17 @@
+node_modules/
+**/node_modules/
+dist/
+jsx-precompiler/
+**/dist/
+*.local
+
+.vscode/*
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+target
+coverage

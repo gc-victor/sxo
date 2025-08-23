@@ -1,0 +1,177 @@
+import fsp from "node:fs/promises";
+import http from "node:http";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
+import { OUTPUT_DIR_CLIENT, PORT, ROUTES_FILE, ROUTES_RELATIVE_PATH } from "../constants.js";
+import { loadUserDefinedMiddlewares, runMiddleware } from "./middleware.js";
+import { applyHead, httpLogger, injectPageContent, jsxBundlePath, logger, renderErrorHtml, routeMatch, statics } from "./utils/index.js";
+
+const isDev = process.env.NODE_ENV !== "production";
+const MAX_URL_LEN = 2048;
+const HEADER_TIMEOUT_MS = parseInt(process.env.HEADER_TIMEOUT_MS || "10000", 10); // headers
+const REQUEST_TIMEOUT_MS = parseInt(process.env.REQUEST_TIMEOUT_MS || "120000", 10); // full request
+
+const YELLOW = "\x1b[33m";
+
+/**
+ * AIDEV-NOTE: Built-in CORS helper removed. Users must supply a CORS middleware in PAGES_DIR/middleware.js
+ * that sets appropriate Access-Control-* headers (including handling OPTIONS). We now run user middlewares
+ * before the preflight OPTIONS short-circuit so they can decorate headers.
+ */
+
+// Load and validate router config at startup
+let filesRaw;
+try {
+    const s = await fsp.readFile(ROUTES_FILE, "utf-8");
+    filesRaw = JSON.parse(s);
+    if (!Array.isArray(filesRaw)) throw new Error(`${ROUTES_RELATIVE_PATH} is not an array`);
+    for (const f of filesRaw) {
+        if (!f || typeof f !== "object") throw new Error("Invalid route entry");
+        if (typeof f.filename !== "string" || typeof f.jsx !== "string") {
+            throw new Error("Route missing filename or jsx");
+        }
+        if (f.path && typeof f.path !== "string") throw new Error("Route path must be string if provided");
+    }
+} catch (e) {
+    console.error(`Failed to load or validate ${ROUTES_RELATIVE_PATH}:`, e);
+    process.exit(1);
+}
+const files = filesRaw; // keep the canonical `files` name
+
+// Load user-defined middleware (centralized loader, one-time for prod)
+const userMiddlewares = await loadUserDefinedMiddlewares();
+
+const routes = new Map();
+
+const server = http.createServer(async (req, res) => {
+    httpLogger(req, res);
+
+    // Enforce URL length and safe decoding
+    if (!req.url || req.url.length > MAX_URL_LEN) {
+        res.writeHead(414, { "Content-Type": "text/plain; charset=utf-8" });
+        res.end("URI Too Long");
+        return;
+    }
+
+    // Execute user-defined middleware chain early so CORS logic (if provided) can set headers, including for OPTIONS.
+    if (userMiddlewares.length) {
+        try {
+            const handledEarly = await runMiddleware(req, res, userMiddlewares);
+            if (handledEarly) return;
+        } catch (e) {
+            logger.error({ err: e }, "User middleware error");
+            // Continue; do not leak stack to client.
+        }
+    }
+
+    // Preflight (user CORS middleware should already have set headers)
+    if (req.method === "OPTIONS") {
+        res.writeHead(204);
+        res.end();
+        return;
+    }
+
+    // Static files (ensure statics() does safe path handling internally)
+    const servedStatic = await statics(req, res);
+    if (servedStatic) return;
+
+    // Parse URL path safely
+    let pathname = "/";
+    try {
+        const u = new URL(req.url, "http://localhost");
+        pathname = decodeURIComponent(u.pathname);
+    } catch {
+        res.writeHead(400, { "Content-Type": "text/plain; charset=utf-8" });
+        res.end("Bad Request");
+        return;
+    }
+
+    let match = null;
+
+    if (routes.has(pathname)) {
+        match = routes.get(pathname);
+    } else {
+        match = routeMatch(pathname, files);
+        routes.set(pathname, match);
+    }
+
+    if (!match) {
+        res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
+        res.end("Not found");
+        return;
+    }
+    if (match.invalid) {
+        res.writeHead(400, { "Content-Type": "text/plain; charset=utf-8" });
+        res.end("Invalid parameters");
+        return;
+    }
+
+    const { route, params } = match;
+
+    try {
+        // Load or fetch HTML shell
+        const htmlPath = path.resolve(OUTPUT_DIR_CLIENT, route.filename);
+        const html = await fsp.readFile(htmlPath, "utf-8");
+
+        // Import SSR module (ESM import is cached by Node by spec)
+        const jsxModulePath = jsxBundlePath(route.jsx);
+        const jsxModuleUrl = pathToFileURL(jsxModulePath).href;
+        const jsxModule = await import(jsxModuleUrl);
+        const jsxFn = jsxModule.default || jsxModule.jsx;
+        if (typeof jsxFn !== "function") {
+            throw new Error(`No valid export found in ${jsxModulePath}`);
+        }
+
+        const jsxResult = await jsxFn(params);
+
+        // Inject into the #app container using the centralized helper for consistent behavior
+        let page = injectPageContent(html, jsxResult);
+        // Apply new head export (object or function) idempotently
+        page = applyHead(page, jsxModule.head, params);
+
+        // Response headers
+        res.setHeader("Content-Type", "text/html; charset=utf-8");
+        // For dynamic pages, caching is disabled unless a specific strategy is implemented
+        res.setHeader("Cache-Control", "public, max-age=0, must-revalidate");
+
+        if (req.method === "HEAD") {
+            res.writeHead(200);
+            res.end();
+            return;
+        }
+
+        res.writeHead(200);
+        res.end(page);
+    } catch (e) {
+        const msg = isDev ? `Error: ${e.message}` : "Internal Server Error";
+        logger.error({ err: e }, "Request handling failed");
+        res.writeHead(500, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+        res.end(renderErrorHtml(msg));
+    }
+});
+
+// Timeouts and error handling
+server.requestTimeout = REQUEST_TIMEOUT_MS;
+server.headersTimeout = HEADER_TIMEOUT_MS;
+
+server.on("clientError", (_err, socket) => {
+    try {
+        socket.end("HTTP/1.1 400 Bad Request\r\n\r\n");
+    } catch {}
+});
+
+server.listen(PORT, () => {
+    logger.info(`${YELLOW}http://localhost:${PORT}/`);
+});
+
+// Graceful shutdown
+process.on("SIGINT", () => {
+    logger.info("Shutting down...");
+    process.exit(0);
+});
+process.on("unhandledRejection", (reason) => {
+    logger.error({ reason }, "Unhandled Rejection");
+});
+process.on("uncaughtException", (err) => {
+    logger.error({ err }, "Uncaught Exception");
+});
