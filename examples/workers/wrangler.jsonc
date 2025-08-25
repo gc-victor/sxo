@@ -1,0 +1,19 @@
+/**
+ * For more details on how to configure Wrangler, refer to:
+ * https://developers.cloudflare.com/workers/wrangler/configuration/
+ */
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "workers",
+	"main": "src/index.generated.js",
+	"compatibility_date": "2025-08-23",
+	"compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+	"assets": {
+		"binding": "ASSETS",
+		"directory": "./dist/client/",
+		"html_handling": "none",
+	},
+	"observability": {
+		"enabled": false,
+	},
+}

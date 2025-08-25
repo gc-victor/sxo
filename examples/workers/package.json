@@ -1,0 +1,20 @@
+{
+	"name": "workers",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"build": "sxo build",
+		"postbuild": "node scripts/generate-imports.js",
+		"deploy": "wrangler deploy",
+		"dev": "sxo dev",
+		"start": "wrangler dev",
+		"test": "vitest"
+	},
+	"devDependencies": {
+		"@cloudflare/vitest-pool-workers": "^0.8.19",
+		"sxo": "^0.1.0",
+		"vitest": "~3.2.0",
+		"wrangler": "^4.32.0"
+	}
+}
