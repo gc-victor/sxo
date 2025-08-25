@@ -10,6 +10,7 @@ A **fast**, minimal architecture convention and CLI for building websites with s
 - [Key Features](#key-features)
 - [Architecture Overview](#architecture-overview)
 - [Quick Start](#quick-start)
+- [Examples](#examples)
 - [Routing Guide](#routing-guide)
 - [Page Module API](#page-module-api)
 - [Middleware](#middleware)
@@ -183,10 +184,10 @@ Parameters object passed to the page render function & dynamic `head` is shaped 
 
 A page module can export:
 
-| Export                | Type                             | Required           | Description                               |
-| --------------------- | -------------------------------- | ------------------ | ----------------------------------------- |
-| `default`             | `(params) => JSX` or string      | Yes\*              | Page render function                      |
-| `head`                | `object` or `(params) => object` | Optional           | Declarative head meta structure           |
+| Export    | Type                             | Required | Description                     |
+| --------- | -------------------------------- | -------- | ------------------------------- |
+| `default` | `(params) => JSX` or string      | Yes\*    | Page render function            |
+| `head`    | `object` or `(params) => object` | Optional | Declarative head meta structure |
 
 Head object keys map to tags:
 
@@ -445,6 +446,69 @@ Focused suites:
 - Utils: head injection, asset extraction, routing, statics security
 - JSX helpers: attribute normalization, spreads
 - Entry points: manifest generation semantics
+
+## Examples
+
+### Cloudflare Workers Example
+
+A full example demonstrating SXO with Cloudflare Workers, including dynamic routes, per‑route client entries, global HTML/CSS, and deployment via Wrangler.
+
+Location: `examples/workers`
+
+What it shows:
+
+- Dynamic routing with `[slug]` segments
+- Optional per‑route client entry (`src/pages/<route>/client/index.js`)
+- Shared components under `src/components`
+- Single HTML template (`src/pages/index.html`) and global stylesheet (`src/pages/global.css`)
+- Post‑build script for edge import generation
+- Local dev and production deploy using Wrangler
+
+Quickstart:
+
+```shell
+cd examples/workers
+pnpm i
+
+# SXO dev server (SSE hot replace)
+pnpm dev
+
+# Optional: run Worker locally in another terminal
+pnpm start   # wrangler dev
+
+# Build (triggers postbuild import generation)
+pnpm build
+
+# Deploy to Cloudflare Workers
+pnpm deploy
+```
+
+Structure (abridged):
+
+```text
+examples/workers/
+├── scripts/
+│   ├── generate-imports.js
+│   └── index.js
+├── src/
+│   ├── components/
+│   │   ├── Header.jsx
+│   │   └── Page.jsx
+│   └── pages/
+│       ├── index.html
+│       ├── global.css
+│       ├── index.jsx
+│       ├── about/
+│       │   ├── index.jsx
+│       │   └── [slug]/index.jsx
+│       └── counter/
+│           ├── index.jsx
+│           ├── counter.jsx
+│           └── client/index.js
+├── sxo.config.js
+├── wrangler.jsonc
+└── vitest.config.js
+```
 
 ## Deployment
 
