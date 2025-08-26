@@ -449,6 +449,65 @@ Focused suites:
 
 ## Examples
 
+### Basic Example
+
+A minimal SXO app showcasing simple routing, dynamic params, head metadata, per‑route client entry, and middleware.
+
+Location: `examples/basic`
+
+What it shows:
+
+- Static and dynamic routing: `/`, `/about`, `/about/[slug]`, `/counter`
+- Head metadata from JSON and functions: home uses `docs.json`; dynamic head varies by `slug`
+- Optional per‑route client entry (`src/pages/counter/client/index.js`) registering a custom element with `reactive-component`
+- Shared components under `src/components`
+- Single HTML template (`src/pages/index.html`) and global stylesheet (`src/pages/global.css`)
+- Example middleware chain: CORS, health check (`/healthz`), and OK endpoint (`/ok`)
+- Tailwind via CDN for styles on the counter page (loaded in head `script`)
+
+Quickstart:
+
+```shell
+cd examples/basic
+pnpm i
+
+# SXO dev server (SSE hot replace)
+pnpm dev
+
+# Build and run production server
+pnpm build
+pnpm start
+```
+
+Structure:
+
+```shell
+examples/basic/
+├── src/
+│   ├── components/
+│   │   ├── Header.jsx
+│   │   └── Page.jsx
+│   ├── middleware/
+│   │   └── cors.js
+│   ├── middleware.js
+│   └── pages/
+│       ├── index.html
+│       ├── global.css
+│       ├── docs.json
+│       ├── index.jsx
+│       ├── about/
+│       │   ├── index.jsx
+│       │   └── [slug]/index.jsx
+│       └── counter/
+│           ├── index.jsx
+│           ├── counter.jsx
+│           └── client/
+│               └── index.js
+├── sxo.config.js
+├── package.json
+└── pnpm-lock.yaml
+```
+
 ### Cloudflare Workers Example
 
 A full example demonstrating SXO with Cloudflare Workers, including dynamic routes, per‑route client entries, global HTML/CSS, and deployment via Wrangler.
@@ -483,9 +542,9 @@ pnpm build
 pnpm deploy
 ```
 
-Structure (abridged):
+Structure:
 
-```text
+```shell
 examples/workers/
 ├── scripts/
 │   ├── generate-imports.js
