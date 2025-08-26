@@ -1,0 +1,19 @@
+{
+    "name": "basic",
+    "version": "0.0.0",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "help": "sxo --help",
+        "dev": "sxo dev",
+        "build": "sxo build",
+        "start": "sxo start",
+        "clean": "sxo clean",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "license": "MIT",
+    "packageManager": "pnpm@10.14.0",
+    "devDependencies": {
+        "sxo": "^0.1.0"
+    }
+}
