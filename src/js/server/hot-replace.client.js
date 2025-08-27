@@ -36,6 +36,13 @@ export function hotReplace(href) {
         }
         setTimeout(() => location.reload(), 1000);
     };
+
+    // Cancel evSource when leaving the page
+    window.addEventListener("beforeunload", () => {
+        if (evSource && typeof evSource.close === "function") {
+            evSource.close();
+        }
+    });
 }
 
 function onHotMessage(e) {
