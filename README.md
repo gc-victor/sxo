@@ -498,15 +498,30 @@ examples/basic/
 │       ├── about/
 │       │   ├── index.jsx
 │       │   └── [slug]/index.jsx
-│       └── counter/
+│       ├── counter/
+│       │   ├── index.jsx
+│       │   ├── counter.jsx
+│       │   └── js/
+│       │       └── index.js
+│       └── posts/
 │           ├── index.jsx
-│           ├── counter.jsx
-│           └── client/
-│               └── index.js
+│           └── [slug]
+│               └── index.jsx
 ├── sxo.config.js
 ├── package.json
 └── pnpm-lock.yaml
 ```
+
+Also demonstrates:
+
+- API data fetching using JSONPlaceholder (posts/:id), with a dynamic route and synchronous head:
+  - routes: `/posts` (index listing) and `/posts/[slug]` (post details)
+  - files: `examples/basic/src/pages/posts/index.jsx`, `examples/basic/src/pages/posts/[slug]/index.jsx`
+
+Try it (JSONPlaceholder posts demo):
+
+- In dev, visit `/posts` for links to `/posts/1`, `/posts/2`, `/posts/3`
+- Click through to see server-rendered content fetched from https://jsonplaceholder.typicode.com/posts/:id
 
 ### Cloudflare Workers Example
 
