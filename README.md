@@ -1,6 +1,10 @@
-![SXO](./docs/sxo.svg)
+<picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./docs/sxo-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="./docs/sxo-light.svg">
+    <img alt="SXO" src="./docs/sxo-light.svg">
+</picture>
 
-# Optimized Server-Side JSX. Build Simple. Build Fast
+# Server-Side JSX. Build Simple. Build Fast
 
 A **fast**, minimal architecture convention and CLI for building websites with server‑side JSX. **No React, no client framework**, just composable **JSX optimized for the server**, a clean **directory-based router**, **hot replacement**, and powered by esbuild plus a Rust JSX precompiler.
 
