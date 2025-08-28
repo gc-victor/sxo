@@ -114,13 +114,13 @@ release:
 		echo "Error: Failed to create release branch $$release_branch"; \
 		exit 1; \
 	fi; \
-	make changelog
-	git add CHANGELOG.md
-	git add package.json && \
-	git commit -m "release: v$$version"
-	git push --set-upstream origin $$release_branch
-	git tag v$$version
-	git push --tags
+	make changelog; \
+	git add CHANGELOG.md; \
+	git add package.json; \
+	git commit -m "release: v$$version"; \
+	git push --set-upstream origin $$release_branch; \
+	git tag v$$version; \
+	git push --tags; \
 
 pre-release:
 	@node --test; \
