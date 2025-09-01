@@ -1,55 +1,60 @@
 ARGUMENTS = $(filter-out $@,$(MAKECMDGOALS))
 
-# Add this at the beginning of your Makefile
-.PHONY: help
+.PHONY: help ensure-clean \
+        changelog \
+        npm-publish npm-dry npm-prerelease npm-un-prerelease \
+        release release-patch release-minor release-major release-tag pre-release release-rollback \
+        tag-delete version wasm-build
+
+# Help
+
 help:
 	@echo "Available commands:"
 	@echo
-	@echo "Bump version:"
-	@echo "  bump <option>           - Bump version (option: major or minor or patch)"
-	@echo "  bump-pre                - Bump prerelease version"
-	@echo
 	@echo "Changelog:"
-	@echo "  changelog               - Update CHANGELOG.md with changes between the last two release commits"
+	@echo "  changelog                - Update CHANGELOG.md using changes since the last 'release:' commit"
 	@echo
 	@echo "npm:"
-	@echo "  npm-publish             - Publish npm packages"
-	@echo "  npm-dry                 - Dry-run npm package publish"
-	@echo "  npm-prerelease          - Publish prerelease npm packages"
-	@echo "  npm-un-prerelease       - Unpublish prerelease npm packages"
+	@echo "  npm-publish              - Publish npm package(s)"
+	@echo "  npm-dry                  - Dry-run npm publish"
+	@echo "  npm-prerelease           - Publish prerelease npm package(s)"
+	@echo "  npm-un-prerelease        - Unpublish a prerelease npm version (force)"
 	@echo
 	@echo "Release:"
-	@echo "  release                 - Create a new release version (opens PR creation URL)"
-	@echo "  release-manually        - Create a new release version manually"
-	@echo "  release-rollback        - Rollback a release version"
+	@echo "  release [major|minor|patch] - Create release branch, bump inside it, generate changelog, push branch (default: patch)"
+	@echo "  release-patch            - Alias for 'release patch'"
+	@echo "  release-minor            - Alias for 'release minor'"
+	@echo "  release-major            - Alias for 'release major'"
+	@echo "  release-tag              - Tag main HEAD as v<version> after the release PR is merged"
+	@echo "  release-rollback         - Rollback the last release commit and delete its tag (if present)"
 	@echo
 	@echo "Tagging:"
-	@echo "  tag-delete              - Delete a version tag"
+	@echo "  tag-delete               - Delete the tag for the current version"
 	@echo
 	@echo "Version:"
-	@echo "  version                 - Show current version"
+	@echo "  version                  - Show current version from package.json"
 	@echo
 	@echo "WASM:"
-	@echo "  wasm-build              - Build WASM package"
+	@echo "  wasm-build               - Build WASM package"
 	@echo
-	@echo "For more details on each command, check the Makefile"
+	@echo "Notes:"
+	@echo "  - Single source of truth for version: package.json"
+	@echo "  - Do NOT bump manually before 'make release'. The release target bumps inside a dedicated branch."
+	@echo "  - Tags are created only after the PR is merged to main via 'make release-tag'."
 
-# Bump version
+# Ensure clean working tree
 
-bump:
-	@echo "Bumping version..."
-	@if [ "$(ARGUMENTS)" != "major" ] && [ "$(ARGUMENTS)" != "minor" ] && [ "$(ARGUMENTS)" != "patch" ]; then \
-		echo "Error: Invalid argument, must be one of: major or minor or patch."; \
+ensure-clean:
+	@if [ -n "$$(git status --porcelain)" ]; then \
+		echo "Error: Working tree is dirty. Please commit or stash your changes."; \
+		git status --porcelain; \
 		exit 1; \
 	fi
-	@npm version $(ARGUMENTS) --git-tag-version=false
 
-bump-pre:
-	@echo "Bumping prerelease version..."
-	@npm version prerelease --preid=prerelease --git-tag-version=false
+
 
 # Changelog
-# Install git cliff: https://git-cliff.org/docs/installation
+# Requires git-cliff: https://git-cliff.org/docs/installation
 
 changelog:
 	@node --test; \
@@ -71,37 +76,77 @@ npm-publish: wasm-build
 	npm publish --access public
 
 npm-dry: wasm-build
-	npm publish --dry-run --tag prerelease ;\
+	npm publish --dry-run --tag prerelease
 
 npm-prerelease: wasm-build
-	npm publish --access public --tag prerelease ;\
+	npm publish --access public --tag prerelease
 
 npm-un-prerelease:
-	version=$$(make version -s); \
+	@version=$$(make version -s); \
 	if ! echo "$$version" | grep -q "prerelease"; then \
 		echo "Error: Cannot un-publish a release without a prerelease version ($$version)."; \
 		exit 1; \
-	fi
-	npm unpublish sxo@$$version --force ;\
+	fi; \
+	npm unpublish sxo@$$version --force
 
-# Release
+# Release: branch-first, bump-inside, no tag here
+# Usage: make release [major|minor|patch]  (default: patch)
 
-release:
+release: ensure-clean
 	@node --test; \
-	version=$$(make version -s); \
-	release_branch="release/$$version"; \
-	if [ -z "$$version" ]; then \
-		echo "Error: Version argument is required. Usage: make release"; \
+	bump="$(ARGUMENTS)"; \
+	if [ -z "$$bump" ]; then bump="patch"; fi; \
+	if [ "$$bump" != "major" ] && [ "$$bump" != "minor" ] && [ "$$bump" != "patch" ]; then \
+		echo "Error: Invalid bump. Use: major | minor | patch"; \
 		exit 1; \
 	fi; \
+	if ! git checkout main; then \
+		echo "Error: Failed to checkout main branch"; \
+		exit 1; \
+	fi; \
+	if ! git pull --rebase origin main; then \
+		echo "Error: Failed to pull latest changes from main"; \
+		exit 1; \
+	fi; \
+	if ! git checkout -b release/tmp; then \
+		echo "Error: Failed to create temporary release branch"; \
+		exit 1; \
+	fi; \
+	npm version $$bump --git-tag-version=false; \
+	version=$$(make version -s); \
 	if echo "$$version" | grep -q "prerelease"; then \
 		echo "Error: Cannot create a release with a prerelease version ($$version)."; \
 		exit 1; \
 	fi; \
-	if git rev-parse --verify "release/$$version" >/dev/null 2>&1; then \
+	if git rev-parse --verify "release/$$version" >/dev/null 2>&1 || \
+	   git ls-remote --exit-code --heads origin "release/$$version" >/dev/null 2>&1; then \
 		echo "Error: Release branch release/$$version already exists"; \
 		exit 1; \
 	fi; \
+	git branch -m "release/$$version"; \
+	make changelog; \
+	git add CHANGELOG.md package.json; \
+	git commit -m "release: v$$version"; \
+	git push --set-upstream origin "release/$$version"; \
+	echo; \
+	echo "Release branch pushed: release/$$version"; \
+	echo "Open a PR to main."
+
+# Convenience aliases
+
+release-patch:
+	@$(MAKE) release patch
+
+release-minor:
+	@$(MAKE) release minor
+
+release-major:
+	@$(MAKE) release major
+
+# Tag main after the release PR is merged
+
+release-tag: ensure-clean
+	@node --test; \
 	if ! git checkout main; then \
 		echo "Error: Failed to checkout main branch"; \
 		exit 1; \
@@ -110,72 +155,81 @@ release:
 		echo "Error: Failed to pull latest changes from main"; \
 		exit 1; \
 	fi; \
-	if ! git checkout -b $$release_branch; then \
-		echo "Error: Failed to create release branch $$release_branch"; \
-		exit 1; \
-	fi; \
-	make changelog; \
-	git add CHANGELOG.md; \
-	git add package.json; \
-	git commit -m "release: v$$version"; \
-	git push --set-upstream origin $$release_branch; \
-	git tag v$$version; \
-	git push --tags; \
-
-pre-release:
-	@node --test; \
-	make bump-pre; \
 	version=$$(make version -s); \
-	release_branch="pre-release/$$version"; \
 	if [ -z "$$version" ]; then \
-		echo "Error: Version argument is required. Usage: make pre-release"; \
+		echo "Error: Could not read version from package.json"; \
 		exit 1; \
 	fi; \
+	if echo "$$version" | grep -q "prerelease"; then \
+		echo "Error: Refusing to tag a prerelease version ($$version)."; \
+		exit 1; \
+	fi; \
+	if git rev-parse "v$$version" >/dev/null 2>&1; then \
+		echo "Error: Tag v$$version already exists"; \
+		exit 1; \
+	fi; \
+	git tag -a "v$$version" -m "release: v$$version"; \
+	git push --tags; \
+	echo "Tagged and pushed v$$version"
+
+# Pre-release: bump to prerelease inside a new branch and push it
+
+pre-release: ensure-clean
+	@node --test; \
+	if ! git checkout main; then \
+		echo "Error: Failed to checkout main branch"; \
+		exit 1; \
+	fi; \
+	if ! git pull --rebase origin main; then \
+		echo "Error: Failed to pull latest changes from main"; \
+		exit 1; \
+	fi; \
+	if ! git checkout -b pre-release/tmp; then \
+		echo "Error: Failed to create temporary pre-release branch"; \
+		exit 1; \
+	fi; \
+	npm version prerelease --preid=prerelease --git-tag-version=false; \
+	version=$$(make version -s); \
 	if ! echo "$$version" | grep -q "prerelease"; then \
-		echo "Error: Can only create a pre-release with a prerelease version ($$version)."; \
+		echo "Error: Expected a prerelease version, got $$version"; \
 		exit 1; \
 	fi; \
-	if git rev-parse --verify "pre-release/$$version" >/dev/null 2>&1; then \
+	if git rev-parse --verify "pre-release/$$version" >/dev/null 2>&1 || \
+	   git ls-remote --exit-code --heads origin "pre-release/$$version" >/dev/null 2>&1; then \
 		echo "Error: Pre-release branch pre-release/$$version already exists"; \
 		exit 1; \
 	fi; \
-	if ! git checkout main; then \
-		echo "Error: Failed to checkout main branch"; \
-		exit 1; \
-	fi; \
-	if ! git checkout -b $$release_branch; then \
-		echo "Error: Failed to create pre-release branch $$release_branch"; \
-		exit 1; \
-	fi; \
-	git add package.json && \
+	git branch -m "pre-release/$$version"; \
+	git add package.json; \
 	git commit -m "pre-release: v$$version"; \
-	if ! git pull --rebase origin main; then \
-		echo "Error: Failed to pull latest changes from main"; \
-		exit 1; \
-	fi; \
+	git push --set-upstream origin "pre-release/$$version"; \
+	echo; \
+	echo "Pre-release branch pushed: pre-release/$$version"
+
+# Release rollback (unchanged behavior)
 
 release-rollback:
-	version=$$(make version -s); \
-	@read -p "Are you sure you want to rollback the tag version $$version? [Y/n] " REPLY; \
-    if [ "$$REPLY" = "Y" ] || [ "$$REPLY" = "y" ] || [ "$$REPLY" = "" ]; then \
-        git reset --soft HEAD~1; \
+	@version=$$(make version -s); \
+	read -p "Are you sure you want to rollback the tag version $$version? [Y/n] " REPLY; \
+	if [ "$$REPLY" = "Y" ] || [ "$$REPLY" = "y" ] || [ "$$REPLY" = "" ]; then \
+		git reset --soft HEAD~1; \
 		git reset HEAD CHANGELOG.md; \
 		git checkout -- CHANGELOG.md; \
-		git tag -d v$$version; \
-		git push origin --delete v$$version; \
+		git tag -d v$$version || true; \
+		git push origin --delete v$$version || true; \
 		git push --force-with-lease; \
-    else \
-        echo "Aborted."; \
-    fi
+	else \
+		echo "Aborted."; \
+	fi
 
 # Tag
 
 tag-delete:
-	version=$$(make version -s); \
-	@read -p "Are you sure you want to delete the tag version $$version? [Y/n] " REPLY; \
+	@version=$$(make version -s); \
+	read -p "Are you sure you want to delete the tag version $$version? [Y/n] " REPLY; \
 	if [ "$$REPLY" = "Y" ] || [ "$$REPLY" = "y" ] || [ "$$REPLY" = "" ]; then \
-		git tag -d v$$version; \
-		git push origin --delete v$$version; \
+		git tag -d v$$version || true; \
+		git push origin --delete v$$version || true; \
 	else \
 		echo "Aborted."; \
 	fi
@@ -190,6 +244,6 @@ version:
 wasm-build:
 	@npm run wasm-build
 
-# catch anything and do nothing
+# Catch anything and do nothing
 %:
 	@:
