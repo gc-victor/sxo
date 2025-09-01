@@ -1,3 +1,10 @@
+## [0.3.1] - 2025-09-01
+
+### 📚 Documentation
+
+- *(readme)* Document static generation; add server timeout env vars
+- *(agents)* Update guard-rails for static generation
+
 ## [0.3.0] - 2025-09-01
 
 ### 🚀 Features
