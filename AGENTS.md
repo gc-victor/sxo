@@ -3,7 +3,7 @@
 ## Info
 
 - **Project**: sxo
-- **Last Update**: 2025-08-21
+- **Last Update**: 2025-09-01
 
 ## Purpose
 
@@ -20,6 +20,9 @@ Authoritative onboarding & guard-rails for AI + human contributors. Read fully b
 - Managed head block markers: `<!-- sxo-head-start -->` / `<!-- sxo-head-end -->`.
 - Static asset server supports: hashed caching, ETag, precompressed variants, range requests (uncompressed only).
 - Hot reload: SSE endpoint `/hot-replace?href=<path>` with partial page (`#page`) replacement.
+- Static generation support: `sxo generate` pre-renders non-dynamic routes, writes HTML into `dist/client`, and marks routes with `generated: true` in the manifest.
+- Prod server respects `generated` flag: if `generated: true`, serves built HTML as-is (skips SSR) with `Cache-Control: public, max-age=300`; otherwise SSR per request with `Cache-Control: public, max-age=0, must-revalidate`.
+- Prod timeouts: `REQUEST_TIMEOUT_MS` (default 120000) sets `server.requestTimeout`; `HEADER_TIMEOUT_MS` (if set to a non-negative integer) overrides `server.headersTimeout`.
 
 ---
 
@@ -44,6 +47,7 @@ node sxo/src/js/cli/sxo.js dev
 node sxo/src/js/cli/sxo.js build
 node sxo/src/js/cli/sxo.js start
 node sxo/src/js/cli/sxo.js clean
+node sxo/src/js/cli/sxo.js generate
 node --test
 ```
 
@@ -85,8 +89,9 @@ dist/
 ## 5. Manifest & Entry Discovery
 
 - Reuse strategy: if every cached `jsx` still exists & no new page `index.*` discovered, reuse JSON (refresh template & global.css).
-- Each route object fields: `filename, entryPoints[], jsx, htmlTemplate, scriptLoading, hash, path?`.
+- Each route object fields: `filename, entryPoints[], jsx, htmlTemplate, scriptLoading, hash, path?, generated?`.
 - `hash`: boolean (dev true) used by HTML plugin to conditionally hash or assist reload semantics.
+- `generated`: boolean set by `sxo generate` for static routes that were pre-rendered; prod server serves these as-is and skips SSR.
 - `global.css` required; build pipeline hard-codes it as a client entry.
 
 ---
@@ -211,6 +216,7 @@ If expanding to multi-param or advanced patterns: update sections (README + here
   - WASM precompile + virtual helpers import.
   - Do NOT edit `dist/pkg-node/jsx_precompile.js`.
 - Manifest write precedes builds (ensures server can start even if later build step fails?).
+- Post-build optional step: `sxo generate` pre-renders non-dynamic routes using the built SSR modules, writes HTML back to `dist/client`, and sets `generated: true` in the manifest. Idempotent (skips already generated routes).
 
 ---
 
@@ -312,6 +318,7 @@ Do NOT modify:
 | JSX Bundle Mapping  | `server/utils/jsx-bundle-path.js` |
 | Config Resolution   | `config.js`                       |
 | Readiness Probe     | `cli/open.js`                     |
+| Static Generation   | `generate/generate.js`            |
 
 ---
 
