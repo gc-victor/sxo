@@ -251,4 +251,41 @@ registerCommonOptions(cli.command("clean", "Remove the output directory"))
 
 /* ------------------------------- parse ------------------------------- */
 
+/* generate */
+registerCommonOptions(cli.command("generate", "Generate static HTML into dist from built routes")).action(async (_flags) => {
+    const root = path.resolve(process.cwd());
+    try {
+        // Reuse build flags set; generation uses built outputs
+        const { flagsForConfig, flagsExplicit } = prepareFlags("build", _flags);
+        const cfg = await resolveConfig({ cwd: root, flags: flagsForConfig, flagsExplicit, command: "build" });
+
+        const filesJsonOk = await ensureBuiltRoutesJson();
+        if (!filesJsonOk) {
+            log.error(`Missing ${ROUTES_RELATIVE_PATH}`);
+            log.info("Run `sxo build` first to build the project");
+            process.exitCode = 1;
+            return;
+        }
+
+        // Ensure the generate module sees resolved OUTPUT_DIR_* and related env
+        Object.assign(process.env, cfg.env);
+
+        const { generate } = await import("../generate/generate.js");
+
+        const s = createSpinner("Generating...", { enabled: process.stdout.isTTY });
+        s.start();
+        const res = await generate();
+        if (!res || res.ok === false) {
+            s.fail("Generate failed");
+            process.exitCode = 1;
+            return;
+        }
+        s.succeed("Generate complete");
+    } catch (e) {
+        const msg = e && typeof e === "object" && "message" in e ? e.message : String(e);
+        log.error(`generate failed: ${msg}`);
+        process.exitCode = 1;
+    }
+});
+
 cli.parse();
