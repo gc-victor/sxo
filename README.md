@@ -20,6 +20,7 @@ A **fast**, minimal architecture convention and CLI for building websites with s
 - [Middleware](#middleware)
 - [Hot Replace (Dev)](#hot-replace-dev)
 - [Build Outputs & Manifest](#build-outputs--manifest)
+- [Static Generation & Production Behavior](#static-generation--production-behavior)
 - [HTML Template and Styles](#html-template-and-styles)
 - [Static Asset Serving](#static-asset-serving)
 - [Configuration](#configuration)
@@ -147,10 +148,11 @@ export default () => (
 Commands:
 
 ```shell
-sxo dev    # Start the development server with hot replace
-sxo build  # Build the project for production (client and server bundles)
-sxo start  # Start the production server to serve built output
-sxo clean  # Remove the output directory (clean build artifacts)
+sxo dev       # Start the development server with hot replace
+sxo build     # Build the project for production (client and server bundles)
+sxo start     # Start the production server to serve built output
+sxo clean     # Remove the output directory (clean build artifacts)
+sxo generate  # Pre-render static routes to HTML after a successful build
 ```
 
 Point to a different pages directory:
@@ -289,7 +291,8 @@ dist/
     "htmlTemplate": "<!doctype html> ...",
     "scriptLoading": "module",
     "hash": false,
-    "path": "about"
+    "path": "about",
+    "generated": false
   }
 ]
 ```
@@ -302,10 +305,37 @@ Fields:
 - `htmlTemplate` raw template text (inlined for HTML plugin usage)
 - `hash` boolean (true in dev for cache-busting semantics)
 - `path` (omitted for root route)
+- `generated` boolean; if true, the production server serves the built HTML as-is (skips SSR) with Cache-Control: public, max-age=300. Non-generated/dynamic pages are served with Cache-Control: public, max-age=0, must-revalidate.
 
 Manifest Reuse:
 
 - On rebuild, if every referenced `jsx` file still exists _and_ no new route `index.*` appeared, the existing manifest is reused with template + global.css refreshed.
+
+## Static Generation & Production Behavior
+
+The generate workflow lets you pre-render static routes to HTML after a successful build and have the production server serve those pages as-is (skipping SSR).
+
+- Command: run `sxo generate` after `sxo build`.
+- Scope: only routes without dynamic parameters (no `[slug]` segments) are generated.
+- How it works:
+  - Reads `dist/server/routes.json`.
+  - For each static route, imports its SSR module and executes it with empty params.
+  - Injects the rendered markup into the built HTML shell and applies `head` metadata.
+  - Writes the finalized HTML back to `dist/client/<route>/index.html`.
+  - Sets `generated: true` for that route in the manifest.
+- Idempotent: rerunning the command skips routes already marked `generated: true`.
+- Missing outputs: if `routes.json` is not present, run `sxo build` first.
+
+Production server behavior:
+
+- Generated pages: if a route entry has `generated: true`, the server sends the built HTML directly (no SSR) with `Cache-Control: public, max-age=300`.
+- Non-generated/dynamic pages: server performs SSR on each request and responds with `Cache-Control: public, max-age=0, must-revalidate`.
+
+Notes:
+
+- Dynamic routes (paths containing `[param]`) are never generated.
+- The manifest’s `generated` flag is persisted to `dist/server/routes.json`.
+- Page module selection remains `module.default || module.jsx`; `head` can be an object or a function.
 
 ## HTML Template and Styles
 
@@ -407,6 +437,8 @@ Recognized:
 | SOURCEMAP | Generate sourcemaps | dev:true |
 | VERBOSE | Verbose logging | false |
 | NO_COLOR | Disable colorized output | (unset) |
+| HEADER_TIMEOUT_MS | Node headers timeout in ms (server.headersTimeout). Set a non-negative integer to override; unset to use Node default. | (unset) |
+| REQUEST_TIMEOUT_MS | Request timeout in ms (server.requestTimeout). | 120000 |
 
 Derived / injected:
 | Variable | Meaning |
