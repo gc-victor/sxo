@@ -1,3 +1,20 @@
+## [0.3.0] - 2025-09-01
+
+### 🚀 Features
+
+- *(cli)* Add generate command
+- *(generate)* Implement static generator for static routes
+- *(server)* Serve generated pages and improve prod robustness
+
+### 💼 Other
+
+- Ensure sequential execution in release target
+- Refactor release workflow to branch-first bump-inside and cleanup
+
+### 📚 Documentation
+
+- Dark-light mode logo
+
 ## [0.2.0]
 
 ### 🚀 Features
