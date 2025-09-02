@@ -5,7 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import { resolveConfig } from "./config.js";
 
-const KEYS = ["PORT", "PAGES_DIR", "OUTPUT_DIR", "OPEN", "VERBOSE", "NO_COLOR", "MINIFY", "SOURCEMAP"];
+const KEYS = ["PORT", "PAGES_DIR", "OUTPUT_DIR", "OPEN", "VERBOSE", "NO_COLOR", "MINIFY", "SOURCEMAP", "LOADERS"];
 
 // Utility: run a function within an isolated temporary directory
 async function withTempProject(fn) {
@@ -302,6 +302,64 @@ test("config: explicit flag overrides file (flagsExplicit allows override)", asy
             });
 
             assert.equal(cfg.open, true);
+        });
+    });
+});
+
+test("config: loaders from flags normalize and appear in env for build and dev", async () => {
+    await withTempProject(async (dir) => {
+        await withEnvCapture(async () => {
+            const flags = { loader: "svg=file,ts=tsx" };
+
+            const dev = await resolveConfig({ cwd: dir, command: "dev", flags });
+            const build = await resolveConfig({ cwd: dir, command: "build", flags });
+
+            assert.ok(dev.env.LOADERS);
+            assert.ok(build.env.LOADERS);
+
+            const expected = { ".svg": "file", ".ts": "tsx" };
+            assert.deepEqual(JSON.parse(dev.env.LOADERS), expected);
+            assert.deepEqual(JSON.parse(build.env.LOADERS), expected);
+        });
+    });
+});
+
+test("config: loaders from env JSON normalize; absent for start", async () => {
+    await withTempProject(async (dir) => {
+        await withEnvCapture(async () => {
+            await writeFile(dir, ".env", 'LOADERS={".svg":"file"," ts":"tsx"}\n');
+
+            const dev = await resolveConfig({ cwd: dir, command: "dev" });
+            assert.ok(dev.env.LOADERS);
+            assert.deepEqual(JSON.parse(dev.env.LOADERS), { ".svg": "file", ".ts": "tsx" });
+
+            const start = await resolveConfig({ cwd: dir, command: "start" });
+            assert.equal("LOADERS" in start.env, false);
+        });
+    });
+});
+
+test("config: loaders from file normalize and appear in env", async () => {
+    await withTempProject(async (dir) => {
+        await withEnvCapture(async () => {
+            await writeFile(
+                dir,
+                "sxo.config.json",
+                JSON.stringify(
+                    {
+                        loaders: {
+                            svg: "file",
+                            ".ts": "tsx",
+                        },
+                    },
+                    null,
+                    2,
+                ),
+            );
+
+            const build = await resolveConfig({ cwd: dir, command: "build", flags: {} });
+            assert.ok(build.env.LOADERS);
+            assert.deepEqual(JSON.parse(build.env.LOADERS), { ".svg": "file", ".ts": "tsx" });
         });
     });
 });
