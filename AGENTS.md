@@ -92,7 +92,7 @@ dist/
 - Each route object fields: `filename, entryPoints[], jsx, htmlTemplate, scriptLoading, hash, path?, generated?`.
 - `hash`: boolean (dev true) used by HTML plugin to conditionally hash or assist reload semantics.
 - `generated`: boolean set by `sxo generate` for static routes that were pre-rendered; prod server serves these as-is and skips SSR.
-- `global.css` required; build pipeline hard-codes it as a client entry.
+- `global.css` optional; entry discovery appends it to each route's `entryPoints` when present (not hard-coded globally).
 
 ---
 
@@ -207,11 +207,12 @@ If expanding to multi-param or advanced patterns: update sections (README + here
 
 - Two parallel esbuild invocations (client + server).
 - Client:
-  - `entryPoints = [global.css, ...clientRouteEntries]`
+  - `entryPoints = [...clientRouteEntries]` (entry discovery appends `global.css` per route if present)
   - Dev names: `[dir]/[name]`
   - Prod names: `[dir]/[name].[hash]`
 - Server:
   - Only route `jsx` modules (no minify, no sourcemap).
+- Loader mapping: if `LOADERS` is set (from config/env/flags), esbuild's `loader` option is applied to both client and server builds (dev/build only).
 - JSX plugin:
   - WASM precompile + virtual helpers import.
   - Do NOT edit `dist/pkg-node/jsx_precompile.js`.
@@ -228,6 +229,7 @@ Derived env injected:
 - `OUTPUT_DIR_CLIENT`, `OUTPUT_DIR_SERVER`
 - `SXO_RESOLVED_CONFIG` (JSON)
 - `DEV`, `SXO_COMMAND`
+- `LOADERS` (JSON mapping of extension -> loader; only set in dev/build; also embedded in `SXO_RESOLVED_CONFIG`)
   Flag explicitness tests in `config.test.js`; maintain those if adding new flags.
 
 ---

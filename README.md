@@ -53,6 +53,7 @@ A **fast**, minimal architecture convention and CLI for building websites with s
 - **Production server**: minimal core (bring your own policy via middleware).
 - **Dual build outputs**: hashed client assets (prod), non-hashed (dev), separate server bundles (never exposed publicly).
 - **Rust-powered JSX precompiler**: fast + small runtime helpers.
+- **Configurable esbuild loaders**: assign loaders per file extension via config, env, or flags.
 
 ## Architecture Overview
 
@@ -69,6 +70,7 @@ A **fast**, minimal architecture convention and CLI for building websites with s
 3. **Entry Point Discovery**
    - Each directory containing an `index.*` page file becomes a route.
    - Optional `js/index.(ts|js)` inside that route directory is added as a _client_ entry.
+   - `global.css`, if present, is added as a shared stylesheet entry for every route.
 4. **Build**
    - Client bundle → `dist/client`
    - Server bundle (SSR modules) → `dist/server`
@@ -300,7 +302,7 @@ dist/
 Fields:
 
 - `filename` relative to `dist/client`
-- `entryPoints` (client-only additions beyond global.css)
+- `entryPoints` (per‑route client entries and `global.css` if present)
 - `jsx` source page module relative path
 - `htmlTemplate` raw template text (inlined for HTML plugin usage)
 - `hash` boolean (true in dev for cache-busting semantics)
@@ -341,7 +343,7 @@ Notes:
 
 `index.html` (required) must contain `<div id="page"></div>`.
 
-`global.css` (required) is always included as a client entry; if missing the build will fail (esbuild entry point error).
+`global.css` (optional) is included as a client entry for all routes when present. Recommended for shared styles.
 
 Example:
 
@@ -405,6 +407,8 @@ Example `sxo.config.json`:
 }
 ```
 
+Loaders can also be configured in `sxo.config.*` using a `loaders` object map, for example: `{"loaders":{".svg":"file",".ts":"tsx"}}`.
+
 Explicit Flag Detection:
 Flags only override file/env/default if _explicitly_ passed (e.g. `--open`, `--no-open`, `--open=false`). Inferred / defaulted flags are filtered out (see `prepareFlags()`).
 
@@ -417,6 +421,7 @@ Key flags:
 --open / --no-open                # Auto-open the browser when the dev server is ready (toggle)
 --minify / --no-minify            # Enable or disable production minification of bundles
 --sourcemap / --no-sourcemap      # Generate sourcemaps for builds (enabled by default in dev)
+--loaders <ext=loader>            # Loader mapping (.ext=loader). Repeat or comma-separated (e.g., --loaders ".svg=file" --loaders "ts=tsx")
 --verbose                         # Enable verbose logging for debugging and diagnostics
 --no-color                        # Disable ANSI/colorized log output (useful for CI)
 --config <file>                   # Load an alternate config file (e.g., sxo.config.json or .js)
@@ -435,6 +440,7 @@ Recognized:
 | OPEN | Auto-open dev browser | true (dev) |
 | MINIFY | Minify bundles | true |
 | SOURCEMAP | Generate sourcemaps | dev:true |
+| LOADERS | Loader mapping passed to esbuild (JSON string or comma list; dev/build only) | (unset) |
 | VERBOSE | Verbose logging | false |
 | NO_COLOR | Disable colorized output | (unset) |
 | HEADER_TIMEOUT_MS | Node headers timeout in ms (server.headersTimeout). Set a non-negative integer to override; unset to use Node default. | (unset) |
@@ -448,6 +454,7 @@ Derived / injected:
 | SXO_RESOLVED_CONFIG | JSON blob of resolved config |
 | DEV | `"true"` in dev command, else `"false"` |
 | SXO_COMMAND | Current command (`dev|build|start|clean`) |
+| LOADERS | Loader mapping propagated to child build process (only in dev/build) |
 
 ## Performance and DX
 
