@@ -12,6 +12,20 @@ export const DANGER_OUTPUT_DIR = cfg.outDir;
 export const OUTPUT_DIR_CLIENT = path.join(cfg.outDir, "client");
 export const OUTPUT_DIR_SERVER = path.join(cfg.outDir, "server");
 
+// Optional loaders mapping, from resolved config or environment
+export const LOADERS =
+    (cfg && typeof cfg.loaders === "object" && cfg.loaders) ||
+    (() => {
+        try {
+            const raw = process.env.LOADERS;
+            if (!raw) return undefined;
+            const parsed = JSON.parse(raw);
+            return parsed && typeof parsed === "object" ? parsed : undefined;
+        } catch {
+            return undefined;
+        }
+    })();
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 

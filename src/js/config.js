@@ -100,6 +100,7 @@ export async function resolveRuntimeConfig(opts = {}) {
     if (json) {
         try {
             const fromParent = JSON.parse(json);
+            const loaders = fromParent.loaders;
             return {
                 command: fromParent.command,
                 port: fromParent.port,
@@ -107,6 +108,7 @@ export async function resolveRuntimeConfig(opts = {}) {
                 outDir: fromParent.outDir,
                 minify: fromParent.minify,
                 sourcemap: fromParent.sourcemap,
+                loaders,
             };
         } catch {
             // fall through to recompute
@@ -229,6 +231,7 @@ function readEnvConfig(env) {
         noColor: env.NO_COLOR,
         minify: env.MINIFY,
         sourcemap: env.SOURCEMAP,
+        loaders: env.LOADERS,
     };
 }
 
@@ -306,6 +309,11 @@ function normalizeConfig({ defaults, env, file, flags, flagsExplicit, cwd, comma
         const cfgPath = get("config");
         if (cfgPath !== undefined) norm.config = String(cfgPath);
 
+        const loaders = get("loaders", "loader");
+        if (loaders !== undefined) {
+            norm.loaders = normalizeLoaders(loaders);
+        }
+
         return norm;
     };
 
@@ -338,6 +346,7 @@ function normalizeConfig({ defaults, env, file, flags, flagsExplicit, cwd, comma
         color: pickDefined(g.color, f.color, e.color, d.color),
         minify: pickDefined(g.minify, f.minify, e.minify, d.minify),
         sourcemap: pickDefined(g.sourcemap, f.sourcemap, e.sourcemap, d.sourcemap),
+        loaders: pickDefined(g.loaders, f.loaders, e.loaders, d.loaders),
     };
 
     // Step 3: final normalization adjustments
@@ -397,6 +406,7 @@ function toSpawnEnv(cfg, command) {
         outDir: cfg.outDir,
         minify: cfg.minify,
         sourcemap: cfg.sourcemap,
+        loaders: cfg.loaders,
     });
 
     // Build-only controls that esbuild.config.js honors via env
@@ -407,8 +417,14 @@ function toSpawnEnv(cfg, command) {
         if (typeof cfg.sourcemap === "boolean") {
             env.SOURCEMAP = cfg.sourcemap ? "true" : "false";
         }
+        if (cfg.loaders && typeof cfg.loaders === "object" && Object.keys(cfg.loaders).length) {
+            env.LOADERS = JSON.stringify(cfg.loaders);
+        }
     }
 
+    if (command !== "build" && command !== "dev") {
+        delete env.LOADERS;
+    }
     return env;
 }
 
@@ -470,4 +486,53 @@ function toAbsolutePath(p, cwd) {
     if (!p) return path.resolve(cwd, "dist");
     const abs = path.isAbsolute(p) ? p : path.resolve(cwd, p);
     return path.normalize(abs);
+}
+
+/**
+ * Normalize "loaders" into a canonical map of ".ext" -> "loader".
+ *
+ * Accepts:
+ * - Object: { ".svg": "file", "ts": "tsx" } (leading dot optional on keys)
+ * - JSON string: '{" .svg":"file"," .ts":"tsx"}'
+ * - Comma/equals string: "svg=file,ts=tsx"
+ *
+ * Returns a plain object with trimmed, dot-prefixed extensions, or undefined if nothing valid
+ * was provided.
+ *
+ * Trims keys/values, ignores null/undefined entries, and drops empty tokens.
+ *
+ * @param {Record<string, string>|string|any} val
+ * @returns {Record<string, string>|undefined}
+ */
+function normalizeLoaders(val) {
+    if (val == null) return undefined;
+    if (typeof val === "object" && !Array.isArray(val)) {
+        const out = {};
+        for (const [k, v] of Object.entries(val)) {
+            if (v === undefined || v === null) continue;
+            let ext = String(k).trim();
+            const loader = String(v).trim();
+            if (!ext || !loader) continue;
+            if (!ext.startsWith(".")) ext = `.${ext}`;
+            out[ext] = loader;
+        }
+        return Object.keys(out).length ? out : undefined;
+    }
+    const s = String(val).trim();
+    if (!s) return undefined;
+    try {
+        const obj = JSON.parse(s);
+        return normalizeLoaders(obj);
+    } catch {}
+    const out = {};
+    for (const token of s.split(",")) {
+        const [rawExt, rawLoader] = token.split("=");
+        if (!rawExt || !rawLoader) continue;
+        let ext = String(rawExt).trim();
+        const loader = String(rawLoader).trim();
+        if (!ext || !loader) continue;
+        if (!ext.startsWith(".")) ext = `.${ext}`;
+        out[ext] = loader;
+    }
+    return Object.keys(out).length ? out : undefined;
 }
