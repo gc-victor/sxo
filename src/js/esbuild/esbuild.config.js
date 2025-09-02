@@ -18,6 +18,17 @@ try {
     const isDev = process.env.DEV === "true";
     const minify = process.env.MINIFY ? process.env.MINIFY === "true" : true;
     const sourcemap = process.env.SOURCEMAP ? (process.env.SOURCEMAP === "true" ? "inline" : false) : isDev ? "inline" : false;
+    let loaders = {};
+    if (process.env.LOADERS) {
+        try {
+            const parsed = JSON.parse(process.env.LOADERS);
+            if (parsed && typeof parsed === "object") {
+                loaders = parsed;
+            }
+        } catch (err) {
+            console.error("Invalid JSON in LOADERS:", err);
+        }
+    }
 
     const serverEntryPoints = config.map((f) => f.jsx); // SSR modules only (no client exposure)
     await Promise.all([
@@ -27,13 +38,14 @@ try {
             platform: "browser",
             format: "esm",
             outdir: OUTPUT_DIR_CLIENT,
-            entryPoints: [`${PAGES_DIR}/global.css`, ...config.flatMap((f) => f.entryPoints)],
+            entryPoints: [...config.flatMap((f) => f.entryPoints)],
             entryNames: process.env.DEV === "true" ? "[dir]/[name]" : "[dir]/[name].[hash]",
             chunkNames: "chunks/[name].[hash]",
             assetNames: "[dir]/[name].[hash]",
             minify: minify,
             sourcemap: sourcemap,
             publicPath: "/",
+            loader: loaders,
             alias: {
                 "@components": path.join(SRC_DIR, "components"),
                 "@pages": PAGES_DIR,
@@ -57,6 +69,7 @@ try {
             chunkNames: "chunks/[name].[hash]",
             minify: false,
             sourcemap: false,
+            loader: loaders,
             alias: {
                 "@components": path.join(SRC_DIR, "components"),
                 "@pages": PAGES_DIR,
