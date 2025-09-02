@@ -1,3 +1,17 @@
+## [0.4.0] - 2025-09-02
+
+### 🚀 Features
+
+- *(build)* Route-driven client entries; configurable loaders
+
+### 📚 Documentation
+
+- Update global.css optionality and loaders configuration
+
+### 🧪 Testing
+
+- *(config)* Add tests for loaders normalization and env propagation
+
 ## [0.3.1] - 2025-09-01
 
 ### 📚 Documentation
