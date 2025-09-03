@@ -54,6 +54,7 @@ A **fast**, minimal architecture convention and CLI for building websites with s
 - **Dual build outputs**: hashed client assets (prod), non-hashed (dev), separate server bundles (never exposed publicly).
 - **Rust-powered JSX precompiler**: fast + small runtime helpers.
 - **Configurable esbuild loaders**: assign loaders per file extension via config, env, or flags.
+- **Configurable public base path** for assets: set via flag (`--public-path`), env (`PUBLIC_PATH`), or config; empty string "" allowed for relative URLs.
 
 ## Architecture Overview
 
@@ -421,6 +422,7 @@ Key flags:
 --open / --no-open                # Auto-open the browser when the dev server is ready (toggle)
 --minify / --no-minify            # Enable or disable production minification of bundles
 --sourcemap / --no-sourcemap      # Generate sourcemaps for builds (enabled by default in dev)
+--public-path <path>               # Public base URL for emitted asset URLs (default: "/"); empty string "" allowed for relative paths
 --loaders <ext=loader>            # Loader mapping (.ext=loader). Repeat or comma-separated (e.g., --loaders ".svg=file" --loaders "ts=tsx")
 --verbose                         # Enable verbose logging for debugging and diagnostics
 --no-color                        # Disable ANSI/colorized log output (useful for CI)
@@ -440,6 +442,7 @@ Recognized:
 | OPEN | Auto-open dev browser | true (dev) |
 | MINIFY | Minify bundles | true |
 | SOURCEMAP | Generate sourcemaps | dev:true |
+| PUBLIC_PATH | Public base URL for asset URLs (esbuild publicPath). Empty string "" allowed and preserved. | "/" |
 | LOADERS | Loader mapping passed to esbuild (JSON string or comma list; dev/build only) | (unset) |
 | VERBOSE | Verbose logging | false |
 | NO_COLOR | Disable colorized output | (unset) |
@@ -455,6 +458,7 @@ Derived / injected:
 | DEV | `"true"` in dev command, else `"false"` |
 | SXO_COMMAND | Current command (`dev|build|start|clean`) |
 | LOADERS | Loader mapping propagated to child build process (only in dev/build) |
+| PUBLIC_PATH | Public base URL for assets propagated to the build (defaults to "/" when unset; empty string preserved) |
 
 ## Performance and DX
 
