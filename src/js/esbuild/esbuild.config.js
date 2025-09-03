@@ -44,7 +44,7 @@ try {
             assetNames: "[dir]/[name].[hash]",
             minify: minify,
             sourcemap: sourcemap,
-            publicPath: "/",
+            publicPath: process.env.PUBLIC_PATH ?? "/",
             loader: loaders,
             alias: {
                 "@components": path.join(SRC_DIR, "components"),

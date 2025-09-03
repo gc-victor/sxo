@@ -71,6 +71,7 @@ export function registerCommonOptions(cmd) {
         .option("--port <number>", "Port")
         .option("--pages-dir <dir>", "Pages directory (default: src/pages)")
         .option("--out-dir <dir>", "Output directory (default: dist)")
+        .option("--public-path <path>", "Public base URL for assets (default: /)")
         .option("--open", "Open the browser")
         .option("--no-open", "Do not open the browser")
         .option("--verbose", "Verbose output")
@@ -108,6 +109,42 @@ export function camelToDash(s) {
 }
 
 /**
+ * Restore empty string for a dashed flag when the parser coerced it to 0.
+ * Handles both assignment (--flag=) and separated value (--flag "") forms.
+ * @param {Record<string,any>} flagsForConfig
+ * @param {Record<string,boolean>} flagsExplicit
+ * @param {string[]} argv
+ * @param {string} flagName dashed flag name (without leading --)
+ */
+function restoreEmptyStringFlag(flagsForConfig, flagsExplicit, argv, flagName) {
+    const camelName = dashToCamel(flagName);
+    if (flagsForConfig[camelName] === 0 && flagsExplicit[camelName]) {
+        const dashedName = `--${flagName}`;
+        const index = argv.findIndex((a) => a === dashedName || a.startsWith(`${dashedName}=`));
+        if (index !== -1) {
+            const arg = argv[index];
+            const nextArg = argv[index + 1];
+            let isEmptyValue = false;
+            if (arg.includes("=")) {
+                const val = arg.split("=", 2)[1] ?? "";
+                const trimmed = val.trim();
+                // Treat assignment with empty value or quoted empty value as empty
+                if (trimmed === "" || trimmed === '""' || trimmed === "''") {
+                    isEmptyValue = true;
+                }
+            } else {
+                if (nextArg === "") {
+                    isEmptyValue = true;
+                }
+            }
+            if (isEmptyValue) {
+                flagsForConfig[camelName] = "";
+            }
+        }
+    }
+}
+
+/**
  * Centralized explicit flag filtering.
  * Returns { flagsForConfig, flagsExplicit } where:
  *  - flagsExplicit: { normalizedKey: boolean }
@@ -119,9 +156,9 @@ export function prepareFlags(command, rawFlags) {
     const argv = process.argv.slice(2);
     /** @type {Record<string,string[]>} */
     const commandFlagMap = {
-        dev: ["open", "minify", "sourcemap", "verbose", "color", "port", "pages-dir", "out-dir"],
-        build: ["open", "minify", "sourcemap", "verbose", "color", "port", "pages-dir", "out-dir"],
-        start: ["open", "verbose", "color", "port", "pages-dir", "out-dir"],
+        dev: ["open", "minify", "sourcemap", "verbose", "color", "port", "pages-dir", "out-dir", "public-path"],
+        build: ["open", "minify", "sourcemap", "verbose", "color", "port", "pages-dir", "out-dir", "public-path"],
+        start: ["open", "verbose", "color", "port", "pages-dir", "out-dir", "public-path"],
         clean: ["verbose", "color", "port", "pages-dir", "out-dir"],
     };
     const relevant = commandFlagMap[command] || [];
@@ -131,6 +168,10 @@ export function prepareFlags(command, rawFlags) {
         flagsExplicit[camel] = wasFlagExplicit(argv, dashed);
     }
     const flagsForConfig = { ...rawFlags };
+
+    // AIDEV-NOTE: Normalize empty string flags (cac may coerce "" to 0); currently used for --public-path
+    restoreEmptyStringFlag(flagsForConfig, flagsExplicit, argv, "public-path");
+
     for (const [camel, explicit] of Object.entries(flagsExplicit)) {
         if (!explicit) {
             delete flagsForConfig[camel];
