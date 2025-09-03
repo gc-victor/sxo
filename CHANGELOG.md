@@ -1,3 +1,21 @@
+## [0.5.0] - 2025-09-03
+
+### 🚀 Features
+
+- *(build)* Configurable publicPath for assets
+
+### 📚 Documentation
+
+- Document publicPath and update AGENTS guard-rails
+
+### 🧪 Testing
+
+- *(config)* Cover publicPath precedence and empty value handling
+
+### ⚙️ Miscellaneous Tasks
+
+- *(examples)* Use local CLI entry, refresh lockfile
+
 ## [0.4.0] - 2025-09-02
 
 ### 🚀 Features
