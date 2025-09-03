@@ -4,16 +4,13 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "help": "sxo --help",
-        "dev": "sxo dev",
-        "build": "sxo build",
-        "start": "sxo start",
-        "clean": "sxo clean",
+        "help": "node ../../bin/sxo.js --help",
+        "dev": "node ../../bin/sxo.js dev",
+        "build": "node ../../bin/sxo.js build",
+        "generate": "node ../../bin/sxo.js generate",
+        "start": "node ../../bin/sxo.js start",
+        "clean": "node ../../bin/sxo.js clean",
         "test": "echo \"Error: no test specified\" && exit 1"
     },
-    "license": "MIT",
-    "packageManager": "pnpm@10.14.0",
-    "devDependencies": {
-        "sxo": "^0.1.0"
-    }
+    "license": "MIT"
 }

@@ -4,16 +4,18 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"build": "sxo build",
+        "build": "node ../../bin/sxo.js build",
 		"postbuild": "node scripts/generate-imports.js",
-		"deploy": "wrangler deploy",
-		"dev": "sxo dev",
+		"help": "node ../../bin/sxo.js --help",
+        "dev": "node ../../bin/sxo.js dev",
+        "generate": "node ../../bin/sxo.js generate",
+        "clean": "node ../../bin/sxo.js clean",
 		"start": "wrangler dev",
+		"deploy": "wrangler deploy",
 		"test": "vitest"
 	},
 	"devDependencies": {
 		"@cloudflare/vitest-pool-workers": "^0.8.19",
-		"sxo": "^0.1.0",
 		"vitest": "~3.2.0",
 		"wrangler": "^4.32.0"
 	}
