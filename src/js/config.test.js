@@ -5,7 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import { resolveConfig } from "./config.js";
 
-const KEYS = ["PORT", "PAGES_DIR", "OUTPUT_DIR", "OPEN", "VERBOSE", "NO_COLOR", "MINIFY", "SOURCEMAP", "LOADERS"];
+const KEYS = ["PORT", "PAGES_DIR", "OUTPUT_DIR", "OPEN", "VERBOSE", "NO_COLOR", "MINIFY", "SOURCEMAP", "PUBLIC_PATH", "LOADERS"];
 
 // Utility: run a function within an isolated temporary directory
 async function withTempProject(fn) {
@@ -360,6 +360,69 @@ test("config: loaders from file normalize and appear in env", async () => {
             const build = await resolveConfig({ cwd: dir, command: "build", flags: {} });
             assert.ok(build.env.LOADERS);
             assert.deepEqual(JSON.parse(build.env.LOADERS), { ".svg": "file", ".ts": "tsx" });
+        });
+    });
+});
+
+test("config: publicPath default and empty env value is preserved and propagated", async () => {
+    await withTempProject(async (dir) => {
+        await withEnvCapture(async () => {
+            // Without .env or flags, default publicPath is "/"
+            const cfgDefault = await resolveConfig({ cwd: dir, command: "build" });
+            assert.equal(cfgDefault.publicPath, "/");
+            assert.equal(cfgDefault.env.PUBLIC_PATH, "/");
+
+            // .env sets PUBLIC_PATH to empty string; should be preserved and propagated
+            await writeFile(dir, ".env", "PUBLIC_PATH=\n");
+            const cfgEmpty = await resolveConfig({ cwd: dir, command: "build" });
+            assert.equal(cfgEmpty.publicPath, "");
+            assert.equal(cfgEmpty.env.PUBLIC_PATH, "");
+        });
+    });
+});
+
+test("config: publicPath precedence flags > file > env (empty flag wins)", async () => {
+    await withTempProject(async (dir) => {
+        await withEnvCapture(async () => {
+            // Env sets /env
+            await writeFile(dir, ".env", "PUBLIC_PATH=/env\n");
+            // File sets /file
+            await writeFile(dir, "sxo.config.json", JSON.stringify({ publicPath: "/file" }, null, 2));
+
+            // Flags provide empty string, which should override both
+            const cfg = await resolveConfig({
+                cwd: dir,
+                command: "build",
+                flags: { "public-path": "" },
+            });
+
+            assert.equal(cfg.publicPath, "");
+            assert.equal(cfg.env.PUBLIC_PATH, "");
+        });
+    });
+});
+
+test("config: publicPath preserves empty string when PUBLIC_PATH is empty", async () => {
+    await withTempProject(async (dir) => {
+        await withEnvCapture(async () => {
+            await writeFile(dir, ".env", "PUBLIC_PATH=\n");
+            const cfg = await resolveConfig({ cwd: dir, command: "build" });
+            const normalized = cfg.env.PUBLIC_PATH ?? "/";
+            assert.equal(cfg.publicPath, "");
+            assert.equal(cfg.env.PUBLIC_PATH, "");
+            assert.equal(normalized, "");
+        });
+    });
+});
+
+test("config: esbuild publicPath normalization uses '/' when PUBLIC_PATH is undefined", async () => {
+    await withTempProject(async (dir) => {
+        await withEnvCapture(async () => {
+            const cfg = await resolveConfig({ cwd: dir, command: "build" });
+            const normalized = cfg.env.PUBLIC_PATH ?? "/";
+            assert.equal(cfg.publicPath, "/");
+            assert.equal(cfg.env.PUBLIC_PATH, "/");
+            assert.equal(normalized, "/");
         });
     });
 });

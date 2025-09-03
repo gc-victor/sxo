@@ -175,5 +175,59 @@ test("askYesNo returns false in non-TTY environments", async () => {
     assert.equal(res, false);
 });
 
+test("prepareFlags honors --public-path explicitness (including empty string)", () => {
+    const originalArgv = process.argv.slice();
+    try {
+        // Not explicit: raw flag should be stripped
+        process.argv = ["node", "script", "build", "--port=1"];
+        const rawFlags1 = { publicPath: "/file", port: 1 };
+        const { flagsForConfig: f1, flagsExplicit: e1 } = prepareFlags("build", rawFlags1);
+        assert.equal(e1.publicPath, false);
+        assert.ok(!("publicPath" in f1));
+
+        // Explicit with non-empty value
+        process.argv = ["node", "script", "build", "--public-path=/cdn"];
+        const rawFlags2 = { publicPath: "/cdn" };
+        const { flagsForConfig: f2, flagsExplicit: e2 } = prepareFlags("build", rawFlags2);
+        assert.equal(e2.publicPath, true);
+        assert.equal(f2.publicPath, "/cdn");
+
+        // Explicit with empty string value
+        process.argv = ["node", "script", "build", "--public-path="];
+        const rawFlags3 = { publicPath: "" };
+        const { flagsForConfig: f3, flagsExplicit: e3 } = prepareFlags("build", rawFlags3);
+        assert.equal(e3.publicPath, true);
+        assert.equal(f3.publicPath, "");
+    } finally {
+        process.argv = originalArgv;
+    }
+});
+
+test("prepareFlags fixes cac's conversion of empty string to 0 for --public-path", () => {
+    const originalArgv = process.argv.slice();
+    try {
+        // cac converts empty string to 0, but prepareFlags should restore it
+        process.argv = ["node", "script", "build", "--public-path", ""];
+        const rawFlags = { publicPath: 0 }; // cac gives us 0
+        const { flagsForConfig, flagsExplicit } = prepareFlags("build", rawFlags);
+        assert.equal(flagsExplicit.publicPath, true);
+        assert.equal(flagsForConfig.publicPath, ""); // Should be restored to empty string
+
+        // Assignment style
+        process.argv = ["node", "script", "build", "--public-path="];
+        const rawFlags2 = { publicPath: 0 }; // cac gives us 0
+        const { flagsForConfig: f2 } = prepareFlags("build", rawFlags2);
+        assert.equal(f2.publicPath, ""); // Should be restored to empty string
+
+        // With quotes (some shells)
+        process.argv = ["node", "script", "build", '--public-path=""'];
+        const rawFlags3 = { publicPath: 0 }; // cac gives us 0
+        const { flagsForConfig: f3 } = prepareFlags("build", rawFlags3);
+        assert.equal(f3.publicPath, ""); // Should be restored to empty string
+    } finally {
+        process.argv = originalArgv;
+    }
+});
+
 // validatePagesFolder tests removed due to intermittent serialization failure during test runner cloning.
 // AIDEV-NOTE: End of cli-helpers tests
