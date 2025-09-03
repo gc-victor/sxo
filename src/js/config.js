@@ -36,6 +36,7 @@ import dotenv from "dotenv";
  * @property {boolean} color
  * @property {boolean} minify
  * @property {boolean} sourcemap
+ * @property {string} publicPath
  * @property {Record<string,string>} env   // environment variables to pass to child processes
  * @property {string|null} configFilePath
  */
@@ -90,6 +91,7 @@ export async function resolveConfig(opts = {}) {
         color: normalized.color,
         minify: normalized.minify,
         sourcemap: normalized.sourcemap,
+        publicPath: normalized.publicPath,
         env: spawnEnv,
         configFilePath: configFilePath,
     };
@@ -108,6 +110,7 @@ export async function resolveRuntimeConfig(opts = {}) {
                 outDir: fromParent.outDir,
                 minify: fromParent.minify,
                 sourcemap: fromParent.sourcemap,
+                publicPath: fromParent.publicPath,
                 loaders,
             };
         } catch {
@@ -121,6 +124,7 @@ export async function resolveRuntimeConfig(opts = {}) {
         outDir: process.env.OUTPUT_DIR,
         minify: process.env.MINIFY,
         sourcemap: process.env.SOURCEMAP,
+        publicPath: process.env.PUBLIC_PATH,
     };
 
     const command = opts.command || process.env.SXO_COMMAND || (process.env.DEV === "true" ? "dev" : "build");
@@ -231,6 +235,7 @@ function readEnvConfig(env) {
         noColor: env.NO_COLOR,
         minify: env.MINIFY,
         sourcemap: env.SOURCEMAP,
+        publicPath: env.PUBLIC_PATH,
         loaders: env.LOADERS,
     };
 }
@@ -253,6 +258,7 @@ function defaultConfigForCommand(command, cwd) {
         color: true,
         minify: true,
         sourcemap: sourcemapDefault,
+        publicPath: "/", // default; can be ""
     };
 }
 
@@ -306,6 +312,10 @@ function normalizeConfig({ defaults, env, file, flags, flagsExplicit, cwd, comma
         const sourcemap = get("sourcemap");
         if (sourcemap !== undefined) norm.sourcemap = toBool(sourcemap);
 
+        // Preserve empty string if explicitly provided
+        const publicPath = get("publicPath", "public-path");
+        if (publicPath !== undefined) norm.publicPath = String(publicPath);
+
         const cfgPath = get("config");
         if (cfgPath !== undefined) norm.config = String(cfgPath);
 
@@ -346,6 +356,7 @@ function normalizeConfig({ defaults, env, file, flags, flagsExplicit, cwd, comma
         color: pickDefined(g.color, f.color, e.color, d.color),
         minify: pickDefined(g.minify, f.minify, e.minify, d.minify),
         sourcemap: pickDefined(g.sourcemap, f.sourcemap, e.sourcemap, d.sourcemap),
+        publicPath: pickDefined(g.publicPath, f.publicPath, e.publicPath, d.publicPath),
         loaders: pickDefined(g.loaders, f.loaders, e.loaders, d.loaders),
     };
 
@@ -406,6 +417,7 @@ function toSpawnEnv(cfg, command) {
         outDir: cfg.outDir,
         minify: cfg.minify,
         sourcemap: cfg.sourcemap,
+        publicPath: cfg.publicPath,
         loaders: cfg.loaders,
     });
 
@@ -420,6 +432,7 @@ function toSpawnEnv(cfg, command) {
         if (cfg.loaders && typeof cfg.loaders === "object" && Object.keys(cfg.loaders).length) {
             env.LOADERS = JSON.stringify(cfg.loaders);
         }
+        env.PUBLIC_PATH = typeof cfg.publicPath === "string" ? cfg.publicPath : "/";
     }
 
     if (command !== "build" && command !== "dev") {
