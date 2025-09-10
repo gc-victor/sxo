@@ -294,7 +294,10 @@ function attemptBatchStateRestoration() {
     if (!(map instanceof Map) || !map.size) return;
 
     const candidates = document.querySelectorAll("[data-hrc]");
-    candidates.forEach((el) => restoreReactiveComponentStateForElement(el));
+    for (const el of candidates) {
+        // Avoid returning from the loop/callback — each element may or may not be ready.
+        restoreReactiveComponentStateForElement(el);
+    }
 
     if (!map.size) {
         console.log(`${logTimer()}::[hot-replace] - all reactive states restored`);
