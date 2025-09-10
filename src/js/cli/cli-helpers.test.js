@@ -230,4 +230,40 @@ test("prepareFlags fixes cac's conversion of empty string to 0 for --public-path
 });
 
 // validatePagesFolder tests removed due to intermittent serialization failure during test runner cloning.
+
+test("prepareFlags honors --client-dir explicitness", () => {
+    const originalArgv = process.argv.slice();
+    try {
+        // Explicit with value via assignment
+        process.argv = ["node", "script", "build", "--client-dir=assets"];
+        const rawFlags = { clientDir: "assets" };
+        const { flagsForConfig, flagsExplicit } = prepareFlags("build", rawFlags);
+        assert.equal(flagsExplicit.clientDir, true);
+        assert.equal(flagsForConfig.clientDir, "assets");
+
+        // Explicit with separated value
+        process.argv = ["node", "script", "dev", "--client-dir", "pkg"];
+        const rawFlags2 = { clientDir: "pkg" };
+        const { flagsForConfig: f2, flagsExplicit: e2 } = prepareFlags("dev", rawFlags2);
+        assert.equal(e2.clientDir, true);
+        assert.equal(f2.clientDir, "pkg");
+    } finally {
+        process.argv = originalArgv;
+    }
+});
+
+test("prepareFlags filters out non-explicit clientDir", () => {
+    const originalArgv = process.argv.slice();
+    try {
+        // Not explicit: raw flag should be stripped
+        process.argv = ["node", "script", "start", "--port=3000"];
+        const rawFlags = { clientDir: "pkg" };
+        const { flagsForConfig, flagsExplicit } = prepareFlags("start", rawFlags);
+        assert.equal(flagsExplicit.clientDir, false);
+        assert.ok(!("clientDir" in flagsForConfig));
+    } finally {
+        process.argv = originalArgv;
+    }
+});
+
 // AIDEV-NOTE: End of cli-helpers tests
