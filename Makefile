@@ -51,8 +51,6 @@ ensure-clean:
 		exit 1; \
 	fi
 
-
-
 # Changelog
 # Requires git-cliff: https://git-cliff.org/docs/installation
 
