@@ -1,19 +1,15 @@
 import fs from "node:fs";
 import path from "node:path";
-import {
-    OUTPUT_DIR_SERVER, // ensure this exists in constants; remove if not needed
-    PAGES_DIR,
-    PAGES_RELATIVE_DIR,
-} from "../constants.js";
+import { CLIENT_DIR, OUTPUT_DIR_SERVER, PAGES_DIR, PAGES_RELATIVE_DIR } from "../constants.js";
 
 /**
  * Build route configs for esbuild htmlPlugin.
  * - Single-pass traversal (iterative)
  * - Optional reuse of routes.json if valid
- * - Only index.* pages (excluding any found in client/ subdirectories) become routes
- * - Optional client/index.* (precedence: .ts, .tsx, .js, .jsx) prepended to entryPoints
+ * - Only index.* pages (excluding any found in the configured client subdirectory) become routes
+ * - Optional <clientDir>/index.* (precedence: .ts, .tsx, .js, .jsx) prepended to entryPoints
  * - global.css appended if present
- * - No client/ prefix in output filenames
+ * - No configured client subdirectory prefix in output filenames
  */
 export function entryPointsConfig() {
     const htmlTemplate = readHtmlTemplate();
@@ -40,7 +36,6 @@ export function entryPointsConfig() {
 
 const PAGE_EXTENSIONS = [".tsx", ".jsx", ".ts", ".js"];
 const CLIENT_EXT_PRECEDENCE = [".ts", ".tsx", ".js", ".jsx"];
-const CLIENT_SUBDIR = "client";
 const ROUTES_CACHE_FILENAME = "routes.json";
 
 /* ------------------------------ Core Helpers ------------------------------ */
@@ -64,7 +59,7 @@ function resolveGlobalCss() {
  * Attempt to reuse cached routes.
  * Valid if:
  *  - Each route.jsx still exists
- *  - No new page index.* (excluding client/ indexes) appeared
+ *  - No new page index.* (excluding configured client subdirectory indexes) appeared
  */
 function tryReuseCachedRoutes(cachePath, htmlTemplate, globalCss) {
     let cached;
@@ -104,7 +99,7 @@ function tryReuseCachedRoutes(cachePath, htmlTemplate, globalCss) {
 
 /**
  * Scan PAGES_DIR for new page index.* not in jsxSet.
- * Ignore client directory indexes.
+ * Ignore configured client subdirectory indexes.
  */
 function detectNewPagesNotInSet(jsxSet) {
     const stack = [PAGES_DIR];
@@ -119,7 +114,7 @@ function detectNewPagesNotInSet(jsxSet) {
 
         for (const d of dirents) {
             if (d.isDirectory()) {
-                if (d.name === CLIENT_SUBDIR) continue; // ignore client subtree
+                if (d.name === CLIENT_DIR) continue; // ignore client subtree
                 stack.push(path.join(dir, d.name));
             } else if (d.isFile()) {
                 const ext = path.extname(d.name);
@@ -142,9 +137,9 @@ function isIndexFile(name) {
 
 /**
  * Single-pass scan:
- * - Do NOT traverse into client/ subdirectories (they never produce routes).
+ * - Do NOT traverse into the configured client subdirectory (it never produces routes).
  * - For each non-client directory with index.* => page
- * - Look for client/index.* (precedence order) in sibling client/ subdir
+ * - Look for <clientDir>/index.* (precedence order) in the sibling configured subdirectory
  */
 function scanPagesTree() {
     const metaMap = new Map(); // Map<absDir, { pageIndex: string, clientEntry: string|null }>
@@ -160,7 +155,7 @@ function scanPagesTree() {
         }
 
         // Skip if the directory itself is a client subdir
-        if (path.basename(dir) === CLIENT_SUBDIR) {
+        if (path.basename(dir) === CLIENT_DIR) {
             continue;
         }
 
@@ -178,7 +173,7 @@ function scanPagesTree() {
         // Queue subdirectories (excluding client/)
         for (const d of dirents) {
             if (d.isDirectory()) {
-                if (d.name === CLIENT_SUBDIR) continue; // we'll inspect it separately for client entry
+                if (d.name === CLIENT_DIR) continue; // we'll inspect it separately for client entry
                 if (d.isSymbolicLink()) continue; // skip symlinks
                 stack.push(path.join(dir, d.name));
             }
@@ -194,11 +189,11 @@ function scanPagesTree() {
 }
 
 /**
- * Locate first matching client/index.* according to CLIENT_EXT_PRECEDENCE.
+ * Locate first matching <clientDir>/index.* according to CLIENT_EXT_PRECEDENCE.
  * Returns absolute path or null.
  */
 function findClientEntry(parentDir) {
-    const clientDir = path.join(parentDir, CLIENT_SUBDIR);
+    const clientDir = path.join(parentDir, CLIENT_DIR);
     try {
         const stat = fs.statSync(clientDir);
         if (!stat.isDirectory()) return null;

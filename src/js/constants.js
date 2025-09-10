@@ -11,6 +11,7 @@ export const PAGES_RELATIVE_DIR = path.relative(process.cwd(), PAGES_DIR);
 export const DANGER_OUTPUT_DIR = cfg.outDir;
 export const OUTPUT_DIR_CLIENT = path.join(cfg.outDir, "client");
 export const OUTPUT_DIR_SERVER = path.join(cfg.outDir, "server");
+export const CLIENT_DIR = cfg.clientDir;
 
 // Optional loaders mapping, from resolved config or environment
 export const LOADERS =
