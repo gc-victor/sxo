@@ -5,7 +5,19 @@ import path from "node:path";
 import test from "node:test";
 import { resolveConfig } from "./config.js";
 
-const KEYS = ["PORT", "PAGES_DIR", "OUTPUT_DIR", "OPEN", "VERBOSE", "NO_COLOR", "MINIFY", "SOURCEMAP", "PUBLIC_PATH", "LOADERS"];
+const KEYS = [
+    "PORT",
+    "PAGES_DIR",
+    "OUTPUT_DIR",
+    "OPEN",
+    "VERBOSE",
+    "NO_COLOR",
+    "MINIFY",
+    "SOURCEMAP",
+    "PUBLIC_PATH",
+    "LOADERS",
+    "CLIENT_DIR",
+];
 
 // Utility: run a function within an isolated temporary directory
 async function withTempProject(fn) {
@@ -423,6 +435,51 @@ test("config: esbuild publicPath normalization uses '/' when PUBLIC_PATH is unde
             assert.equal(cfg.publicPath, "/");
             assert.equal(cfg.env.PUBLIC_PATH, "/");
             assert.equal(normalized, "/");
+        });
+    });
+});
+
+test("config: clientDir default is 'client' and is propagated in env", async () => {
+    await withTempProject(async (dir) => {
+        await withEnvCapture(async () => {
+            const cfg = await resolveConfig({ cwd: dir, command: "build" });
+            assert.equal(cfg.env.CLIENT_DIR, "client");
+        });
+    });
+});
+
+test("config: clientDir env override via CLIENT_DIR", async () => {
+    await withTempProject(async (dir) => {
+        await withEnvCapture(async () => {
+            await writeFile(dir, ".env", "CLIENT_DIR=js\n");
+            const cfg = await resolveConfig({ cwd: dir, command: "build" });
+            assert.equal(cfg.env.CLIENT_DIR, "js");
+        });
+    });
+});
+
+test("config: clientDir file override beats env", async () => {
+    await withTempProject(async (dir) => {
+        await withEnvCapture(async () => {
+            await writeFile(dir, ".env", "CLIENT_DIR=js\n");
+            await writeFile(dir, "sxo.config.json", JSON.stringify({ clientDir: "pkg" }, null, 2));
+            const cfg = await resolveConfig({ cwd: dir, command: "build" });
+            assert.equal(cfg.env.CLIENT_DIR, "pkg");
+        });
+    });
+});
+
+test("config: clientDir flags precedence over file and env", async () => {
+    await withTempProject(async (dir) => {
+        await withEnvCapture(async () => {
+            await writeFile(dir, ".env", "CLIENT_DIR=js\n");
+            await writeFile(dir, "sxo.config.json", JSON.stringify({ clientDir: "pkg" }, null, 2));
+            const cfg = await resolveConfig({
+                cwd: dir,
+                command: "build",
+                flags: { "client-dir": "assets" },
+            });
+            assert.equal(cfg.env.CLIENT_DIR, "assets");
         });
     });
 });
