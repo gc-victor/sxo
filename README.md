@@ -70,7 +70,7 @@ A **fast**, minimal architecture convention and CLI for building websites with s
    - Route directories each with an `index.(tsx|jsx)`
 3. **Entry Point Discovery**
    - Each directory containing an `index.*` page file becomes a route.
-   - Optional `js/index.(ts|js)` inside that route directory is added as a _client_ entry.
+   - Optional `<clientDir>/index.(ts|tsx|js|jsx)` inside that route directory is added as a client entry (default `clientDir` is "client"; precedence: .ts > .tsx > .js > .jsx).
    - `global.css`, if present, is added as a shared stylesheet entry for every route.
 4. **Build**
    - Client bundle → `dist/client`
@@ -118,7 +118,7 @@ your-app
 │       ├── index.jsx
 │       └── about
 │           ├── index.jsx
-│           └── js
+│           └── client
 │               └── index.js
 └── package.json
 ```
@@ -289,7 +289,7 @@ dist/
 [
   {
     "filename": "about/index.html",
-    "entryPoints": ["src/pages/about/client/js/index.js", "src/pages/global.css"],
+    "entryPoints": ["src/pages/about/client/index.js", "src/pages/global.css"],
     "jsx": "src/pages/about/index.jsx",
     "htmlTemplate": "<!doctype html> ...",
     "scriptLoading": "module",
@@ -423,6 +423,7 @@ Key flags:
 --minify / --no-minify            # Enable or disable production minification of bundles
 --sourcemap / --no-sourcemap      # Generate sourcemaps for builds (enabled by default in dev)
 --public-path <path>               # Public base URL for emitted asset URLs (default: "/"); empty string "" allowed for relative paths
+--client-dir <name>               # Subdirectory name for per-route client entry (default: client)
 --loaders <ext=loader>            # Loader mapping (.ext=loader). Repeat or comma-separated (e.g., --loaders ".svg=file" --loaders "ts=tsx")
 --verbose                         # Enable verbose logging for debugging and diagnostics
 --no-color                        # Disable ANSI/colorized log output (useful for CI)
@@ -444,6 +445,7 @@ Recognized:
 | SOURCEMAP | Generate sourcemaps | dev:true |
 | PUBLIC_PATH | Public base URL for asset URLs (esbuild publicPath). Empty string "" allowed and preserved. | "/" |
 | LOADERS | Loader mapping passed to esbuild (JSON string or comma list; dev/build only) | (unset) |
+| CLIENT_DIR | Per-route client entry subdirectory name | client |
 | VERBOSE | Verbose logging | false |
 | NO_COLOR | Disable colorized output | (unset) |
 | HEADER_TIMEOUT_MS | Node headers timeout in ms (server.headersTimeout). Set a non-negative integer to override; unset to use Node default. | (unset) |
@@ -459,6 +461,7 @@ Derived / injected:
 | SXO_COMMAND | Current command (`dev|build|start|clean`) |
 | LOADERS | Loader mapping propagated to child build process (only in dev/build) |
 | PUBLIC_PATH | Public base URL for assets propagated to the build (defaults to "/" when unset; empty string preserved) |
+| CLIENT_DIR | Configured per-route client entry subdirectory name |
 
 ## Performance and DX
 
@@ -548,7 +551,7 @@ examples/basic/
 │       ├── counter/
 │       │   ├── index.jsx
 │       │   ├── counter.jsx
-│       │   └── js/
+│       │   └── client/
 │       │       └── index.js
 │       └── posts/
 │           ├── index.jsx
