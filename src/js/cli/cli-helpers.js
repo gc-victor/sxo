@@ -72,6 +72,7 @@ export function registerCommonOptions(cmd) {
         .option("--pages-dir <dir>", "Pages directory (default: src/pages)")
         .option("--out-dir <dir>", "Output directory (default: dist)")
         .option("--public-path <path>", "Public base URL for assets (default: /)")
+        .option("--client-dir <name>", "Per-route client subdirectory (default: client)")
         .option("--open", "Open the browser")
         .option("--no-open", "Do not open the browser")
         .option("--verbose", "Verbose output")
@@ -156,9 +157,9 @@ export function prepareFlags(command, rawFlags) {
     const argv = process.argv.slice(2);
     /** @type {Record<string,string[]>} */
     const commandFlagMap = {
-        dev: ["open", "minify", "sourcemap", "verbose", "color", "port", "pages-dir", "out-dir", "public-path"],
-        build: ["open", "minify", "sourcemap", "verbose", "color", "port", "pages-dir", "out-dir", "public-path"],
-        start: ["open", "verbose", "color", "port", "pages-dir", "out-dir", "public-path"],
+        dev: ["open", "minify", "sourcemap", "verbose", "color", "port", "pages-dir", "out-dir", "public-path", "client-dir"],
+        build: ["open", "minify", "sourcemap", "verbose", "color", "port", "pages-dir", "out-dir", "public-path", "client-dir"],
+        start: ["open", "verbose", "color", "port", "pages-dir", "out-dir", "public-path", "client-dir"],
         clean: ["verbose", "color", "port", "pages-dir", "out-dir"],
     };
     const relevant = commandFlagMap[command] || [];
