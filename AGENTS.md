@@ -21,6 +21,7 @@ Authoritative onboarding & guard-rails for AI + human contributors. Read fully b
 - Static asset server supports: hashed caching, ETag, precompressed variants, range requests (uncompressed only).
 - Hot reload: SSE endpoint `/hot-replace?href=<path>` with partial page (`#page`) replacement.
 - Public asset base path configurable via `--public-path`, `PUBLIC_PATH`, or config; empty string "" preserved; consumed by esbuild `publicPath`.
+- Per‑route client entry subdirectory configurable via `clientDir` (config), `CLIENT_DIR` (env), or `--client-dir` (flag). Default: "client".
 - Static generation support: `sxo generate` pre-renders non-dynamic routes, writes HTML into `dist/client`, and marks routes with `generated: true` in the manifest.
 - Prod server respects `generated` flag: if `generated: true`, serves built HTML as-is (skips SSR) with `Cache-Control: public, max-age=300`; otherwise SSR per request with `Cache-Control: public, max-age=0, must-revalidate`.
 - Prod timeouts: `REQUEST_TIMEOUT_MS` (default 120000) sets `server.requestTimeout`; `HEADER_TIMEOUT_MS` (if set to a non-negative integer) overrides `server.headersTimeout`.
@@ -94,6 +95,7 @@ dist/
 - `hash`: boolean (dev true) used by HTML plugin to conditionally hash or assist reload semantics.
 - `generated`: boolean set by `sxo generate` for static routes that were pre-rendered; prod server serves these as-is and skips SSR.
 - `global.css` optional; entry discovery appends it to each route's `entryPoints` when present (not hard-coded globally).
+- Per‑route client entry is discovered under `<clientDir>/index.(ts|tsx|js|jsx)` (precedence: .ts > .tsx > .js > .jsx). `<clientDir>` defaults to "client" and is configurable.
 
 ---
 
@@ -212,6 +214,7 @@ If expanding to multi-param or advanced patterns: update sections (README + here
   - Dev names: `[dir]/[name]`
   - Prod names: `[dir]/[name].[hash]`
   - publicPath: sourced from `PUBLIC_PATH` environment variable (defaults to "/"); empty string "" preserved
+  - per‑route client entry directory: sourced from resolved `clientDir` (default: "client")
 - Server:
   - Only route `jsx` modules (no minify, no sourcemap).
 - Loader mapping: if `LOADERS` is set (from config/env/flags), esbuild's `loader` option is applied to both client and server builds (dev/build only).
@@ -233,6 +236,7 @@ Derived env injected:
 - `DEV`, `SXO_COMMAND`
 - `LOADERS` (JSON mapping of extension -> loader; only set in dev/build; also embedded in `SXO_RESOLVED_CONFIG`)
 - `PUBLIC_PATH` (string public base URL for assets; defaults to "/" when unset; empty string "" preserved)
+- `CLIENT_DIR` (per‑route client entry subdirectory; defaults to "client")
   Flag explicitness tests in `config.test.js`; maintain those if adding new flags.
 
 ---
