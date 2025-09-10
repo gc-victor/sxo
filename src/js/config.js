@@ -92,6 +92,7 @@ export async function resolveConfig(opts = {}) {
         minify: normalized.minify,
         sourcemap: normalized.sourcemap,
         publicPath: normalized.publicPath,
+        clientDir: normalized.clientDir,
         env: spawnEnv,
         configFilePath: configFilePath,
     };
@@ -112,6 +113,7 @@ export async function resolveRuntimeConfig(opts = {}) {
                 sourcemap: fromParent.sourcemap,
                 publicPath: fromParent.publicPath,
                 loaders,
+                clientDir: fromParent.clientDir,
             };
         } catch {
             // fall through to recompute
@@ -125,6 +127,7 @@ export async function resolveRuntimeConfig(opts = {}) {
         minify: process.env.MINIFY,
         sourcemap: process.env.SOURCEMAP,
         publicPath: process.env.PUBLIC_PATH,
+        clientDir: process.env.CLIENT_DIR,
     };
 
     const command = opts.command || process.env.SXO_COMMAND || (process.env.DEV === "true" ? "dev" : "build");
@@ -237,6 +240,7 @@ function readEnvConfig(env) {
         sourcemap: env.SOURCEMAP,
         publicPath: env.PUBLIC_PATH,
         loaders: env.LOADERS,
+        clientDir: env.CLIENT_DIR,
     };
 }
 
@@ -259,6 +263,7 @@ function defaultConfigForCommand(command, cwd) {
         minify: true,
         sourcemap: sourcemapDefault,
         publicPath: "/", // default; can be ""
+        clientDir: "client",
     };
 }
 
@@ -324,6 +329,9 @@ function normalizeConfig({ defaults, env, file, flags, flagsExplicit, cwd, comma
             norm.loaders = normalizeLoaders(loaders);
         }
 
+        const clientDir = get("clientDir", "client-dir");
+        if (clientDir !== undefined) norm.clientDir = String(clientDir);
+
         return norm;
     };
 
@@ -358,6 +366,7 @@ function normalizeConfig({ defaults, env, file, flags, flagsExplicit, cwd, comma
         sourcemap: pickDefined(g.sourcemap, f.sourcemap, e.sourcemap, d.sourcemap),
         publicPath: pickDefined(g.publicPath, f.publicPath, e.publicPath, d.publicPath),
         loaders: pickDefined(g.loaders, f.loaders, e.loaders, d.loaders),
+        clientDir: pickDefined(g.clientDir, f.clientDir, e.clientDir, d.clientDir),
     };
 
     // Step 3: final normalization adjustments
@@ -388,6 +397,9 @@ function validateConfig(cfg) {
     if (typeof cfg.outDir !== "string" || !path.isAbsolute(cfg.outDir)) {
         throw new Error(`Invalid outDir: ${cfg.outDir}. Expected an absolute path.`);
     }
+    if (typeof cfg.clientDir !== "string" || cfg.clientDir.length === 0 || cfg.clientDir.includes("/") || cfg.clientDir.includes("\\")) {
+        throw new Error(`Invalid clientDir: ${cfg.clientDir}. Expected a non-empty single-segment folder name (e.g., "client").`);
+    }
 }
 
 /**
@@ -407,6 +419,7 @@ function toSpawnEnv(cfg, command) {
         PAGES_DIR: cfg.pagesDir,
         OUTPUT_DIR_CLIENT: path.join(cfg.outDir, "client"), // public client build output
         OUTPUT_DIR_SERVER: path.join(cfg.outDir, "server"), // private server (SSR) build output
+        CLIENT_DIR: cfg.clientDir,
     };
 
     env.SXO_COMMAND = command;
@@ -419,6 +432,7 @@ function toSpawnEnv(cfg, command) {
         sourcemap: cfg.sourcemap,
         publicPath: cfg.publicPath,
         loaders: cfg.loaders,
+        clientDir: cfg.clientDir,
     });
 
     // Build-only controls that esbuild.config.js honors via env
