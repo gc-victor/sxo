@@ -1,7 +1,7 @@
 use wasm_bindgen::prelude::*;
 
 mod rs;
-pub use rs::jsx_extractor;
+
 pub use rs::jsx_parser;
 pub use rs::jsx_precompile;
 
