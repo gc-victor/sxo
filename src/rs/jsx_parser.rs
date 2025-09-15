@@ -42,8 +42,57 @@ const DOLLAR_SIGN: char = '$';
 const HYPHEN: char = '-';
 const DOT: char = '.';
 
+// Structured streaming parser error with position for recovery/aggregation.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParseError {
+    pub position: usize,
+    pub message: String,
+}
+
+impl ParseError {
+    #[inline]
+    pub fn new(position: usize, message: impl Into<String>) -> Self {
+        Self {
+            position,
+            message: message.into(),
+        }
+    }
+}
+
+/// Parse result including the AST node and its byte span (start, end).
+pub type ParseResultWithSpan = Result<(JSXNode, (usize, usize)), ParseError>;
+
+#[derive(Debug, Default, PartialEq)]
+pub struct ParseResult {
+    pub nodes: Vec<JSXNode>,
+    pub errors: Vec<ParseError>,
+}
+
+impl ParseResult {
+    /// Unwrap into a single JSXNode. Panics if errors exist or not exactly one root node.
+    pub fn unwrap(self) -> JSXNode {
+        assert!(
+            self.errors.is_empty(),
+            "ParseResult has errors: {:?}",
+            self.errors
+        );
+        assert_eq!(
+            self.nodes.len(),
+            1,
+            "Expected a single root node, got {}",
+            self.nodes.len()
+        );
+        self.nodes.into_iter().next().unwrap()
+    }
+
+    /// Returns true when any parsing errors were collected.
+    pub fn is_err(&self) -> bool {
+        !self.errors.is_empty()
+    }
+}
+
 // Error messages
-const ERR_EXPECT_JSX: &str = "Expected JSX element or fragment";
+
 const ERR_EXPECT_CLOSE_ANGLE: &str = "Expected >";
 const ERR_EXPECT_CLOSE_SLASH: &str = "Expected > after /";
 const ERR_FRAGMENT_CLOSE: &str = "Expected > for fragment closing tag";
@@ -68,17 +117,26 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn parse(&mut self) -> Result<JSXNode, String> {
-        self.skip_whitespace();
-        if self.peek() == Some(LEFT_ANGLE) {
-            if self.peek_n(1) == Some(RIGHT_ANGLE) {
-                self.parse_fragment()
-            } else {
-                self.parse_element()
+    pub fn parse(&mut self) -> ParseResult {
+        let mut nodes: Vec<JSXNode> = Vec::new();
+        let mut errors: Vec<ParseError> = Vec::new();
+
+        // Streaming collection with basic error recovery: on error, advance one byte and continue.
+        loop {
+            match self.parse_next_with_span() {
+                Some(Ok((node, _span))) => {
+                    nodes.push(node);
+                }
+                Some(Err(err)) => {
+                    errors.push(err);
+                    // Recovery: advance by one byte to avoid infinite loop and continue scanning
+                    self.bump();
+                }
+                None => break,
             }
-        } else {
-            Err(ERR_EXPECT_JSX.to_string())
         }
+
+        ParseResult { nodes, errors }
     }
 
     fn parse_element(&mut self) -> Result<JSXNode, String> {
@@ -439,8 +497,9 @@ impl<'a> Parser<'a> {
 
     #[inline]
     fn bump(&mut self) {
-        if self.chars.next().is_some() {
-            self.pos += 1;
+        if let Some(c) = self.chars.next() {
+            // Track position in bytes, not chars
+            self.pos += c.len_utf8();
         }
     }
 
@@ -452,6 +511,147 @@ impl<'a> Parser<'a> {
             }
             self.bump();
         }
+    }
+}
+
+impl<'a> Parser<'a> {
+    /// Advance through the input and parse the next JSX node if found.
+    /// Returns:
+    /// - Some(Ok(node)) on success, with the parser advanced past the node
+    /// - Some(Err(error)) if a JSX-like start was found but parsing failed
+    /// - None if end of input was reached without finding any more JSX
+    pub fn parse_next(&mut self) -> Option<Result<JSXNode, ParseError>> {
+        loop {
+            match self.peek() {
+                None => return None,
+                Some(LEFT_ANGLE) => {
+                    // Fragment start: <>
+                    if self.peek_n(1) == Some(RIGHT_ANGLE) {
+                        let start = self.pos;
+                        match self.parse_fragment() {
+                            Ok(node) => return Some(Ok(node)),
+                            Err(e) => return Some(Err(ParseError::new(start, e))),
+                        }
+                    // Element start: <[A-Za-z_$]
+                    } else if self.is_valid_jsx_start_peek() {
+                        let start = self.pos;
+                        match self.parse_element() {
+                            Ok(node) => return Some(Ok(node)),
+                            Err(e) => return Some(Err(ParseError::new(start, e))),
+                        }
+                    } else {
+                        // Invalid JSX start after '<'
+                        let pos = self.pos;
+                        return Some(Err(ParseError::new(pos, ERR_EXPECT_IDENTIFIER.to_string())));
+                    }
+                }
+                _ => {
+                    // Skip non-JSX content
+                    self.bump();
+                }
+            }
+        }
+    }
+
+    /// Like parse_next, but also returns the byte span (start, end) of the parsed node.
+    pub fn parse_next_with_span(&mut self) -> Option<ParseResultWithSpan> {
+        loop {
+            match self.peek() {
+                None => return None,
+                Some(LEFT_ANGLE) => {
+                    if self.peek_n(1) == Some(RIGHT_ANGLE) {
+                        let start = self.pos;
+                        match self.parse_fragment() {
+                            Ok(node) => {
+                                let end = self.pos;
+                                return Some(Ok((node, (start, end))));
+                            }
+                            Err(e) => return Some(Err(ParseError::new(start, e))),
+                        }
+                    } else if self.is_valid_jsx_start_peek() {
+                        let start = self.pos;
+                        match self.parse_element() {
+                            Ok(node) => {
+                                let end = self.pos;
+                                return Some(Ok((node, (start, end))));
+                            }
+                            Err(e) => return Some(Err(ParseError::new(start, e))),
+                        }
+                    } else {
+                        // Invalid JSX start after '<'
+                        let pos = self.pos;
+                        return Some(Err(ParseError::new(pos, ERR_EXPECT_IDENTIFIER.to_string())));
+                    }
+                }
+                _ => {
+                    self.bump();
+                }
+            }
+        }
+    }
+
+    #[inline]
+    fn is_valid_jsx_start_peek(&mut self) -> bool {
+        matches!(self.peek_n(1), Some(ch) if ch.is_ascii_alphabetic() || ch == UNDERSCORE || ch == DOLLAR_SIGN)
+    }
+}
+
+// Visitor trait and traversal utilities for JSX AST.
+// This decouples traversal from operations performed on nodes (e.g., transformations).
+pub trait JSXVisitor {
+    // Called before visiting children of an element
+    fn enter_element(&mut self, _tag: &str, _attributes: &[JSXAttribute]) {}
+
+    // Called after visiting children of an element
+    fn exit_element(&mut self, _tag: &str) {}
+
+    // Called before visiting children of a fragment
+    fn enter_fragment(&mut self) {}
+
+    // Called after visiting children of a fragment
+    fn exit_fragment(&mut self) {}
+
+    // Called for a text node
+    fn visit_text(&mut self, _text: &str) {}
+
+    // Called for an expression node
+    fn visit_expression(&mut self, _expr: &str) {}
+}
+
+/// Walk a single JSX node, invoking visitor hooks appropriately.
+/// The traversal order is:
+/// - enter_element/enter_fragment
+/// - children (depth-first)
+/// - exit_element/exit_fragment
+pub fn walk_node<V: JSXVisitor + ?Sized>(visitor: &mut V, node: &JSXNode) {
+    match node {
+        JSXNode::Element {
+            tag,
+            attributes,
+            children,
+        } => {
+            visitor.enter_element(tag, attributes);
+            for child in children {
+                walk_node(visitor, child);
+            }
+            visitor.exit_element(tag);
+        }
+        JSXNode::Fragment { children } => {
+            visitor.enter_fragment();
+            for child in children {
+                walk_node(visitor, child);
+            }
+            visitor.exit_fragment();
+        }
+        JSXNode::Text(text) => visitor.visit_text(text),
+        JSXNode::Expression(expr) => visitor.visit_expression(expr),
+    }
+}
+
+/// Walk a slice of JSX nodes in order.
+pub fn walk_nodes<V: JSXVisitor + ?Sized>(visitor: &mut V, nodes: &[JSXNode]) {
+    for node in nodes {
+        walk_node(visitor, node);
     }
 }
 
@@ -1297,6 +1497,71 @@ console.error("Failed to copy: ", err);
     }
 
     #[test]
+    fn test_parse_collects_multiple_errors() {
+        // Mismatched closing tag + unterminated attribute string → two distinct errors
+        let input = r#"<div><span>Test</div><div class="oops>Bad</div>"#;
+        let mut parser = Parser::new(input);
+        let result = parser.parse();
+        
+        eprintln!("Error: {:?}", result);
+        
+        assert!(result.is_err(), "Expected parse errors");
+        assert!(
+            result.errors.len() >= 2,
+            "Expected at least two errors, got {}: {:?}",
+            result.errors.len(),
+            result.errors
+        );
+        let messages = result
+            .errors
+            .iter()
+            .map(|e| e.message.as_str())
+            .collect::<Vec<_>>();
+        assert!(
+            messages
+                .iter()
+                .any(|m| m.contains("Mismatched closing tag")),
+            "Missing mismatched tag error in: {:?}",
+            messages
+        );
+        assert!(
+            messages
+                .iter()
+                .any(|m| m.contains("Unterminated string literal")),
+            "Missing unterminated string error in: {:?}",
+            messages
+        );
+        // Positions should be non-negative and increasing or equal (monotonic non-decreasing)
+        for w in result.errors.windows(2) {
+            assert!(
+                w[0].position <= w[1].position,
+                "Error positions not monotonic: {:?}",
+                result.errors
+            );
+        }
+    }
+
+    #[test]
+    fn test_parse_result_unwrap_and_is_err() {
+        // Valid JSX: unwrap should succeed and is_err should be false
+        let mut ok_parser = Parser::new("<div>Hello</div>");
+        let ast = ok_parser.parse().unwrap();
+        match ast {
+            JSXNode::Element { tag, children, .. } => {
+                assert_eq!(tag, "div");
+                assert_eq!(children.len(), 1);
+            }
+            _ => panic!("Expected Element"),
+        }
+
+        // Invalid JSX: is_err should be true
+        let mut err_parser = Parser::new("<div>{count</div>");
+        let res = err_parser.parse();
+
+        assert!(res.is_err(), "Expected error on unclosed expression");
+    }
+
+    #[test]
     fn test_parse_complex_nested_structure() {
         let input = r#"<div className={`container ${active ? 'active' : ''}`} data-test="value">
             <header id="main">
@@ -1720,5 +1985,624 @@ console.error("Failed to copy: ", err);
     fn test_error_unclosed_attribute() {
         let mut parser = Parser::new(r#"<div class="test>Hello</div>"#);
         assert!(parser.parse().is_err());
+    }
+
+    // Helper to collect JSX slices from raw source using the streaming parser
+    fn collect_jsx_slices(source: &str) -> Vec<String> {
+        let mut out = Vec::new();
+        let mut i = 0;
+        while i < source.len() {
+            if let Some(rel) = source[i..].find('<') {
+                i += rel;
+            } else {
+                break;
+            }
+            let mut p = Parser::new(&source[i..]);
+            match p.parse_next_with_span() {
+                Some(Ok((_node, (start, end)))) => {
+                    let start_abs = i + start;
+                    let end_abs = i + end;
+                    out.push(source[start_abs..end_abs].to_string());
+                    i = end_abs;
+                }
+                Some(Err(_)) => {
+                    // error recovery: advance one byte and try again
+                    i += 1;
+                }
+                None => break,
+            }
+        }
+        out
+    }
+
+    // ---- Ported extractor tests (collection semantics) ----
+
+    #[test]
+    fn collector_jsx_doctype_handling() {
+        let input = r#"<!DOCTYPE html><html lang="en">Test</html>"#;
+        let slices = collect_jsx_slices(input);
+        assert_eq!(slices, vec!["<html lang=\"en\">Test</html>".to_string()]);
+    }
+
+    #[test]
+    fn collector_simple_jsx() {
+        let input = r#"
+            function App() {
+                return <div>Hello World</div>;
+            }
+        "#;
+        let slices = collect_jsx_slices(input);
+        assert_eq!(slices, vec!["<div>Hello World</div>".to_string()]);
+    }
+
+    #[test]
+    fn collector_apostrophe_handling() {
+        let input = "<p>We don't share it with third parties</p>";
+        let slices = collect_jsx_slices(input);
+        assert_eq!(
+            slices,
+            vec!["<p>We don't share it with third parties</p>".to_string()]
+        );
+    }
+
+    #[test]
+    fn collector_web_component() {
+        let input = r#"
+            function App() {
+                return <web-component><span>Hello World</span></web-component>;
+            }
+        "#;
+        let slices = collect_jsx_slices(input);
+        assert_eq!(
+            slices,
+            vec!["<web-component><span>Hello World</span></web-component>".to_string()]
+        );
+    }
+
+    #[test]
+    fn collector_components_with_underscore_and_dollar() {
+        let input = r#"
+            const element = (
+                <div>
+                    <_CustomComponent>
+                        <span>Inside underscore component</span>
+                    </_CustomComponent>
+                    <$DollarComponent prop={value}>
+                        <p>Inside dollar component</p>
+                    </$DollarComponent>
+                    <_NestedComponent>
+                        <$InnerComponent>
+                            <div>Nested special components</div>
+                        </$InnerComponent>
+                    </_NestedComponent>
+                </div>
+            );
+        "#;
+        let slices = collect_jsx_slices(input);
+        assert_eq!(slices.len(), 1);
+        let s = slices[0].trim();
+        assert!(s.starts_with("<div>"));
+        assert!(s.ends_with("</div>"));
+        assert!(s.contains("<_CustomComponent>"));
+        assert!(s.contains("<$DollarComponent"));
+        assert!(s.contains("<_NestedComponent>"));
+        assert!(s.contains("<$InnerComponent>"));
+    }
+
+    #[test]
+    fn collector_jsx_with_props_block() {
+        let input = r#"
+                const element = <Button className="primary" onClick={() => {}}>
+                    Click me
+                </Button>;
+            "#;
+        let slices = collect_jsx_slices(input);
+        assert_eq!(
+            slices,
+            vec![r#"<Button className="primary" onClick={() => {}}>
+                    Click me
+                </Button>"#
+                .to_string()]
+        );
+    }
+
+    #[test]
+    fn collector_spread_and_template_literals_tight() {
+        let input =
+            r#"<button{...o}className={`w-full ${p[c]}${n?` ${n}`:""}`}type={r}>{e}</button>"#;
+        let slices = collect_jsx_slices(input);
+        assert_eq!(
+            slices,
+            vec![
+                r#"<button{...o}className={`w-full ${p[c]}${n?` ${n}`:""}`}type={r}>{e}</button>"#
+                    .to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn collector_self_closing_variants() {
+        let s1 = r#"const img = <img src="test.jpg" alt="Test" />;"#;
+        let out1 = collect_jsx_slices(s1);
+        assert_eq!(
+            out1,
+            vec![r#"<img src="test.jpg" alt="Test" />"#.to_string()]
+        );
+
+        let s2 = r#"const el = <Component/>;"#;
+        let out2 = collect_jsx_slices(s2);
+        assert_eq!(out2, vec!["<Component/>".to_string()]);
+
+        let s3 = r#"const el = <Component />;"#;
+        let out3 = collect_jsx_slices(s3);
+        assert_eq!(out3, vec!["<Component />".to_string()]);
+    }
+
+    #[test]
+    fn collector_invalid_name_with_slash() {
+        let s = r#"const el = <Comp/onent />;"#;
+        let out = collect_jsx_slices(s);
+        assert_eq!(out, Vec::<String>::new());
+    }
+
+    #[test]
+    fn collector_fragments_and_outside_element() {
+        let input = r#"
+                <>
+                    <div>First</div>
+                    <>
+                        <span>Nested</span>
+                        <p>Fragment</p>
+                    </>
+                    <div>Last</div>
+                </>
+                <div>Outside fragment</div>
+            "#;
+        let slices = collect_jsx_slices(input);
+        assert_eq!(
+            slices,
+            vec![
+                r#"<>
+                    <div>First</div>
+                    <>
+                        <span>Nested</span>
+                        <p>Fragment</p>
+                    </>
+                    <div>Last</div>
+                </>"#
+                    .to_string(),
+                r#"<div>Outside fragment</div>"#.to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn collector_error_recovery() {
+        let input = r#"
+            <div>Valid</div>
+            <Incomplete>
+            <div>Still valid</div>
+            < 123
+            <div>Another valid</div>
+        "#;
+        let slices = collect_jsx_slices(input);
+        assert_eq!(
+            slices,
+            vec![
+                r#"<div>Valid</div>"#.to_string(),
+                r#"<div>Still valid</div>"#.to_string(),
+                r#"<div>Another valid</div>"#.to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn collector_script_tag_with_code_and_html_string() {
+        let input = r#"
+                <script>
+                    const copyClipboardButton = document.getElementById("js-copyClipboardButton");
+                    const code = copyClipboardButton.querySelector("code");
+                    const originalInnerHTML = copyClipboardButton.innerHTML;
+
+                    let timeout;
+
+                    copyClipboardButton.addEventListener("click", () => {
+                        clearTimeout(timeout);
+                        navigator.clipboard.writeText(code.textContent)
+                            .then(() => {
+                                copyClipboardButton.innerHTML = "<span class=\"text-sm font-mono mr-2\">Copied!</span>";
+                                timeout = setTimeout(() => {
+                                    copyClipboardButton.innerHTML = originalInnerHTML;
+                                }, 1000);
+                            })
+                            .catch(err => {
+                                console.error("Failed to copy: ", err);
+                            });
+                    });
+                </script>
+            "#;
+        let slices = collect_jsx_slices(input);
+        assert_eq!(slices.len(), 1);
+        let s = slices[0].trim();
+        assert!(s.starts_with("<script>"));
+        assert!(s.ends_with("</script>"));
+        assert!(s.contains("document.getElementById(\"js-copyClipboardButton\")"));
+        assert!(s.contains("copyClipboardButton.innerHTML"));
+    }
+
+    #[test]
+    fn collector_extract_fragment() {
+        let input = r#"
+            let element = <>
+                <div>First</div>
+                <div>Second</div>
+            </>;
+            function Fragment() {
+                return <>
+                    <div>First</div>
+                    <div>Second</div>
+                </>;
+            }
+        "#;
+        let slices = collect_jsx_slices(input);
+        assert_eq!(
+            slices,
+            vec!["<>\n                <div>First</div>\n                <div>Second</div>\n            </>".to_string()
+                ,
+                "<>\n                    <div>First</div>\n                    <div>Second</div>\n                </>".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn collector_extract_complex_jsx() {
+        let input = r#"
+            function ComplexComponent() {
+                return (
+                    <div className={`container ${active ? 'active' : ''}`}>
+                        <header>
+                            {loading ? (
+                                <Spinner />
+                            ) : (
+                                <h1>{title}</h1>
+                            )}
+                        </header>
+                        <nav>
+                            {items.map(item => (
+                                <a key={item.id} href={`/item/${item.id}`}>
+                                    {item.name}
+                                </a>
+                            ))}
+                        </nav>
+                    </div>
+                );
+            }
+        "#;
+        let slices = collect_jsx_slices(input);
+        assert_eq!(
+            slices,
+            vec!["<div className={`container ${active ? 'active' : ''}`}>\n                        <header>\n                            {loading ? (\n                                <Spinner />\n                            ) : (\n                                <h1>{title}</h1>\n                            )}\n                        </header>\n                        <nav>\n                            {items.map(item => (\n                                <a key={item.id} href={`/item/${item.id}`}>\n                                    {item.name}\n                                </a>\n                            ))}\n                        </nav>\n                    </div>".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn collector_nested_expressions() {
+        let input = r#"
+            <div prop={{
+                nested: {
+                    object: true
+                }
+            }}>
+                <span>{(() => {
+                    const x = { y: 1 };
+                    return x.y;
+                })()}</span>
+            </div>
+        "#;
+        let slices = collect_jsx_slices(input);
+        assert_eq!(
+            slices,
+            vec![r#"<div prop={{
+                nested: {
+                    object: true
+                }
+            }}>
+                <span>{(() => {
+                    const x = { y: 1 };
+                    return x.y;
+                })()}</span>
+            </div>"#
+                .to_string()]
+        );
+    }
+
+    #[test]
+    fn collector_invalid_jsx() {
+        let input = r#"
+            const x = < 5;
+            const y = <invalid;
+            const valid = <div>This is valid</div>;
+        "#;
+        let slices = collect_jsx_slices(input);
+        assert_eq!(slices, vec!["<div>This is valid</div>".to_string()]);
+    }
+
+    #[test]
+    fn collector_string_escaping() {
+        let input = r#"
+                const element = <div title="Quote \"inside\" string" data-value='Single\'s quote'>
+                    <span alt={"Mixed \"quotes' and `ticks`"}>Text</span>
+                </div>;
+            "#;
+        let slices = collect_jsx_slices(input);
+        assert_eq!(
+            slices,
+            vec![
+                r#"<div title="Quote \"inside\" string" data-value='Single\'s quote'>
+                    <span alt={"Mixed \"quotes' and `ticks`"}>Text</span>
+                </div>"#
+                    .to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn collector_nested_fragments_only() {
+        let input = r#"
+                <>
+                    <>
+                        <>
+                            <f>F</f>
+                        </>
+                    </>
+                </>
+            "#;
+        let slices = collect_jsx_slices(input);
+        assert_eq!(
+            slices,
+            vec![
+                "<>\n                    <>\n                        <>\n                            <f>F</f>\n                        </>\n                    </>\n                </>".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn collector_attribute_edge_cases() {
+        let input = r#"
+                <div>
+                    <input disabled />
+                    <button className={true ? 'active' : ''} />
+                    <div data={`template${expr}`} />
+                    <span {...spread} />
+                    <custom-element some-attr="" />
+                </div>
+            "#;
+        let slices = collect_jsx_slices(input);
+        assert_eq!(
+            slices,
+            vec![r#"<div>
+                    <input disabled />
+                    <button className={true ? 'active' : ''} />
+                    <div data={`template${expr}`} />
+                    <span {...spread} />
+                    <custom-element some-attr="" />
+                </div>"#
+                .to_string()]
+        );
+    }
+
+    #[test]
+    fn collector_comments_inside_jsx() {
+        let input = r#"
+                <div>
+                    {/* JSX comment */}
+                    <span>
+                        // This is not a comment
+                        /* Also not a comment */
+                    </span>
+                    {/*
+                        Multiline
+                        JSX comment
+                    */}
+                </div>
+            "#;
+        let slices = collect_jsx_slices(input);
+        assert_eq!(
+            slices,
+            vec![r#"<div>
+                    {/* JSX comment */}
+                    <span>
+                        // This is not a comment
+                        /* Also not a comment */
+                    </span>
+                    {/*
+                        Multiline
+                        JSX comment
+                    */}
+                </div>"#
+                .to_string()]
+        );
+    }
+
+    #[test]
+    fn collector_complex_expressions() {
+        let input = r#"
+                <div>
+                    {(() => {
+                        const obj = { key: "value" };
+                        return <span>{`${obj.key}`}</span>;
+                    })()}
+                    {items?.map?.(item => (
+                        <div key={item?.id ?? "default"}>
+                            {item?.name || "Unnamed"}
+                        </div>
+                    ))}
+                </div>
+            "#;
+        let slices = collect_jsx_slices(input);
+        assert_eq!(
+            slices,
+            vec![r#"<div>
+                    {(() => {
+                        const obj = { key: "value" };
+                        return <span>{`${obj.key}`}</span>;
+                    })()}
+                    {items?.map?.(item => (
+                        <div key={item?.id ?? "default"}>
+                            {item?.name || "Unnamed"}
+                        </div>
+                    ))}
+                </div>"#
+                .to_string()]
+        );
+    }
+
+    #[test]
+    fn collector_special_characters() {
+        let input = r#"
+                <div data-special="©®™">
+                    <span>Em—dash</span>
+                    <p>{"Unicode: \u{1F604}"}</p>
+                </div>
+            "#;
+        let slices = collect_jsx_slices(input);
+        assert_eq!(
+            slices,
+            vec![r#"<div data-special="©®™">
+                    <span>Em—dash</span>
+                    <p>{"Unicode: \u{1F604}"}</p>
+                </div>"#
+                .to_string()]
+        );
+    }
+
+    #[test]
+    fn collector_complex_layout() {
+        let input = r#"const element = (<div className={`container ${theme}`}>
+                <header className={styles.header}>
+                    <h1>{title || "Default Title"}</h1>
+                    <nav>
+                        {menuItems.map((item, index) => (
+                            <a
+                                key={index}
+                                href={item.href}
+                                className={`${styles.link} ${currentPath === item.href ? styles.active : ''}`}
+                            >
+                                {item.icon && <Icon name={item.icon} />}
+                                <span>{item.label}</span>
+                                {item.badge && (
+                                    <Badge count={item.badge} type={item.badgeType} />
+                                )}
+                            </a>
+                        ))}
+                    </nav>
+                    {user ? (
+                        <div className={styles.userMenu}>
+                            <img src={user.avatar} alt="User avatar" />
+                            <span>{user.name}</span>
+                            <button onClick={handleLogout}>Logout</button>
+                        </div>
+                    ) : (
+                        <button className={styles.loginButton} onClick={handleLogin}>
+                            Login
+                        </button>
+                    )}
+                </header>
+                <main className={styles.main}>
+                    {loading ? (
+                        <div className={styles.loader}>
+                            <Spinner size="large" color={theme === 'dark' ? 'white' : 'black'} />
+                        </div>
+                    ) : error ? (
+                        <ErrorMessage message={error} onRetry={handleRetry} />
+                    ) : (
+                        <>{children}</>
+                    )}
+                </main>
+                <footer className={styles.footer}>
+                    <p>&copy; {currentYear} My Application</p>
+                </footer>
+            </div>)
+        ;"#;
+        let slices = collect_jsx_slices(input);
+        assert_eq!(
+            slices,
+            vec![r#"<div className={`container ${theme}`}>
+                <header className={styles.header}>
+                    <h1>{title || "Default Title"}</h1>
+                    <nav>
+                        {menuItems.map((item, index) => (
+                            <a
+                                key={index}
+                                href={item.href}
+                                className={`${styles.link} ${currentPath === item.href ? styles.active : ''}`}
+                            >
+                                {item.icon && <Icon name={item.icon} />}
+                                <span>{item.label}</span>
+                                {item.badge && (
+                                    <Badge count={item.badge} type={item.badgeType} />
+                                )}
+                            </a>
+                        ))}
+                    </nav>
+                    {user ? (
+                        <div className={styles.userMenu}>
+                            <img src={user.avatar} alt="User avatar" />
+                            <span>{user.name}</span>
+                            <button onClick={handleLogout}>Logout</button>
+                        </div>
+                    ) : (
+                        <button className={styles.loginButton} onClick={handleLogin}>
+                            Login
+                        </button>
+                    )}
+                </header>
+                <main className={styles.main}>
+                    {loading ? (
+                        <div className={styles.loader}>
+                            <Spinner size="large" color={theme === 'dark' ? 'white' : 'black'} />
+                        </div>
+                    ) : error ? (
+                        <ErrorMessage message={error} onRetry={handleRetry} />
+                    ) : (
+                        <>{children}</>
+                    )}
+                </main>
+                <footer className={styles.footer}>
+                    <p>&copy; {currentYear} My Application</p>
+                </footer>
+            </div>"#.to_string()]
+        );
+    }
+
+    #[test]
+    fn collector_invalid_jsx_with_broken_syntax() {
+        let input = r#"
+                const code = <n.length;r++)n[r]&&(n[r].__=e,t=Ne(n[r],t,o));return t></n>;
+                const valid = <div>Valid element</div>;
+            "#;
+        let slices = collect_jsx_slices(input);
+        assert_eq!(slices, vec!["<div>Valid element</div>".to_string()]);
+    }
+
+    #[test]
+    fn collector_extract_fragment_solo() {
+        let input = "<><div>First</div><div>Second</div></>";
+        let slices = collect_jsx_slices(input);
+        assert_eq!(
+            slices,
+            vec!["<><div>First</div><div>Second</div></>".to_string()]
+        );
+    }
+
+    #[test]
+    fn collector_multiple_top_level_elements() {
+        let input = "<div>One</div><span>Two</span>";
+        let slices = collect_jsx_slices(input);
+        assert_eq!(
+            slices,
+            vec!["<div>One</div>".to_string(), "<span>Two</span>".to_string()]
+        );
     }
 }
