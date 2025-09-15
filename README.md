@@ -6,7 +6,7 @@
 
 # Server-Side JSX. Build Simple. Build Fast
 
-A **fast**, minimal architecture convention and CLI for building websites with server‑side JSX. **No React, no client framework**, just composable **JSX optimized for the server**, a clean **directory-based router**, **hot replacement**, and powered by esbuild plus a Rust JSX precompiler.
+A **fast**, minimal architecture convention and CLI for building websites with server‑side JSX. **No React, no client framework**, just composable **JSX optimized for the server**, a clean **directory-based router**, **hot replacement**, and powered by esbuild plus a Rust JSX transformer.
 
 ## Table of Contents
 
@@ -25,6 +25,7 @@ A **fast**, minimal architecture convention and CLI for building websites with s
 - [Static Asset Serving](#static-asset-serving)
 - [Configuration](#configuration)
 - [Environment Variables](#environment-variables)
+- [JSX Transformer & Runtime Helpers](#jsx-transformer--runtime-helpers)
 - [Performance and DX](#performance-and-dx)
 - [Security Considerations](#security-considerations)
 - [Testing](#testing)
@@ -39,7 +40,7 @@ A **fast**, minimal architecture convention and CLI for building websites with s
 - **Server-side JSX**, zero client framework by default.
 - **Directory-based routing** that stays explicit (route = folder with `index.(jsx|tsx)`).
 - **Composable HTML ergonomics** using plain functions.
-- **Blazing-fast builds** via esbuild and a Rust/WASM JSX precompile step.
+- **Blazing-fast builds** via esbuild and a Rust/WASM JSX transform step.
 - **Single CLI** covering dev, build, start & clean.
 - **Predictable output**: public client bundle + private server bundle + manifest.
 
@@ -52,7 +53,7 @@ A **fast**, minimal architecture convention and CLI for building websites with s
 - **Dev server**: hot replace (SSE partial replacement) and auto-open with readiness probe.
 - **Production server**: minimal core (bring your own policy via middleware).
 - **Dual build outputs**: hashed client assets (prod), non-hashed (dev), separate server bundles (never exposed publicly).
-- **Rust-powered JSX precompiler**: fast + small runtime helpers.
+- **Rust-powered JSX transformer**: fast + small runtime helpers.
 - **Configurable esbuild loaders**: assign loaders per file extension via config, env, or flags.
 - **Configurable public base path** for assets: set via flag (`--public-path`), env (`PUBLIC_PATH`), or config; empty string "" allowed for relative URLs.
 
@@ -463,9 +464,26 @@ Derived / injected:
 | PUBLIC_PATH | Public base URL for assets propagated to the build (defaults to "/" when unset; empty string preserved) |
 | CLIENT_DIR | Configured per-route client entry subdirectory name |
 
+## JSX Transformer & Runtime Helpers
+
+SXO includes a Rust/WASM JSX transformer that transforms JSX into template literals with small runtime helpers.
+
+What it does:
+
+- Streaming parser with error recovery: finds and transforms multiple JSX sections per file, reporting aggregated, caret-aligned diagnostics.
+- Attribute normalization: converts JSX attribute names to HTML-consistent forms (e.g., `className` → `class`, `htmlFor` → `for`, SVG/camelCase to kebab where applicable) and supports spread props.
+- Array-aware output: wraps array-producing expressions (e.g., `map`, `flatMap`, `filter`, `reduce`, `slice`, `concat`, `flat`, modern array copies, and `forEach`) with `${__jsxList(...)}`
+  so list output is safely joined into a single string.
+
+Runtime helpers:
+
+- `__jsxComponent(Component, propsArrayOrObject, children?)` → renders components to string (props objects in arrays are merged).
+- `__jsxSpread(obj)` → serializes element attributes from an object (boolean `true` becomes a valueless attribute).
+- `__jsxList(value)` → joins arrays into a string; returns `""` for `null`/`undefined`; passes through non-array values.
+
 ## Performance and DX
 
-- Rust/WASM JSX precompile drastically reduces parse overhead.
+- Rust/WASM JSX transform drastically reduces parse overhead.
 - Entry manifest reuse avoids unnecessary directory traversal.
 - Dual build isolates server SSR bundles from public output.
 - Hot replace patches fragment and assets.
@@ -654,7 +672,7 @@ Serve behind a reverse proxy (optional). Add your own middleware for:
 
 - Built on top of esbuild — thanks to Evan Wallace and the esbuild project for the extremely fast bundler & plugin ecosystem: https://github.com/evanw/esbuild
 - HTML template plugin: esbuild-plugin-html — thanks for the handy HTML handling & template features: https://github.com/craftamap/esbuild-plugin-html
-- Utility inspiration / helper code from gc-victor/query — thanks for the lightweight query primitives used for route and JSX precompile: https://github.com/gc-victor/query
+- Utility inspiration / helper code from gc-victor/query — thanks for the lightweight query primitives used for route and JSX transform: https://github.com/gc-victor/query
 - Reactive components primitives: reactive-component — thanks for the tiny, framework-agnostic signals/effects runtime that powers "islands": https://github.com/gc-victor/reactive-component
 - Extra thanks to the open-source community for libraries and examples that influenced SXO's ergonomics and performance.
 

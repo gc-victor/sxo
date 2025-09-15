@@ -3,7 +3,7 @@
 ## Info
 
 - **Project**: sxo
-- **Last Update**: 2025-09-03
+- **Last Update**: 2025-09-15
 
 ## Purpose
 
@@ -218,9 +218,21 @@ If expanding to multi-param or advanced patterns: update sections (README + here
 - Server:
   - Only route `jsx` modules (no minify, no sourcemap).
 - Loader mapping: if `LOADERS` is set (from config/env/flags), esbuild's `loader` option is applied to both client and server builds (dev/build only).
-- JSX plugin:
-  - WASM precompile + virtual helpers import.
-  - Do NOT edit `dist/pkg-node/jsx_precompile.js`.
+- JSX transformer & runtime helpers:
+  - Backed by a streaming JSX parser with error recovery (old precompiler removed; the `jsx_precompile.rs` file was deleted).
+  - Emits template literals and relies on runtime helpers:
+    - `__jsxComponent(Component, propsArrayOrObject, children?)`
+    - `__jsxSpread(object)` for attribute serialization
+    - `__jsxList(value)` to join arrays
+  - Array-producing/copying expressions are wrapped with `${__jsxList(...)}`
+    (e.g., `map`, `flatMap`, `filter`, `reduce`, `slice`, `concat`, `flat`,
+    `toReversed`, `toSorted`, `toSpliced`, `with`, `reverse`, `sort`, `splice`,
+    `fill`, `copyWithin`, `forEach`).
+  - Attribute name normalization mirrors HTML expectations (e.g., `className` → `class`, `htmlFor` → `for`); keep JS and Rust normalization in sync.
+  - Diagnostics: aggregated, caret-aligned errors when parsing fails (preserve formatting).
+  - WASM transformer + virtual helpers import.
+  - Do NOT edit `jsx-transformer/jsx_transformer.js`.
+  - If you change helper names/semantics, parser strategy, or array detection heuristics, update README + AGENTS and adjust tests accordingly.
 - Manifest write precedes builds (ensures server can start even if later build step fails?).
 - Post-build optional step: `sxo generate` pre-renders non-dynamic routes using the built SSR modules, writes HTML back to `dist/client`, and sets `generated: true` in the manifest. Idempotent (skips already generated routes).
 
@@ -272,7 +284,7 @@ Add new test file when adding a discrete subsystem; keep responsibilities narrow
 ## 16. Performance Considerations
 
 - Manifest reuse avoids unnecessary directory traversal.
-- Precompile reduces per-file parse cost.
+- Transform reduces per-file parse cost.
 - No hydration means minimal client JS except optional route client entries.
 - Hash toggling in dev fosters quick cache-bust semantics without full invalidation strategies.
 
@@ -304,7 +316,7 @@ Trigger an update if you:
 
 Do NOT modify:
 
-- `dist/pkg-node/jsx_precompile.js`
+- `jsx-transformer/jsx_transformer.js`
 - Generated build outputs
 - Future Rust/WASM build scripts
 - `routes.json` directly (always produced by build)
