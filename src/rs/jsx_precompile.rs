@@ -1,9 +1,4 @@
-use std::collections::HashMap;
-
-use crate::{
-    jsx_extractor::JSXExtractor,
-    jsx_parser::{JSXAttribute, JSXAttributeValue, JSXNode, Parser},
-};
+use crate::jsx_parser::{walk_node, JSXAttribute, JSXAttributeValue, JSXNode, JSXVisitor, Parser};
 
 #[derive(Debug)]
 pub enum JSXErrorKind {
@@ -60,34 +55,100 @@ const UNDERSCORE: char = '_';
 const DOLLAR_SIGN: char = '$';
 const EMPTY_STRING: &str = "";
 
-static SELF_CLOSING_TAGS: [&str; 23] = [
-    "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source",
-    "track", "wbr", "circle", "ellipse", "image", "line", "path", "polygon", "polyline", "rect",
-    "use",
+const VOID_TAGS: [&str; 23] = [
+    "area", "base", "br", "circle", "col", "ellipse", "embed", "hr", "image", "img", "input",
+    "line", "link", "meta", "param", "path", "polygon", "polyline", "rect", "source", "track",
+    "use", "wbr",
 ];
 
-#[inline]
-fn is_component(tag: &str) -> bool {
-    tag.chars()
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TagType {
+    Component,
+    WebComponent,
+    Void,
+    Element,
+}
+
+#[inline(always)]
+fn classify_tag(tag: &str) -> TagType {
+    // Component: starts with uppercase, '_' or '$'
+    if tag
+        .chars()
         .next()
         .map(|c| c.is_uppercase() || c == UNDERSCORE || c == DOLLAR_SIGN)
         .unwrap_or(false)
+    {
+        return TagType::Component;
+    }
+
+    // Web Component: contains a hyphen per Custom Elements spec
+    if tag.contains('-') {
+        return TagType::WebComponent;
+    }
+
+    // Void element: binary search against sorted list (case-insensitive)
+    let lower = tag.to_ascii_lowercase();
+    if VOID_TAGS.binary_search(&lower.as_str()).is_ok() {
+        return TagType::Void;
+    }
+
+    TagType::Element
 }
 
-#[inline]
-fn is_self_closing(tag: &str) -> bool {
-    SELF_CLOSING_TAGS.contains(&tag.to_lowercase().as_str())
-}
+// removed: replaced by classify_tag()
+
+// removed: replaced by classify_tag() with efficient void lookup
 
 pub fn jsx_precompile(source: &str) -> Result<String, JSXError> {
-    let mut result = remove_jsx_comments(source);
+    let input = remove_jsx_comments(source);
+    let mut out = String::with_capacity(input.len() + 32);
+    let mut cursor = 0;
+    let mut i: usize = 0;
+    let mut errors: Vec<String> = Vec::new();
 
-    let locations = extract_jsx_locations(&result)?;
-    let templates = transform_jsx_elements(locations)?;
-    result = replace_jsx_placeholders(result, templates);
+    // Streaming scan + error accumulation: on parse error advance one byte and continue
+    while i < input.len() {
+        if let Some(rel) = input[i..].find('<') {
+            i += rel;
+        } else {
+            break;
+        }
+
+        let mut p = Parser::new(&input[i..]);
+        match p.parse_next_with_span() {
+            Some(Ok((ast, (start, end)))) => {
+                let start_abs = i + start;
+                let end_abs = i + end;
+                if start_abs > cursor {
+                    out.push_str(&input[cursor..start_abs]);
+                }
+                let template = transform_to_template(&ast)?;
+                let transformed = format!("`{template}`");
+                out.push_str(&transformed);
+                cursor = end_abs;
+                i = end_abs;
+            }
+            Some(Err(e)) => {
+                let pos_abs = i + e.position;
+                errors.push(format_diagnostic(&input, pos_abs, &e.message));
+                i += 1; // recovery: advance and continue scanning
+            }
+            None => break,
+        }
+    }
+
+    if cursor < input.len() {
+        out.push_str(&input[cursor..]);
+    }
+
+    if !errors.is_empty() {
+        return Err(JSXError::with_kind(JSXErrorKind::ParsingError(
+            errors.join("\n"),
+        )));
+    }
 
     // Remove empty interpolation artifacts
-    Ok(result.replace("${}", EMPTY_STRING))
+    Ok(out.replace("${}", EMPTY_STRING))
 }
 
 #[inline]
@@ -96,220 +157,591 @@ fn remove_jsx_comments(source: &str) -> String {
     re.replace_all(source, "").into_owned()
 }
 
-#[inline]
-fn extract_jsx_locations(source: &str) -> Result<Vec<String>, JSXError> {
-    let mut extractor = JSXExtractor::new(source.to_owned());
-    extractor
-        .extract()
-        .map_err(|e| JSXError::with_kind(JSXErrorKind::ExtractionError(e.to_string())))
+/// Pretty diagnostic formatter for parser errors with line/column and caret.
+/// Tabs are expanded to 4 spaces for caret alignment. Column is 1-based.
+fn format_diagnostic(source: &str, pos: usize, message: &str) -> String {
+    let len = source.len();
+    let pos = if pos > len { len } else { pos };
+
+    // Determine the line start and end around the error position
+    let before = &source[..pos];
+    let line_start = before.rfind('\n').map(|i| i + 1).unwrap_or(0);
+
+    let after = &source[pos..];
+    let line_end_rel = after.find('\n').unwrap_or(after.len());
+    let line_end = pos + line_end_rel;
+
+    let line_str = &source[line_start..line_end];
+
+    // Expand tabs for consistent caret alignment
+    let expand = |s: &str| s.replace('\t', "    ");
+    let prefix = &source[line_start..pos];
+    let prefix_expanded = expand(prefix);
+    let line_expanded = expand(line_str);
+
+    // Calculate 1-based line and column
+    let line_no = before.chars().filter(|&c| c == '\n').count() + 1;
+    let col_no = prefix_expanded.chars().count() + 1;
+
+    // Build output in a Rust-like diagnostic style with dynamic gutter width
+    let mut out = String::new();
+    out.push_str(&format!("  --> input:{}:{}\n", line_no, col_no));
+    let width = line_no.to_string().chars().count();
+    let gutter_spaces = " ".repeat(width);
+
+    // Leading gutter
+    out.push_str(&format!("{} |\n", gutter_spaces));
+
+    // Numbered source line
+    out.push_str(&format!("{:>width$} | ", line_no, width = width));
+    out.push_str(&line_expanded);
+    out.push('\n');
+
+    // Caret line
+    out.push_str(&format!("{} | ", gutter_spaces));
+    if pos != 0 {
+        let caret_pad = " ".repeat(prefix_expanded.chars().count());
+        out.push_str(&caret_pad);
+        out.push('^');
+    } else {
+        // Mark the whole line when at position 0
+        let carets = "^".repeat(line_expanded.chars().count());
+        out.push_str(&carets);
+    }
+    out.push('\n');
+
+    // Trailing gutter and note
+    out.push_str(&format!("{} |\n", gutter_spaces));
+    out.push_str(&format!("{} = note: {}\n", gutter_spaces, message));
+    out
 }
 
-fn transform_jsx_elements(locations: Vec<String>) -> Result<HashMap<String, String>, JSXError> {
-    let mut templates: HashMap<String, String> = HashMap::new();
+#[inline]
+fn needs_list_wrapper(s: &str) -> bool {
+    // Minimal scanner that ignores strings/templates and detects array-producing/copying calls.
+    let mut in_squote = false;
+    let mut in_dquote = false;
+    let mut in_tmpl = false;
+    let mut escape = false;
 
-    for location in locations {
-        let content = location.trim().to_string();
-        let mut parser = Parser::new(&content);
+    let mut iter = s.chars().peekable();
 
-        match parser.parse() {
-            Ok(ast) => {
-                let template = transform_to_template(&ast)?;
-                templates.insert(content, template);
+    while let Some(ch) = iter.next() {
+        if escape {
+            escape = false;
+            continue;
+        }
+        match ch {
+            '\\' => {
+                escape = true;
+                continue;
             }
-            Err(e) => {
-                return Err(JSXError::with_kind(JSXErrorKind::ParsingError(format!(
-                    "{e}. {content}"
-                ))));
+            '\'' if !in_dquote && !in_tmpl => {
+                in_squote = !in_squote;
+                continue;
+            }
+            '"' if !in_squote && !in_tmpl => {
+                in_dquote = !in_dquote;
+                continue;
+            }
+            '`' if !in_squote && !in_dquote => {
+                in_tmpl = !in_tmpl;
+                continue;
+            }
+            _ => {}
+        }
+
+        if in_squote || in_dquote || in_tmpl {
+            continue;
+        }
+
+        // Detect ".name" or "?.name"
+        let mut at_property = false;
+        if ch == '.' {
+            at_property = true;
+        } else if ch == '?' {
+            if let Some('.') = iter.peek().copied() {
+                iter.next();
+                at_property = true;
+            }
+        }
+
+        if at_property {
+            // Read identifier: first char [A-Za-z_$], subsequent [A-Za-z0-9_$]
+            let mut name = String::new();
+            if let Some(&c0) = iter.peek() {
+                if c0.is_ascii_alphabetic() || c0 == '_' || c0 == '$' {
+                    name.push(c0);
+                    iter.next();
+                    while let Some(&cn) = iter.peek() {
+                        if cn.is_ascii_alphanumeric() || cn == '_' || cn == '$' {
+                            name.push(cn);
+                            iter.next();
+                        } else {
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // Skip whitespace before call indicator
+            let mut la = iter.clone();
+            while let Some(&c) = la.peek() {
+                if c.is_whitespace() {
+                    la.next();
+                } else {
+                    break;
+                }
+            }
+
+            // Allow "(" or "?.("
+            let is_call = match la.peek().copied() {
+                Some('(') => true,
+                Some('?') => {
+                    la.next();
+                    if let Some('.') = la.peek().copied() {
+                        la.next();
+                        matches!(la.peek().copied(), Some('('))
+                    } else {
+                        false
+                    }
+                }
+                _ => false,
+            };
+
+            if is_call
+                && matches!(
+                    name.as_str(),
+                    // Core sequence builders
+                    "map" | "flatMap" | "filter" |
+                    // Array-producing transforms
+                    "slice" | "concat" | "flat" |
+                    // Modern immutable array-producing
+                    "toReversed" | "toSorted" | "toSpliced" | "with" |
+                    // Mutating but array-returning
+                    "reverse" | "sort" | "splice" | "fill" | "copyWithin" |
+                    // Scalar reducers (kept for compatibility)
+                    "reduce" | "reduceRight" |
+                    // Compatibility: returns undefined but kept for parity
+                    "forEach"
+                )
+            {
+                return true;
             }
         }
     }
-
-    Ok(templates)
-}
-
-#[inline]
-fn replace_jsx_placeholders(mut result: String, templates: HashMap<String, String>) -> String {
-    for (key, template) in templates {
-        let transformed = if template.contains(".map(")
-            || template.contains(".filter(")
-            || template.contains(".reduce(")
-        {
-            format!("`${{__jsxTemplate(`{template}`)}}`")
-        } else {
-            format!("`{template}`")
-        };
-
-        result = result
-            .replace(&format!("`{key}`"), &transformed)
-            .replace(&key, &transformed);
-    }
-    result
+    false
 }
 
 fn transform_to_template(ast: &JSXNode) -> Result<String, JSXError> {
-    match ast {
-        JSXNode::Element {
-            tag,
-            attributes,
-            children,
-        } => {
-            if is_component(tag) {
-                transform_component(tag, attributes, children)
-            } else {
-                transform_element(tag, attributes, children)
-            }
-        }
-        JSXNode::Expression(expr) => Ok(format!(r#"${{{expr}}}"#)),
-        JSXNode::Fragment { children } => transform_fragment(children),
-        JSXNode::Text(text) => Ok(text.to_string()),
-    }
+    // Visitor-based transformation: traverse AST and build the template via a stack of frames.
+    let mut transformer = TemplateTransformer::new_root();
+    walk_node(&mut transformer, ast);
+    transformer.finalize()
 }
 
-fn transform_component(
-    tag: &str,
-    attributes: &[JSXAttribute],
-    children: &[JSXNode],
-) -> Result<String, JSXError> {
-    let attr_parts = transform_component_attributes(attributes)?;
-    let children_parts = transform_component_children(children)?;
+// Unified attribute transformation helper
+#[inline]
+fn transform_attribute(attr: &JSXAttribute, target: TagType) -> String {
+    match target {
+        TagType::Component => match &attr.value {
+            Some(JSXAttributeValue::Expression(expr)) => {
+                format!(r#"{{"{}":{}}}"#, &attr.name, expr)
+            }
+            Some(JSXAttributeValue::DoubleQuote(value)) => {
+                format!(r#"{{"{}":"{}"}}"#, &attr.name, value)
+            }
+            Some(JSXAttributeValue::SingleQuote(value)) => {
+                format!(r#"{{"{}":'{}'}}"#, &attr.name, value)
+            }
+            None => {
+                if attr.name.starts_with("...") {
+                    format!("{{{}}}", attr.name)
+                } else {
+                    format!(r#"{{"{}":true}}"#, attr.name)
+                }
+            }
+        },
+        // Elements (including web components and voids) share the same serialization
+        _ => {
+            // Handle boolean and spread first (no normalized name for boolean to preserve legacy behavior)
+            if attr.value.is_none() {
+                if attr.name.starts_with("...") {
+                    return format!("${{__jsxSpread({})}}", attr.name.replace("...", ""));
+                } else {
+                    return attr.name.to_string();
+                }
+            }
 
-    if children_parts.is_empty() {
-        Ok(format!(r#"${{__jsxComponent({tag}, {attr_parts})}}"#))
-    } else {
-        let children_str = children_parts.join("");
-        Ok(format!(
-            r#"${{__jsxComponent({}, {}, `{}`)}}"#,
-            tag,
-            attr_parts,
-            children_str.trim()
-        ))
+            let name = normalize_html_attr_name(&attr.name);
+            match &attr.value {
+                Some(JSXAttributeValue::Expression(expr)) => {
+                    format!(r#"{name}="${{{expr}}}""#)
+                }
+                Some(JSXAttributeValue::DoubleQuote(value)) => {
+                    format!(r#"{name}="{value}""#)
+                }
+                Some(JSXAttributeValue::SingleQuote(value)) => {
+                    format!("{name}='{value}'")
+                }
+                None => unreachable!("handled above"),
+            }
+        }
     }
 }
 
 fn transform_component_attributes(attributes: &[JSXAttribute]) -> Result<String, JSXError> {
     let mut attr_parts = Vec::new();
     for attr in attributes.iter() {
-        match &attr.value {
-            Some(JSXAttributeValue::Expression(expr)) => {
-                attr_parts.push(format!(r#"{{"{}":{expr}}}"#, &attr.name));
-            }
-            Some(JSXAttributeValue::DoubleQuote(value)) => {
-                attr_parts.push(format!(r#"{{"{}":"{value}"}}"#, &attr.name));
-            }
-            Some(JSXAttributeValue::SingleQuote(value)) => {
-                attr_parts.push(format!(r#"{{"{}":'{value}'}}"#, &attr.name));
-            }
-            None => {
-                if attr.name.starts_with("...") {
-                    attr_parts.push(format!("{{{}}}", attr.name));
-                } else {
-                    attr_parts.push(format!(r#"{{"{}":true}}"#, attr.name));
-                }
-            }
-        }
+        attr_parts.push(transform_attribute(attr, TagType::Component));
     }
     Ok(format!("[{}]", attr_parts.join(COMMA)))
-}
-
-#[inline]
-fn transform_component_children(children: &[JSXNode]) -> Result<Vec<String>, JSXError> {
-    let mut children_parts = Vec::new();
-    for child in children {
-        children_parts.push(transform_to_template(child)?);
-    }
-    Ok(children_parts)
-}
-
-fn transform_element(
-    tag: &str,
-    attributes: &[JSXAttribute],
-    children: &[JSXNode],
-) -> Result<String, JSXError> {
-    let attrs = transform_element_attributes(attributes)?;
-
-    let attrs_str = if !attrs.is_empty() {
-        attrs
-            .iter()
-            .map(|attr| {
-                if attr.starts_with("${__jsxSpread") {
-                    attr.to_string()
-                } else {
-                    format!(" {attr}")
-                }
-            })
-            .collect::<String>()
-    } else {
-        String::new()
-    };
-
-    if is_self_closing(tag) {
-        return Ok(format!("<{tag}{attrs_str}/>"));
-    }
-
-    let children_str = transform_jsx_children(children)?;
-
-    Ok(format!("<{tag}{attrs_str}>{children_str}</{tag}>"))
 }
 
 fn transform_element_attributes(attributes: &[JSXAttribute]) -> Result<Vec<String>, JSXError> {
     let mut attr_parts = Vec::new();
     for attr in attributes {
-        let name = normalize_html_attr_name(&attr.name);
-
-        match &attr.value {
-            Some(JSXAttributeValue::Expression(expr)) => {
-                attr_parts.push(format!(r#"{name}="${{{expr}}}""#));
-            }
-            Some(JSXAttributeValue::DoubleQuote(value)) => {
-                attr_parts.push(format!(r#"{name}="{value}""#));
-            }
-            Some(JSXAttributeValue::SingleQuote(value)) => {
-                attr_parts.push(format!("{name}='{value}'"));
-            }
-            _ => {
-                if attr.name.starts_with("...") {
-                    attr_parts.push(format!(
-                        "${{__jsxSpread({})}}",
-                        attr.name.replace("...", "")
-                    ));
-                } else {
-                    attr_parts.push(attr.name.to_string());
-                }
-            }
-        }
+        attr_parts.push(transform_attribute(attr, TagType::Element));
     }
     Ok(attr_parts)
 }
 
-#[inline]
-fn transform_fragment(children: &[JSXNode]) -> Result<String, JSXError> {
-    transform_jsx_children(children)
+// Visitor-based transformer implementation
+enum NodeFrame {
+    Element {
+        tag: String,
+        attrs_str: String,
+        is_void: bool,
+        builder: TemplateBuilder,
+    },
+    Component {
+        tag: String,
+        attr_parts: String,
+        builder: TemplateBuilder,
+    },
+    Fragment {
+        builder: TemplateBuilder,
+    },
 }
 
-fn transform_jsx_children(children: &[JSXNode]) -> Result<String, JSXError> {
-    let mut children_parts = Vec::new();
+struct TemplateTransformer {
+    stack: Vec<NodeFrame>,
+    error: Option<JSXError>,
+}
 
-    for child in children {
-        match child {
-            JSXNode::Text(text) => {
-                children_parts.push(text.to_string());
-            }
-            JSXNode::Expression(expr) => {
-                if expr.contains(OPENING_BRACKET) {
-                    let nested = jsx_precompile(expr)?;
-                    children_parts.push(format!("${{{}}}", nested.trim()));
-                } else {
-                    children_parts.push(format!("${{{expr}}}"));
-                }
-            }
-            _ => {
-                let child_content = transform_to_template(child)?;
-                children_parts.push(child_content);
+impl TemplateTransformer {
+    fn new_root() -> Self {
+        // Root fragment frame to accumulate output even when the root is Text/Expression
+        Self {
+            stack: vec![NodeFrame::Fragment {
+                builder: TemplateBuilder::new(),
+            }],
+            error: None,
+        }
+    }
+
+    #[inline]
+    fn current_builder_mut(&mut self) -> Option<&mut TemplateBuilder> {
+        self.stack.last_mut().map(|frame| match frame {
+            NodeFrame::Element { builder, .. } => builder,
+            NodeFrame::Component { builder, .. } => builder,
+            NodeFrame::Fragment { builder } => builder,
+        })
+    }
+
+    #[inline]
+    fn append_to_parent(&mut self, s: &str) {
+        if let Some(parent) = self.stack.last_mut() {
+            match parent {
+                NodeFrame::Element { builder, .. } => builder.append_child_tpl(s),
+                NodeFrame::Component { builder, .. } => builder.append_child_tpl(s),
+                NodeFrame::Fragment { builder } => builder.append_child_tpl(s),
             }
         }
     }
 
-    Ok(children_parts.join("").trim().to_string())
+    fn finalize(mut self) -> Result<String, JSXError> {
+        if let Some(err) = self.error {
+            return Err(err);
+        }
+        // At this point only the root fragment frame should remain
+        match self.stack.pop() {
+            Some(NodeFrame::Fragment { builder }) => Ok(builder.finalize()),
+            Some(NodeFrame::Element {
+                tag,
+                attrs_str,
+                is_void,
+                builder,
+            }) => {
+                if is_void {
+                    Ok(format!("<{tag}{attrs_str}/>"))
+                } else {
+                    Ok(format!("<{tag}{attrs_str}>{}</{tag}>", builder.finalize()))
+                }
+            }
+            Some(NodeFrame::Component {
+                tag,
+                attr_parts,
+                builder,
+            }) => {
+                let children_str = builder.finalize();
+                if children_str.is_empty() {
+                    Ok(format!(r#"${{__jsxComponent({tag}, {attr_parts})}}"#))
+                } else {
+                    Ok(format!(
+                        r#"${{__jsxComponent({}, {}, `{}`)}}"#,
+                        tag,
+                        attr_parts,
+                        children_str.trim()
+                    ))
+                }
+            }
+            None => Ok(String::new()),
+        }
+    }
+}
+
+impl JSXVisitor for TemplateTransformer {
+    fn enter_element(&mut self, tag: &str, attributes: &[JSXAttribute]) {
+        if self.error.is_some() {
+            return;
+        }
+
+        match classify_tag(tag) {
+            TagType::Component => match transform_component_attributes(attributes) {
+                Ok(attr_parts) => {
+                    self.stack.push(NodeFrame::Component {
+                        tag: tag.to_string(),
+                        attr_parts,
+                        builder: TemplateBuilder::new(),
+                    });
+                }
+                Err(e) => {
+                    self.error = Some(e);
+                }
+            },
+            _ => {
+                // Normal element or web component
+                match transform_element_attributes(attributes) {
+                    Ok(attrs) => {
+                        let attrs_str = if !attrs.is_empty() {
+                            attrs
+                                .iter()
+                                .map(|attr| {
+                                    if attr.starts_with("${__jsxSpread") {
+                                        attr.to_string()
+                                    } else {
+                                        format!(" {attr}")
+                                    }
+                                })
+                                .collect::<String>()
+                        } else {
+                            String::new()
+                        };
+
+                        let is_void = matches!(classify_tag(tag), TagType::Void);
+                        self.stack.push(NodeFrame::Element {
+                            tag: tag.to_string(),
+                            attrs_str,
+                            is_void,
+                            builder: TemplateBuilder::new(),
+                        });
+                    }
+                    Err(e) => {
+                        self.error = Some(e);
+                    }
+                }
+            }
+        }
+    }
+
+    fn exit_element(&mut self, tag: &str) {
+        if self.error.is_some() {
+            return;
+        }
+
+        // Pop current frame and append its rendered output to the parent
+        let frame = self.stack.pop();
+        if let Some(frame) = frame {
+            match frame {
+                NodeFrame::Element {
+                    tag: frame_tag,
+                    attrs_str,
+                    is_void,
+                    builder,
+                } => {
+                    debug_assert_eq!(frame_tag, tag);
+                    let rendered = if is_void {
+                        format!("<{tag}{attrs_str}/>")
+                    } else {
+                        format!("<{tag}{attrs_str}>{}</{tag}>", builder.finalize())
+                    };
+                    self.append_to_parent(&rendered);
+                }
+                NodeFrame::Component {
+                    tag: frame_tag,
+                    attr_parts,
+                    builder,
+                } => {
+                    debug_assert_eq!(frame_tag, tag);
+                    let children_str = builder.finalize();
+                    let rendered = if children_str.is_empty() {
+                        format!(r#"${{__jsxComponent({tag}, {attr_parts})}}"#)
+                    } else {
+                        format!(
+                            r#"${{__jsxComponent({}, {}, `{}`)}}"#,
+                            tag,
+                            attr_parts,
+                            children_str.trim()
+                        )
+                    };
+                    self.append_to_parent(&rendered);
+                }
+                NodeFrame::Fragment { .. } => {
+                    // Not possible in exit_element
+                }
+            }
+        }
+    }
+
+    fn enter_fragment(&mut self) {
+        if self.error.is_some() {
+            return;
+        }
+        self.stack.push(NodeFrame::Fragment {
+            builder: TemplateBuilder::new(),
+        });
+    }
+
+    fn exit_fragment(&mut self) {
+        if self.error.is_some() {
+            return;
+        }
+        if let Some(NodeFrame::Fragment { builder }) = self.stack.pop() {
+            let rendered = builder.finalize();
+            self.append_to_parent(&rendered);
+        }
+    }
+
+    fn visit_text(&mut self, text: &str) {
+        if self.error.is_some() {
+            return;
+        }
+        if let Some(b) = self.current_builder_mut() {
+            b.push_text(text);
+        }
+    }
+
+    fn visit_expression(&mut self, expr: &str) {
+        if self.error.is_some() {
+            return;
+        }
+        if let Some(b) = self.current_builder_mut() {
+            if expr.contains(OPENING_BRACKET) {
+                match jsx_precompile(expr) {
+                    Ok(nested) => {
+                        let nested_trim = nested.trim();
+                        if needs_list_wrapper(expr) {
+                            b.append_child_tpl(&format!("${{__jsxList({})}}", nested_trim));
+                        } else {
+                            b.append_child_tpl(&format!("${{{}}}", nested_trim));
+                        }
+                    }
+                    Err(e) => {
+                        self.error = Some(e);
+                    }
+                }
+            } else {
+                b.push_expr(expr);
+            }
+        }
+    }
+}
+
+// AIDEV-NOTE: TemplateBuilder centralizes child assembly and flattens trivial nested templates.
+struct TemplateBuilder {
+    out: String,
+    // Reserved for future: track if any array-ish expressions were encountered.
+    #[allow(dead_code)]
+    has_array: bool,
+}
+
+impl TemplateBuilder {
+    fn new() -> Self {
+        Self {
+            out: String::new(),
+            has_array: false,
+        }
+    }
+
+    #[inline]
+    fn push_text(&mut self, s: &str) {
+        self.out.push_str(s);
+    }
+
+    #[inline]
+    fn push_expr(&mut self, expr: &str) {
+        // Flatten the trivial case where the expression is a backtick string with a single interpolation: `${inner}`
+        if let Some(inner) = extract_single_expr_from_backtick(expr) {
+            self.out.push_str("${");
+            self.out.push_str(inner);
+            self.out.push('}');
+        } else if needs_list_wrapper(expr) {
+            self.out.push_str("${__jsxList(");
+            self.out.push_str(expr);
+            self.out.push_str(")}");
+        } else {
+            self.out.push_str("${");
+            self.out.push_str(expr);
+            self.out.push('}');
+        }
+    }
+
+    #[inline]
+    fn append_child_tpl(&mut self, tpl_like: &str) {
+        if let Some(flat) = flatten_trivial_nested_child(tpl_like) {
+            self.out.push_str(&flat);
+        } else {
+            self.out.push_str(tpl_like);
+        }
+    }
+
+    #[inline]
+    fn finalize(self) -> String {
+        self.out.trim().to_string()
+    }
+}
+
+// Returns Some(inner) when input is a backtick template containing only a single interpolation: `${inner}`
+fn extract_single_expr_from_backtick(expr: &str) -> Option<&str> {
+    let s = expr.trim();
+    if s.starts_with('`') && s.ends_with('`') {
+        let inner = &s[1..s.len() - 1];
+        let trimmed = inner.trim();
+        if trimmed.starts_with("${")
+            && trimmed.ends_with('}')
+            && trimmed.match_indices("${").count() == 1
+        {
+            return Some(&trimmed[2..trimmed.len() - 1]);
+        }
+    }
+    None
+}
+
+// Flattens `${`...`}` when the backtick content itself is exactly a single `${expr}`
+fn flatten_trivial_nested_child(s: &str) -> Option<String> {
+    let t = s.trim();
+    if t.starts_with("${`") && t.ends_with("`}") {
+        let inner = &t[3..t.len() - 2];
+        let inner_trim = inner.trim();
+        if inner_trim.starts_with("${")
+            && inner_trim.ends_with('}')
+            && inner_trim.match_indices("${").count() == 1
+        {
+            return Some(format!("${}", &inner_trim[2..]));
+        }
+    }
+    None
 }
 
 // @see: https://github.com/denoland/deno_ast/blob/3aba071b59d71802398c2fbcd2d01c99a51553cf/src/transpiling/jsx_precompile.rs#L89
@@ -492,11 +924,73 @@ fn normalize_html_attr_name(name: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashMap;
 
     // Test helper to make whitespace-insensitive comparisons for outputs where
     // internal formatting (spaces/newlines) is not semantically relevant.
     fn normalize_ws(s: &str) -> String {
         s.split_whitespace().collect::<Vec<_>>().join(" ")
+    }
+
+    #[test]
+    fn test_unified_transform_attribute() {
+        use crate::jsx_parser::{JSXAttribute, JSXAttributeValue};
+
+        // Boolean attributes
+        let attr_bool = JSXAttribute {
+            name: "disabled".into(),
+            value: None,
+        };
+        assert_eq!(
+            transform_attribute(&attr_bool, TagType::Element),
+            "disabled"
+        );
+        assert_eq!(
+            transform_attribute(&attr_bool, TagType::Component),
+            r#"{"disabled":true}"#
+        );
+
+        // String attributes (double quotes)
+        let attr_str = JSXAttribute {
+            name: "className".into(),
+            value: Some(JSXAttributeValue::DoubleQuote("foo".into())),
+        };
+        assert_eq!(
+            transform_attribute(&attr_str, TagType::Element),
+            r#"class="foo""#
+        );
+        assert_eq!(
+            transform_attribute(&attr_str, TagType::Component),
+            r#"{"className":"foo"}"#
+        );
+
+        // Expression attributes
+        let attr_expr = JSXAttribute {
+            name: "id".into(),
+            value: Some(JSXAttributeValue::Expression("id".into())),
+        };
+        assert_eq!(
+            transform_attribute(&attr_expr, TagType::Element),
+            r#"id="${id}""#
+        );
+        assert_eq!(
+            transform_attribute(&attr_expr, TagType::Component),
+            r#"{"id":id}"#
+        );
+
+        // Spread attributes
+        let attr_spread = JSXAttribute {
+            name: "...props".into(),
+            value: None,
+        };
+        assert_eq!(
+            transform_attribute(&attr_spread, TagType::Element),
+            r#"${__jsxSpread(props)}"#
+        );
+        assert_eq!(
+            transform_attribute(&attr_spread, TagType::Component),
+            r#"{...props}"#
+        );
     }
 
     #[test]
@@ -911,8 +1405,39 @@ mod tests {
         let result = jsx_precompile(source).unwrap();
         assert_eq!(
             result,
-            "const el = `${__jsxTemplate(`<div>${items.map(item => `<li>${item}</li>`)}</div>`)}`;"
+            "const el = `<div>${__jsxList(items.map(item => `<li>${item}</li>`))}</div>`;"
         );
+    }
+
+    #[test]
+    fn test_flatten_trivial_nested_template_in_child() {
+        let source = "const el = <div>{`${value}`}</div>;";
+        let result = jsx_precompile(source).unwrap();
+        assert_eq!(result, "const el = `<div>${value}</div>`;");
+    }
+
+    #[test]
+    fn test_flat_map_and_for_each_transformations() {
+        let src1 = r#"const el = <div>{items.flatMap(item => <li>{item}</li>)}</div>;"#;
+        let out1 = jsx_precompile(src1).unwrap();
+        assert_eq!(
+            out1,
+            "const el = `<div>${__jsxList(items.flatMap(item => `<li>${item}</li>`))}</div>`;"
+        );
+
+        let src2 = r#"const el = <div>{items.forEach(item => <li>{item}</li>)}</div>;"#;
+        let out2 = jsx_precompile(src2).unwrap();
+        assert_eq!(
+            out2,
+            "const el = `<div>${__jsxList(items.forEach(item => `<li>${item}</li>`))}</div>`;"
+        );
+    }
+
+    #[test]
+    fn test_no_empty_interpolation_artifacts() {
+        let source = r#"const el = <div>{" "}{value}{""}</div>;"#;
+        let result = jsx_precompile(source).unwrap();
+        assert!(!result.contains("${}"));
     }
 
     #[test]
@@ -921,7 +1446,7 @@ mod tests {
         let result = jsx_precompile(source).unwrap();
         assert_eq!(
             result,
-            "const el = `${__jsxTemplate(`<div>${posts.map((post) => `${__jsxComponent(Component, [{...post}])}`)}</div>`)}`;"
+            "const el = `<div>${__jsxList(posts.map((post) => `${__jsxComponent(Component, [{...post}])}`))}</div>`;"
         );
     }
 
@@ -931,7 +1456,7 @@ mod tests {
         let result = jsx_precompile(source).unwrap();
         assert_eq!(
             result,
-            "const el = `${__jsxTemplate(`<div>${items.filter(item => item.active).map(item => `<li>${item.name}</li>`)}</div>`)}`;"
+            "const el = `<div>${__jsxList(items.filter(item => item.active).map(item => `<li>${item.name}</li>`))}</div>`;"
         );
     }
 
@@ -941,7 +1466,7 @@ mod tests {
         let result = jsx_precompile(source).unwrap();
         assert_eq!(
             result,
-            "const el = `${__jsxTemplate(`<div>${items.reduce((acc, item) => acc + item, 0)}</div>`)}`;"
+            "const el = `<div>${__jsxList(items.reduce((acc, item) => acc + item, 0))}</div>`;"
         );
     }
 
@@ -970,7 +1495,7 @@ onChange={() => onToggle(index)}
             .trim();
 
         let result = jsx_precompile(source).unwrap();
-        let expected = "const TodoList = ({items, onToggle}) => (\n`${__jsxTemplate(`<div class=\"${`todo-list ${items.length ? 'has-items' : ''}`}\"><header class=\"todo-header\"><h1>${items.length} Tasks Remaining</h1> <input type=\"text\"${__jsxSpread(inputProps)} placeholder=\"Add new task\"/></header> <ul class=\"todo-items\">${items.map((item, index) => ( `<li key=\"${item.id}\" class=\"${item.completed ? 'completed' : ''}\"><input type=\"checkbox\" checked=\"${item.completed}\" onchange=\"${() => onToggle(index)}\"/> <span class=\"todo-text\">${item.text}</span> <button onclick=\"${() => onDelete(item.id)}\">Delete</button></li>` ))}</ul></div>`)}`)";
+        let expected = "const TodoList = ({items, onToggle}) => (\n`<div class=\"${`todo-list ${items.length ? 'has-items' : ''}`}\"><header class=\"todo-header\"><h1>${items.length} Tasks Remaining</h1> <input type=\"text\"${__jsxSpread(inputProps)} placeholder=\"Add new task\"/></header> <ul class=\"todo-items\">${__jsxList(items.map((item, index) => ( `<li key=\"${item.id}\" class=\"${item.completed ? 'completed' : ''}\"><input type=\"checkbox\" checked=\"${item.completed}\" onchange=\"${() => onToggle(index)}\"/> <span class=\"todo-text\">${item.text}</span> <button onclick=\"${() => onDelete(item.id)}\">Delete</button></li>` )))}</ul></div>`)";
 
         assert_eq!(normalize_ws(&result), normalize_ws(expected));
     }
@@ -1024,7 +1549,7 @@ onChange={() => onToggle(index)}
             </div>
         ;"#;
         let result = jsx_precompile(input).unwrap();
-        let expected = "const el = `${__jsxTemplate(`<div class=\"${`container ${theme}`}\"><header class=\"${styles.header}\"><h1>${title || \"Default Title\"}</h1> <nav>${menuItems.map((item, index) => ( `<a key=\"${index}\" href=\"${item.href}\" class=\"${`${styles.link} ${currentPath === item.href ? styles.active : ''}`}\">${item.icon && `${__jsxComponent(Icon, [{\"name\":item.icon}])}`} <span>${item.label}</span> ${item.badge && ( `${__jsxComponent(Badge, [{\"count\":item.badge},{\"type\":item.badgeType}])}` )}</a>` ))}</nav> ${user ? ( `<div class=\"${styles.userMenu}\"><img src=\"${user.avatar}\" alt=\"User avatar\"/> <span>${user.name}</span> <button onclick=\"${handleLogout}\">Logout</button></div>` ) : ( `<button class=\"${styles.loginButton}\" onclick=\"${handleLogin}\">Login</button>` )}</header> <main class=\"${styles.main}\">${loading ? ( `<div class=\"${styles.loader}\">${__jsxComponent(Spinner, [{\"size\":\"large\"},{\"color\":theme === 'dark' ? 'white' : 'black'}])}</div>` ) : error ? ( `${__jsxComponent(ErrorMessage, [{\"message\":error},{\"onRetry\":handleRetry}])}` ) : ( `${children}` )}</main> <footer class=\"${styles.footer}\"><p>&copy; ${currentYear} My Application</p></footer></div>`)}`\n        ;";
+        let expected = "const el = `<div class=\"${`container ${theme}`}\"><header class=\"${styles.header}\"><h1>${title || \"Default Title\"}</h1> <nav>${__jsxList(menuItems.map((item, index) => ( `<a key=\"${index}\" href=\"${item.href}\" class=\"${`${styles.link} ${currentPath === item.href ? styles.active : ''}`}\">${item.icon && `${__jsxComponent(Icon, [{\"name\":item.icon}])}`} <span>${item.label}</span> ${item.badge && ( `${__jsxComponent(Badge, [{\"count\":item.badge},{\"type\":item.badgeType}])}` )}</a>` )))}</nav> ${user ? ( `<div class=\"${styles.userMenu}\"><img src=\"${user.avatar}\" alt=\"User avatar\"/> <span>${user.name}</span> <button onclick=\"${handleLogout}\">Logout</button></div>` ) : ( `<button class=\"${styles.loginButton}\" onclick=\"${handleLogin}\">Login</button>` )}</header> <main class=\"${styles.main}\">${loading ? ( `<div class=\"${styles.loader}\">${__jsxComponent(Spinner, [{\"size\":\"large\"},{\"color\":theme === 'dark' ? 'white' : 'black'}])}</div>` ) : error ? ( `${__jsxComponent(ErrorMessage, [{\"message\":error},{\"onRetry\":handleRetry}])}` ) : ( `${children}` )}</main> <footer class=\"${styles.footer}\"><p>&copy; ${currentYear} My Application</p></footer></div>`\n        ;";
         assert_eq!(normalize_ws(&result), normalize_ws(expected));
     }
 
@@ -1101,5 +1626,108 @@ export function Test() {
         assert!(result.contains("`<div>test</div>`"));
         assert!(!result.contains("\\u003C"));
         assert!(!result.contains("\\u003E"));
+    }
+
+    #[test]
+    fn test_classify_tag() {
+        assert_eq!(classify_tag("div"), TagType::Element);
+        assert_eq!(classify_tag("MyComponent"), TagType::Component);
+        assert_eq!(classify_tag("_Component"), TagType::Component);
+        assert_eq!(classify_tag("my-web-component"), TagType::WebComponent);
+        assert_eq!(classify_tag("br"), TagType::Void);
+        assert_eq!(classify_tag("input"), TagType::Void);
+    }
+
+    #[test]
+    fn test_escape_sequence_preservation() {
+        // Focus on expression attribute preserving JS escapes and text content handling of \t and \\.
+        let source = r#"const el = <div data-text={"\"Hello\nWorld\\\""}>A\ttabbed\tline. Path: C:\\temp</div>;"#;
+        let result = jsx_precompile(source).unwrap();
+        let expected = r#"const el = `<div data-text="${"\"Hello\nWorld\\\""}">A\ttabbed\tline. Path: C:\\temp</div>`;"#;
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_format_diagnostic_basic() {
+        let src = "first line\nsecond X line\nthird";
+        let pos = src.find('X').unwrap();
+        let msg = "Sample error";
+        let out = format_diagnostic(src, pos, msg);
+
+        assert!(out.contains("  --> "), "header missing: {out}");
+        assert!(out.contains(":2:"), "line/col missing: {out}");
+        assert!(out.contains("second X line"), "missing line content: {out}");
+
+        let lines: Vec<&str> = out.lines().collect();
+        assert!(lines.len() >= 5, "expected at least 5 lines");
+        let caret_line = lines[3];
+        let caret_col = caret_line.find('^').expect("caret expected");
+        let x_col = "second ".len();
+        let expected_col = 2usize.to_string().len() + 3 + x_col;
+        assert_eq!(caret_col, expected_col);
+    }
+
+    #[test]
+    fn test_format_diagnostic_position_zero_marks_entire_line() {
+        let src = "oops here";
+        let out = format_diagnostic(src, 0, "Err");
+        let lines: Vec<&str> = out.lines().collect();
+
+        // Expect header + line + full caret line
+        assert!(lines[0].contains("  --> ") && lines[0].contains(":1:1"));
+        assert!(lines[2].contains("1 | oops here"));
+        assert_eq!(lines[3], "  | ^^^^^^^^^");
+        assert!(lines[5].contains("= note: Err"));
+    }
+
+    #[test]
+    fn test_format_diagnostic_tabs_alignment() {
+        let line = "\tcol1\t\tcol2\tx";
+        let src = format!("head\n{}\ntrail", line);
+        let mid_line = src.lines().nth(1).unwrap();
+        let pos_in_line = mid_line.find('x').unwrap();
+        let abs_pos = src.lines().next().unwrap().len() + 1 + pos_in_line;
+        let diag = format_diagnostic(&src, abs_pos, "Here");
+
+        assert!(
+            diag.contains("  --> ") && diag.contains(":2:"),
+            "header missing: {diag}"
+        );
+        assert!(
+            diag.contains(&mid_line.replace('\t', "    ")),
+            "line content missing: {diag}"
+        );
+        // Caret should align under 'x' when accounting for 4-space tab expansion
+        let expanded_prefix = mid_line[..pos_in_line].replace('\t', "    ");
+        let expected_col = expanded_prefix.chars().count();
+        let caret_line = diag.lines().nth(3).expect("caret line");
+        let caret_col = caret_line.find('^').expect("caret not found");
+        assert_eq!(
+            caret_col,
+            2usize.to_string().len() + 3 + expected_col,
+            "caret misaligned:\n{diag}"
+        );
+    }
+
+    #[test]
+    fn test_jsx_precompile_aggregated_diagnostics_multiple_errors() {
+        let src = "<div>\n<span>ok</div>\n<div class=\"oops>Bad</div>";
+        let err = jsx_precompile(src).expect_err("expected aggregated parsing errors");
+        let s = err.to_string();
+
+        assert!(s.contains("JSX parsing error:"), "missing header: {s}");
+        assert!(s.contains("  --> "), "missing diagnostics arrow: {s}");
+        assert!(s.contains(":2:"), "missing line 2: {s}");
+        assert!(s.contains(":3:"), "missing line 3: {s}");
+        assert!(s.contains('^'), "missing caret: {s}");
+        assert!(s.contains("= note:"), "missing note lines: {s}");
+        assert!(
+            s.contains("Mismatched closing tag"),
+            "missing mismatch: {s}"
+        );
+        assert!(
+            s.contains("Unterminated string literal"),
+            "missing unterminated: {s}"
+        );
     }
 }
