@@ -1,2 +1,2 @@
 pub mod jsx_parser;
-pub mod jsx_precompile;
+pub mod jsx_transformer;

@@ -3,7 +3,7 @@ use wasm_bindgen::prelude::*;
 mod rs;
 
 pub use rs::jsx_parser;
-pub use rs::jsx_precompile;
+pub use rs::jsx_transformer;
 
 // When the `console_error_panic_hook` feature is enabled, we can call the
 // `set_panic_hook` function at least once during initialization, and then
@@ -20,10 +20,10 @@ pub fn init() {
     set_panic_hook();
 }
 
-/// Expose the Rust jsx_precompile function to JS/WASM
+/// Expose the Rust jsx_transformer function to JS/WASM
 #[wasm_bindgen]
 pub fn jsx(input: &str) -> Result<String, JsValue> {
-    jsx_precompile::jsx_precompile(input).map_err(|e| JsValue::from_str(&format!("{e}")))
+    jsx_transformer::jsx_transformer(input).map_err(|e| JsValue::from_str(&format!("{e}")))
 }
 
 // TODO: bring test from query/jsx_parser
@@ -36,8 +36,8 @@ mod tests {
     }
 
     #[test]
-    fn test_precompile_jsx_export() {
-        let input = r#"
+    fn test_transform_jsx_export() {
+        let input = r#"\
             <App>
                 <Header title="Welcome!" />
                 <Content>
@@ -49,7 +49,7 @@ mod tests {
         "#;
         let result = jsx(input);
 
-        println!("Precompiled JSX: {}", result.clone().unwrap());
+        println!("Transformed JSX: {}", result.clone().unwrap());
 
         assert!(result.is_ok());
         let output = result.unwrap();

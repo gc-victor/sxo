@@ -95,11 +95,7 @@ fn classify_tag(tag: &str) -> TagType {
     TagType::Element
 }
 
-// removed: replaced by classify_tag()
-
-// removed: replaced by classify_tag() with efficient void lookup
-
-pub fn jsx_precompile(source: &str) -> Result<String, JSXError> {
+pub fn jsx_transformer(source: &str) -> Result<String, JSXError> {
     let input = remove_jsx_comments(source);
     let mut out = String::with_capacity(input.len() + 32);
     let mut cursor = 0;
@@ -638,7 +634,7 @@ impl JSXVisitor for TemplateTransformer {
         }
         if let Some(b) = self.current_builder_mut() {
             if expr.contains(OPENING_BRACKET) {
-                match jsx_precompile(expr) {
+                match jsx_transformer(expr) {
                     Ok(nested) => {
                         let nested_trim = nested.trim();
                         if needs_list_wrapper(expr) {
@@ -996,14 +992,14 @@ mod tests {
     #[test]
     fn test_basic_jsx_element() {
         let source = "const el = <div>Hello</div>;";
-        let result = jsx_precompile(source).unwrap();
+        let result = jsx_transformer(source).unwrap();
         assert_eq!(result, "const el = `<div>Hello</div>`;");
     }
 
     #[test]
     fn test_p_tag_with_strong_child() {
         let source = "const el = <p>Normal text <strong>Bold text</strong> some text</p>;";
-        let result = jsx_precompile(source).unwrap();
+        let result = jsx_transformer(source).unwrap();
         assert_eq!(
             result,
             "const el = `<p>Normal text <strong>Bold text</strong> some text</p>`;"
@@ -1013,7 +1009,7 @@ mod tests {
     #[test]
     fn test_jsx_with_attributes() {
         let source = "const el = <div className=\"container\" id=\"main\">Content</div>;";
-        let result = jsx_precompile(source).unwrap();
+        let result = jsx_transformer(source).unwrap();
         assert_eq!(
             result,
             "const el = `<div class=\"container\" id=\"main\">Content</div>`;"
@@ -1023,7 +1019,7 @@ mod tests {
     #[test]
     fn test_boolean_attribute_component() {
         let source = r#"const el = <CustomComponent disabled />;"#;
-        let result = jsx_precompile(source).unwrap();
+        let result = jsx_transformer(source).unwrap();
         assert_eq!(
             result,
             "const el = `${__jsxComponent(CustomComponent, [{\"disabled\":true}])}`;"
@@ -1046,7 +1042,7 @@ mod tests {
                 </Parent>
             );
             const result = <GrandParent />;"#;
-        let result = jsx_precompile(source).unwrap();
+        let result = jsx_transformer(source).unwrap();
         assert_eq!(
                 result.replace('\n', "").split_whitespace().collect::<Vec<&str>>().join(" "),
                 "const Child = ({ children, ...props }) => `<div><p>${ props.attr }</p>${children}</div>`; const Parent = (props) => ( `${__jsxComponent(Child, [{...props}], `<p>Parent Content</p> <p>Another Content</p>`)}` ); const GrandParent = () => ( `${__jsxComponent(Parent, [{\"attr\":\"Test\"}], `<p>GrandParent Content</p>`)}` ); const result = `${__jsxComponent(GrandParent, [])}`;"
@@ -1056,7 +1052,7 @@ mod tests {
     #[test]
     fn test_boolean_attribute_element() {
         let source = r#"const el = <input type="checkbox" disabled />;"#;
-        let result = jsx_precompile(source).unwrap();
+        let result = jsx_transformer(source).unwrap();
         assert_eq!(result, r#"const el = `<input type="checkbox" disabled/>`;"#);
     }
 
@@ -1222,7 +1218,7 @@ mod tests {
     #[test]
     fn test_jsx_with_dynamic_attributes() {
         let source = "const el = <div className={dynamicClass} {...spread} moto>Content</div>;";
-        let result = jsx_precompile(source).unwrap();
+        let result = jsx_transformer(source).unwrap();
         assert_eq!(
             result,
             "const el = `<div class=\"${dynamicClass}\"${__jsxSpread(spread)} moto>Content</div>`;"
@@ -1232,14 +1228,14 @@ mod tests {
     #[test]
     fn test_attribute_value_single_quotes() {
         let source = r#"const el = <div class='single-quote'></div>;"#;
-        let result = jsx_precompile(source).unwrap();
+        let result = jsx_transformer(source).unwrap();
         assert_eq!(result, "const el = `<div class='single-quote'></div>`;");
     }
 
     #[test]
     fn test_label_html_for() {
         let source = r#"const el = <label htmlFor={data}>My Label<input id="myInput" /></label>;"#;
-        let result = jsx_precompile(source).unwrap();
+        let result = jsx_transformer(source).unwrap();
         assert_eq!(
             result,
             "const el = `<label for=\"${data}\">My Label<input id=\"myInput\"/></label>`;"
@@ -1250,7 +1246,7 @@ mod tests {
     fn test_self_close_element() {
         let source =
             r#"const el = <label htmlFor="myInput">My Label<input id="myInput" /></label>;"#;
-        let result = jsx_precompile(source).unwrap();
+        let result = jsx_transformer(source).unwrap();
         let expected =
             "const el = `<label for=\"myInput\">My Label<input id=\"myInput\"/></label>`;";
         assert_eq!(result, expected);
@@ -1259,7 +1255,7 @@ mod tests {
     #[test]
     fn test_web_components() {
         let source = r#"const el = <my-web-component attr="val" data-custom="5"><slot>Default</slot><h1 slot="header">Title</h1></my-web-component>;"#;
-        let result = jsx_precompile(source).unwrap();
+        let result = jsx_transformer(source).unwrap();
         assert_eq!(
             result,
             "const el = `<my-web-component attr=\"val\" data-custom=\"5\"><slot>Default</slot><h1 slot=\"header\">Title</h1></my-web-component>`;"
@@ -1269,11 +1265,11 @@ mod tests {
     #[test]
     fn test_self_close_component() {
         let source = "const el = <Component/>;";
-        let result = jsx_precompile(source).unwrap();
+        let result = jsx_transformer(source).unwrap();
         assert_eq!(result, "const el = `${__jsxComponent(Component, [])}`;");
 
         let source_with_space = "const el = <Component />;";
-        let result_with_space = jsx_precompile(source_with_space).unwrap();
+        let result_with_space = jsx_transformer(source_with_space).unwrap();
         assert_eq!(
             result_with_space,
             "const el = `${__jsxComponent(Component, [])}`;"
@@ -1283,7 +1279,7 @@ mod tests {
     #[test]
     fn test_underscore_components() {
         let source = "const el = <_CustomComponent prop=\"value\">child</_CustomComponent>;";
-        let result = jsx_precompile(source).unwrap();
+        let result = jsx_transformer(source).unwrap();
         assert_eq!(
             result,
             "const el = `${__jsxComponent(_CustomComponent, [{\"prop\":\"value\"}], `child`)}`;"
@@ -1293,7 +1289,7 @@ mod tests {
     #[test]
     fn test_dollar_sign_components() {
         let source = "const el = <$Component {...props}>content</$Component>;";
-        let result = jsx_precompile(source).unwrap();
+        let result = jsx_transformer(source).unwrap();
         assert_eq!(
             result,
             "const el = `${__jsxComponent($Component, [{...props}], `content`)}`;"
@@ -1303,7 +1299,7 @@ mod tests {
     #[test]
     fn test_nested_special_components() {
         let source = "const el = <_Parent><$Child>nested</$Child></_Parent>;";
-        let result = jsx_precompile(source).unwrap();
+        let result = jsx_transformer(source).unwrap();
         assert_eq!(
             result,
             "const el = `${__jsxComponent(_Parent, [], `${__jsxComponent($Child, [], `nested`)}`)}`;"
@@ -1313,7 +1309,7 @@ mod tests {
     #[test]
     fn test_component_with_multiple_attributes() {
         let source = r#"const el = <Component className="test-class" htmlFor="input-id" onClick={handleClick}>Content</Component>;"#;
-        let result = jsx_precompile(source).unwrap();
+        let result = jsx_transformer(source).unwrap();
         assert_eq!(
             result,
             "const el = `${__jsxComponent(Component, [{\"className\":\"test-class\"},{\"htmlFor\":\"input-id\"},{\"onClick\":handleClick}], `Content`)}`;"
@@ -1323,14 +1319,14 @@ mod tests {
     #[test]
     fn test_jsx_comment_removal() {
         let source = "const el = <div>Hello{/* comment with <tag> */}World</div>;";
-        let result = jsx_precompile(source).unwrap();
+        let result = jsx_transformer(source).unwrap();
         assert_eq!(result, "const el = `<div>HelloWorld</div>`;");
     }
 
     #[test]
     fn test_nested_components_and_element() {
         let source = r#"const el = <ParentComponent attr="val"  moto><ChildComponent {...spread}><div>Inner content</div></ChildComponent></ParentComponent>;"#;
-        let result = jsx_precompile(source).unwrap();
+        let result = jsx_transformer(source).unwrap();
         let expected = "const el = `${__jsxComponent(ParentComponent, [{\"attr\":\"val\"},{\"moto\":true}], `${__jsxComponent(ChildComponent, [{...spread}], `<div>Inner content</div>`)}`)}`;";
         assert_eq!(result, expected);
     }
@@ -1338,7 +1334,7 @@ mod tests {
     #[test]
     fn test_fragment_with_nested_components() {
         let source = r#"const el = <><A>Head</A><A class="n"><B><div>Inner</div></B></A></>;"#;
-        let result = jsx_precompile(source).unwrap();
+        let result = jsx_transformer(source).unwrap();
         let expected = r#"const el = `${__jsxComponent(A, [], `Head`)}${__jsxComponent(A, [{"class":"n"}], `${__jsxComponent(B, [], `<div>Inner</div>`)}`)}`;"#;
         assert_eq!(result, expected);
     }
@@ -1346,7 +1342,7 @@ mod tests {
     #[test]
     fn test_fragment_with_child_text() {
         let source = r#"const el = <><div>First Element</div><span>Second Element</span></>;"#;
-        let result = jsx_precompile(source).unwrap();
+        let result = jsx_transformer(source).unwrap();
         assert_eq!(
             result,
             "const el = `<div>First Element</div><span>Second Element</span>`;"
@@ -1368,7 +1364,7 @@ mod tests {
                 ""
             )}
         </>;"#;
-        let result = jsx_precompile(source).unwrap();
+        let result = jsx_transformer(source).unwrap();
         let expected = r#"const el = `<label>After Image</label> <input type="text"/><span>After Input</span> ${description ? ( `<span>${description}</span>` ) : ( "" )}`;"#;
         assert_eq!(normalize_ws(&result), normalize_ws(expected));
     }
@@ -1376,7 +1372,7 @@ mod tests {
     #[test]
     fn test_seo_component() {
         let source = r#"const el = <A><title>Query - An All-In-One Solution For Your Side-Projects And Startups</title><link rel="stylesheet" href={r}/></A>;"#;
-        let result = jsx_precompile(source).unwrap();
+        let result = jsx_transformer(source).unwrap();
         let expected = "const el = `${__jsxComponent(A, [], `<title>Query - An All-In-One Solution For Your Side-Projects And Startups</title><link rel=\"stylesheet\" href=\"${r}\"/>`)}`;";
 
         assert_eq!(result, expected);
@@ -1385,7 +1381,7 @@ mod tests {
     #[test]
     fn test_nested_elements() {
         let source = r#"const el = <div><span class={classes}><span className={classes1}>Nested 1</span><span className={classes2}>Nested 2</span></span></div>;"#;
-        let result = jsx_precompile(source).unwrap();
+        let result = jsx_transformer(source).unwrap();
         assert_eq!(
             result,
             "const el = `<div><span class=\"${classes}\"><span class=\"${classes1}\">Nested 1</span><span class=\"${classes2}\">Nested 2</span></span></div>`;"
@@ -1395,14 +1391,14 @@ mod tests {
     #[test]
     fn test_dynamic_content() {
         let source = "const el = <div>{dynamicContent}</div>;";
-        let result = jsx_precompile(source).unwrap();
+        let result = jsx_transformer(source).unwrap();
         assert_eq!(result, "const el = `<div>${dynamicContent}</div>`;");
     }
 
     #[test]
     fn test_array_transformations() {
         let source = r#"const el = <div>{items.map(item => <li>{item}</li>)}</div>;"#;
-        let result = jsx_precompile(source).unwrap();
+        let result = jsx_transformer(source).unwrap();
         assert_eq!(
             result,
             "const el = `<div>${__jsxList(items.map(item => `<li>${item}</li>`))}</div>`;"
@@ -1412,21 +1408,21 @@ mod tests {
     #[test]
     fn test_flatten_trivial_nested_template_in_child() {
         let source = "const el = <div>{`${value}`}</div>;";
-        let result = jsx_precompile(source).unwrap();
+        let result = jsx_transformer(source).unwrap();
         assert_eq!(result, "const el = `<div>${value}</div>`;");
     }
 
     #[test]
     fn test_flat_map_and_for_each_transformations() {
         let src1 = r#"const el = <div>{items.flatMap(item => <li>{item}</li>)}</div>;"#;
-        let out1 = jsx_precompile(src1).unwrap();
+        let out1 = jsx_transformer(src1).unwrap();
         assert_eq!(
             out1,
             "const el = `<div>${__jsxList(items.flatMap(item => `<li>${item}</li>`))}</div>`;"
         );
 
         let src2 = r#"const el = <div>{items.forEach(item => <li>{item}</li>)}</div>;"#;
-        let out2 = jsx_precompile(src2).unwrap();
+        let out2 = jsx_transformer(src2).unwrap();
         assert_eq!(
             out2,
             "const el = `<div>${__jsxList(items.forEach(item => `<li>${item}</li>`))}</div>`;"
@@ -1436,14 +1432,14 @@ mod tests {
     #[test]
     fn test_no_empty_interpolation_artifacts() {
         let source = r#"const el = <div>{" "}{value}{""}</div>;"#;
-        let result = jsx_precompile(source).unwrap();
+        let result = jsx_transformer(source).unwrap();
         assert!(!result.contains("${}"));
     }
 
     #[test]
     fn test_loop_component_spread() {
         let source = r#"const el = <div>{posts.map((post) => <Component {...post} />)}</div>;"#;
-        let result = jsx_precompile(source).unwrap();
+        let result = jsx_transformer(source).unwrap();
         assert_eq!(
             result,
             "const el = `<div>${__jsxList(posts.map((post) => `${__jsxComponent(Component, [{...post}])}`))}</div>`;"
@@ -1453,7 +1449,7 @@ mod tests {
     #[test]
     fn test_filter_transformation() {
         let source = r#"const el = <div>{items.filter(item => item.active).map(item => <li>{item.name}</li>)}</div>;"#;
-        let result = jsx_precompile(source).unwrap();
+        let result = jsx_transformer(source).unwrap();
         assert_eq!(
             result,
             "const el = `<div>${__jsxList(items.filter(item => item.active).map(item => `<li>${item.name}</li>`))}</div>`;"
@@ -1463,7 +1459,7 @@ mod tests {
     #[test]
     fn test_reduce_transformation() {
         let source = r#"const el = <div>{items.reduce((acc, item) => acc + item, 0)}</div>;"#;
-        let result = jsx_precompile(source).unwrap();
+        let result = jsx_transformer(source).unwrap();
         assert_eq!(
             result,
             "const el = `<div>${__jsxList(items.reduce((acc, item) => acc + item, 0))}</div>`;"
@@ -1494,7 +1490,7 @@ onChange={() => onToggle(index)}
 </div>)"#
             .trim();
 
-        let result = jsx_precompile(source).unwrap();
+        let result = jsx_transformer(source).unwrap();
         let expected = "const TodoList = ({items, onToggle}) => (\n`<div class=\"${`todo-list ${items.length ? 'has-items' : ''}`}\"><header class=\"todo-header\"><h1>${items.length} Tasks Remaining</h1> <input type=\"text\"${__jsxSpread(inputProps)} placeholder=\"Add new task\"/></header> <ul class=\"todo-items\">${__jsxList(items.map((item, index) => ( `<li key=\"${item.id}\" class=\"${item.completed ? 'completed' : ''}\"><input type=\"checkbox\" checked=\"${item.completed}\" onchange=\"${() => onToggle(index)}\"/> <span class=\"todo-text\">${item.text}</span> <button onclick=\"${() => onDelete(item.id)}\">Delete</button></li>` )))}</ul></div>`)";
 
         assert_eq!(normalize_ws(&result), normalize_ws(expected));
@@ -1548,7 +1544,7 @@ onChange={() => onToggle(index)}
                 </footer>
             </div>
         ;"#;
-        let result = jsx_precompile(input).unwrap();
+        let result = jsx_transformer(input).unwrap();
         let expected = "const el = `<div class=\"${`container ${theme}`}\"><header class=\"${styles.header}\"><h1>${title || \"Default Title\"}</h1> <nav>${__jsxList(menuItems.map((item, index) => ( `<a key=\"${index}\" href=\"${item.href}\" class=\"${`${styles.link} ${currentPath === item.href ? styles.active : ''}`}\">${item.icon && `${__jsxComponent(Icon, [{\"name\":item.icon}])}`} <span>${item.label}</span> ${item.badge && ( `${__jsxComponent(Badge, [{\"count\":item.badge},{\"type\":item.badgeType}])}` )}</a>` )))}</nav> ${user ? ( `<div class=\"${styles.userMenu}\"><img src=\"${user.avatar}\" alt=\"User avatar\"/> <span>${user.name}</span> <button onclick=\"${handleLogout}\">Logout</button></div>` ) : ( `<button class=\"${styles.loginButton}\" onclick=\"${handleLogin}\">Login</button>` )}</header> <main class=\"${styles.main}\">${loading ? ( `<div class=\"${styles.loader}\">${__jsxComponent(Spinner, [{\"size\":\"large\"},{\"color\":theme === 'dark' ? 'white' : 'black'}])}</div>` ) : error ? ( `${__jsxComponent(ErrorMessage, [{\"message\":error},{\"onRetry\":handleRetry}])}` ) : ( `${children}` )}</main> <footer class=\"${styles.footer}\"><p>&copy; ${currentYear} My Application</p></footer></div>`\n        ;";
         assert_eq!(normalize_ws(&result), normalize_ws(expected));
     }
@@ -1556,14 +1552,14 @@ onChange={() => onToggle(index)}
     #[test]
     fn test_multiline_jsx_comment_removal() {
         let source = "const el = <div>Start{/* multi\nline\ncomment */}End</div>;";
-        let result = jsx_precompile(source).unwrap();
+        let result = jsx_transformer(source).unwrap();
         assert_eq!(result, "const el = `<div>StartEnd</div>`;");
     }
 
     #[test]
     fn test_no_angle_brackets_in_entity_string() {
         let source = "const s = '&lt;div&gt;'; const el = <pre>{s}</pre>;";
-        let result = jsx_precompile(source).unwrap();
+        let result = jsx_transformer(source).unwrap();
         assert_eq!(
             result,
             "const s = '&lt;div&gt;'; const el = `<pre>${s}</pre>`;"
@@ -1586,7 +1582,7 @@ onChange={() => onToggle(index)}
  CMD ["npx", "sxo", "start"]`}
             </code>
         </pre>;"#;
-        let result = jsx_precompile(source).unwrap();
+        let result = jsx_transformer(source).unwrap();
         // Basic structural assertions
         assert!(result
             .contains("<pre class=\"bg-secondary/30 p-4 text-sm font-mono overflow-x-auto\">"));
@@ -1608,7 +1604,7 @@ onChange={() => onToggle(index)}
 export function Performance() {
     return (<span>ooo</span>);
 }"#;
-        let result = jsx_precompile(source).unwrap();
+        let result = jsx_transformer(source).unwrap();
         // The angle brackets in the JSX should be transformed to template literals, not escaped
         assert!(result.contains("`<span>ooo</span>`"));
         assert!(!result.contains("\\u003C"));
@@ -1622,7 +1618,7 @@ export function Performance() {
 export function Test() {
     return <div>test</div>;
 }"#;
-        let result = jsx_precompile(source).unwrap();
+        let result = jsx_transformer(source).unwrap();
         assert!(result.contains("`<div>test</div>`"));
         assert!(!result.contains("\\u003C"));
         assert!(!result.contains("\\u003E"));
@@ -1642,7 +1638,7 @@ export function Test() {
     fn test_escape_sequence_preservation() {
         // Focus on expression attribute preserving JS escapes and text content handling of \t and \\.
         let source = r#"const el = <div data-text={"\"Hello\nWorld\\\""}>A\ttabbed\tline. Path: C:\\temp</div>;"#;
-        let result = jsx_precompile(source).unwrap();
+        let result = jsx_transformer(source).unwrap();
         let expected = r#"const el = `<div data-text="${"\"Hello\nWorld\\\""}">A\ttabbed\tline. Path: C:\\temp</div>`;"#;
         assert_eq!(result, expected);
     }
@@ -1712,7 +1708,7 @@ export function Test() {
     #[test]
     fn test_jsx_precompile_aggregated_diagnostics_multiple_errors() {
         let src = "<div>\n<span>ok</div>\n<div class=\"oops>Bad</div>";
-        let err = jsx_precompile(src).expect_err("expected aggregated parsing errors");
+        let err = jsx_transformer(src).expect_err("expected aggregated parsing errors");
         let s = err.to_string();
 
         assert!(s.contains("JSX parsing error:"), "missing header: {s}");
