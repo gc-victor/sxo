@@ -35,7 +35,7 @@ function parseCrateName(manifestPath) {
 }
 
 const crateDir = process.env.CRATE_DIR || ".";
-const outNode = process.env.OUT_NODE || "jsx-precompiler";
+const outNode = process.env.OUT_NODE || "jsx-transformer";
 
 const crateRoot = path.resolve(process.cwd(), crateDir);
 const manifest = path.join(crateRoot, "Cargo.toml");

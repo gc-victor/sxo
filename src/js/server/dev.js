@@ -148,7 +148,7 @@ function esbuild(filename) {
         child.stderr.on("data", (data) => {
             const output = data.toString();
             esbuildError += output;
-            esbuildError = esbuildError.replace("✘ [ERROR] ", "").replace("[plugin jsx-precompile]", "").trim();
+            esbuildError = esbuildError.replace("✘ [ERROR] ", "").replace("[plugin jsx-transform]", "").trim();
         });
 
         child.on("close", () => {

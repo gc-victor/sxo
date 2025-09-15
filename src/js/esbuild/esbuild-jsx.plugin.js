@@ -2,8 +2,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-// Import the WASM-powered JSX precompiler
-import { jsx } from "../../../jsx-precompiler/jsx_precompile.js";
+// Import the WASM-powered JSX transformer
+import { jsx } from "../../../jsx-transformer/jsx_transformer.js";
 
 // Path to helpers (used for the virtual module)
 const HELPERS_PATH = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "./jsx-helpers.js");
@@ -19,13 +19,13 @@ async function getHelpers() {
 
 /**
  * esbuild plugin: esbuild-jsx
- * Precompiles JSX in .jsx/.tsx files using the WASM-powered jsx_precompile.js.
+ * Transforms JSX in .jsx/.tsx files using the WASM-powered jsx_transformer.js.
  */
 export function esbuildJsxPlugin() {
     const filter = /\.(jsx|tsx)$/;
 
     return {
-        name: "jsx-precompile",
+        name: "jsx-transform",
         setup(build) {
             // Register the virtual module for helpers
             build.onResolve({ filter: new RegExp(`^${HELPERS_VIRTUAL_MODULE}$`) }, () => ({
@@ -76,7 +76,7 @@ export function esbuildJsxPlugin() {
 
                 return {
                     // Use jsx/tsx loader so esbuild can still parse any residual JSX the WASM
-                    // precompiler intentionally leaves (e.g. fragments) instead of erroring with "loader: js".
+                    // transformer intentionally leaves (e.g. fragments) instead of erroring with "loader: js".
                     contents: finalOutput,
                     loader: args.path.endsWith(".tsx") ? "tsx" : "jsx",
                 };
