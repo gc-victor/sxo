@@ -1,7 +1,7 @@
 {
     "name": "sxo",
     "version": "0.5.0",
-    "description": "SXO — Minimal server-side JSX framework and CLI. Directory-based routing, hot reload, dual esbuild build outputs (client/server) and a Rust/WASM JSX precompiler.",
+    "description": "SXO — Minimal server-side JSX framework and CLI. Directory-based routing, hot reload, dual esbuild build outputs (client/server) and a Rust/WASM JSX transformer.",
     "keywords": [
         "sxo",
         "server-side-jsx",
