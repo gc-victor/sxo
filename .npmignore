@@ -1,6 +1,6 @@
 *
 !src/js/**/*
-!jsx-precompiler/*
+!jsx-transformer/*
 !README.md
 !CHANGELOG.md
 !LICENSE

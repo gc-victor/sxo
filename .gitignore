@@ -1,7 +1,7 @@
 node_modules/
 **/node_modules/
 dist/
-jsx-precompiler/
+jsx-transformer/
 **/dist/
 *.local
 
