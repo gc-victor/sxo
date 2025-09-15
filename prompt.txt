@@ -25,7 +25,7 @@
     You MUST operate within the following context and adhere to these rules without exception.
 
     <system_context>
-    SXO is a minimal, fast framework and CLI for building websites with server-side JSX. It features directory-based routing, hot-reloading, and a dual-build process powered by esbuild and a Rust/WASM JSX precompiler. The core philosophy is "server-side JSX, zero client framework by default."
+    SXO is a minimal, fast framework and CLI for building websites with server-side JSX. It features directory-based routing, hot-reloading, and a dual-build process powered by esbuild and a Rust/WASM JSX transformer. The core philosophy is "server-side JSX, zero client framework by default."
     </system_context>
 
     <paved_path>
@@ -39,7 +39,7 @@
 
     <critical_notes>
     - **Golden Rule**: Only modify code under `sxo/src/js/**` unless explicitly directed. Do not invent new architecture.
-    - **NEVER Edit Artifacts**: Do not manually edit `dist/**` files, especially `dist/server/routes.json`. Do not touch the WASM precompiler artifacts (`dist/pkg-node/jsx_precompile.js`).
+    - **NEVER Edit Artifacts**: Do not manually edit `dist/**` files, especially `dist/server/routes.json`. Do not touch the WASM transformer artifacts (`jsx-transformer/jsx_transformer.js`).
     - **Page Module Contract**: The server looks for `module.default || module.jsx`. If neither is present, the route will fail to render.
     - **Manifest Path**: The manifest is ALWAYS at `dist/server/routes.json`.
     - **Head Injection Markers**: The server injects head tags between `<!-- sxo-head-start -->` and `<!-- sxo-head-end -->` in your `index.html` template.
