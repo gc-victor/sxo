@@ -3,8 +3,9 @@ const CAMEL_PROPS =
 const CAMEL_REPLACE = /[A-Z0-9]/g;
 const ON_ANI = /^on(Ani|Tra|Tou|BeforeInp|Compo)/;
 
-function __jsxTemplate(string) {
-    return string.replace(/>,\s*</g, "><");
+function __jsxList(value) {
+    if (Array.isArray(value)) return value.join("");
+    return value == null ? "" : value;
 }
 
 function __jsxComponent(Component, props, children) {
@@ -71,4 +72,4 @@ function normalizeAttributeName(name) {
 
 globalThis.__jsxComponent = __jsxComponent;
 globalThis.__jsxSpread = __jsxSpread;
-globalThis.__jsxTemplate = __jsxTemplate;
+globalThis.__jsxList = __jsxList;

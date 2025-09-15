@@ -3,19 +3,19 @@ import { test } from "node:test";
 import "./jsx-helpers.js";
 
 test("should handle basic static template", () => {
-    const result = __jsxTemplate("<div>Hello</div>");
+    const result = __jsxList("<div>Hello</div>");
     assert.strictEqual(result.toString(), "<div>Hello</div>");
 });
 
 test("should handle template with dynamic values", () => {
     const dynamicClass = "active";
-    const result = __jsxTemplate(`<div class="${dynamicClass}">Content</div>`);
+    const result = __jsxList(`<div class="${dynamicClass}">Content</div>`);
     assert.strictEqual(result.toString(), '<div class="active">Content</div>');
 });
 
 test("should handle nested elements with dynamic content", () => {
     const items = ["one", "two"];
-    const result = __jsxTemplate(`<div class="test"><ul>${items.map((item) => __jsxTemplate(`<li>${item}</li>`))}</ul></div>`);
+    const result = `<div class="test"><ul>${__jsxList(items.map((item) => `<li>${item}</li>`))}</ul></div>`;
     assert.strictEqual(result.toString(), '<div class="test"><ul><li>one</li><li>two</li></ul></div>');
 });
 
@@ -44,8 +44,8 @@ test("should handle component with props and children", () => {
 });
 
 test("should handle nested component composition", () => {
-    const Child = ({ children, ...props }) => __jsxTemplate(`<div><p>${props.attr}</p>${children}</div>`);
-    const Parent = (props) => __jsxComponent(Child, [props], __jsxTemplate("<p>Parent Content</p><p>Another Content</p>"));
+    const Child = ({ children, ...props }) => `<div><p>${props.attr}</p>${children}</div>`;
+    const Parent = (props) => __jsxComponent(Child, [props], "<p>Parent Content</p><p>Another Content</p>");
     const GrandParent = () => __jsxComponent(Parent, [{ attr: "Test" }]);
     const result = __jsxComponent(GrandParent, []);
     assert.strictEqual(result.toString(), "<div><p>Test</p><p>Parent Content</p><p>Another Content</p></div>");
@@ -87,29 +87,32 @@ test("should handle complex jsx with conditions", () => {
     const Icon = (props) => `<i>${props.name}</i>`;
     const Badge = (props) => `<span type="${props.type}">${props.count}</span>`;
 
-    const result = __jsxTemplate(`
+    const result = `
         <div class="${`container ${mockTheme}`}">
             <header class="${mockStyles.header}">
                 <h1>${"Default Title"}</h1>
-                <nav>${mockMenuItems.map((item, index) =>
-                    __jsxTemplate(`<a key="${index}" href="${item.href}" class="${`${mockStyles.link} ${mockCurrentPath === item.href ? mockStyles.active : ""}`}">
+                <nav>${__jsxList(
+                    mockMenuItems.map(
+                        (item, index) =>
+                            `<a key="${index}" href="${item.href}" class="${`${mockStyles.link} ${mockCurrentPath === item.href ? mockStyles.active : ""}`}">
                         ${item.icon && __jsxComponent(Icon, { name: item.icon })}
                         <span>${item.label}</span>
                         ${item.badge ? __jsxComponent(Badge, { count: item.badge, type: item.badgeType }) : ""}
-                    </a>`),
+                    </a>`,
+                    ),
                 )}</nav>
                 ${
                     mockUser
-                        ? __jsxTemplate(`<div class="user-menu">
+                        ? `<div class="user-menu">
                         <img src="${mockUser.avatar}" alt="User avatar" />
                         <span>${mockUser.name}</span>
                         <button onclick="handleLogout">Logout</button>
-                    </div>`)
-                        : __jsxTemplate(`<button class="login-button" onclick="handleLogin">Login</button>`)
+                    </div>`
+                        : `<button class="login-button" onclick="handleLogin">Login</button>`
                 }
             </header>
         </div>
-    `);
+    `;
 
     const expected =
         '<div class="container light"><header class="header-class"><h1>Default Title</h1><nav><a key="0" href="/home" class="link-class active-class"><i>home</i><span>Home</span></a><a key="1" href="/profile" class="link-class "><i>user</i><span>Profile</span><span type="notification">3</span></a></nav><div class="user-menu"><img src="/avatar.jpg" alt="User avatar" /><span>John Doe</span><button onclick="handleLogout">Logout</button></div></header></div>';
