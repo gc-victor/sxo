@@ -18,5 +18,5 @@ console_error_panic_hook = ["dep:console_error_panic_hook"]
 wasm-bindgen = "0.2.101"
 console_error_panic_hook = { version = "0.1", optional = true }
 regex = "1.11.2"
-serde = { version = "1.0.223", features = ["derive"] }
+serde = { version = "1.0.224", features = ["derive"] }
 serde_json = "1.0.145"
