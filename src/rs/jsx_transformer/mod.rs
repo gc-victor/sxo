@@ -6,6 +6,7 @@ pub use errors::{JSXError, JSXErrorKind};
 
 use crate::jsx_parser::Parser;
 use regex::Regex;
+use std::sync::LazyLock;
 use transform::transform_to_template;
 
 // Common constants used across the transformer.
@@ -68,11 +69,29 @@ pub fn jsx_transformer(source: &str) -> Result<String, JSXError> {
     Ok(out.replace("${}", EMPTY_STRING))
 }
 
-// Strips JSX-style inline comments from the source: {/* ... */}
+// Compile regex patterns once at runtime
+// Matches JSX comments of the form {/* ... */}
+static JSX_COMMENT_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?s)\{/\*.*?\*/\}").expect("Invalid JSX comment regex"));
+
+// Matches block comments like /* ... */ (including /** ... */)
+static BLOCK_COMMENT_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?s)/\*.*?\*/").expect("Invalid block comment regex"));
+
+// Matches line comments starting with //
+static LINE_COMMENT_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?m)//.*?$").expect("Invalid line comment regex"));
+
 #[inline]
 fn remove_jsx_comments(source: &str) -> String {
-    let re = Regex::new(r"(?s)\{/\*.*?\*/\}").unwrap();
-    re.replace_all(source, "").into_owned()
+    // Remove JSX-style comments: {/* ... */}
+    let after_jsx = JSX_COMMENT_RE.replace_all(source, "");
+
+    // Remove block comments: /* ... */ and /** ... */
+    let after_block = BLOCK_COMMENT_RE.replace_all(&after_jsx, "");
+
+    // Remove line comments: // ...
+    LINE_COMMENT_RE.replace_all(&after_block, "").into_owned()
 }
 
 // Pretty diagnostic formatter for parser errors with line/column and caret.
