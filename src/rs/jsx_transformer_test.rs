@@ -807,3 +807,131 @@ fn test_jsx_precompile_aggregated_diagnostics_multiple_errors() {
         "missing unterminated: {s}"
     );
 }
+
+#[test]
+fn test_jsdoc_comment_with_jsx_like_syntax() {
+    // This tests the specific issue reported where JSDoc comments containing
+    // JSX-like syntax (e.g., <head> tags) were being parsed as JSX
+    let source = r#"/**
+ * NOTE: SXO server page using JSX (no template strings, no Preact/React).
+ * The default export returns JSX that SXO renders on the server.
+ * `head` is an object SXO maps to <head> tags.
+ */
+
+export const head = { title: "Test Page" };
+
+export default function TestPage() {
+    return <div>Hello World</div>;
+}"#;
+
+    let result = jsx_transformer(source).unwrap();
+
+    // Should not throw an error about unclosed <head> tag
+    assert!(result.contains("export const head"));
+    assert!(result.contains("export default function TestPage"));
+    assert!(result.contains("`<div>Hello World</div>`"));
+
+    // Comments should be removed, leaving clean code
+    assert!(!result.contains("NOTE"));
+    assert!(!result.contains("<head> tags"));
+}
+
+#[test]
+fn test_multiple_comment_types_with_jsx_syntax() {
+    let source = r#"/**
+ * JSDoc with <header>JSX</header>
+ */
+
+/* Block comment with <span>JSX</span> */
+// Line comment with <div>JSX</div>
+{/* JSX comment with <footer>JSX</footer> */}
+
+export default () => <p>Content</p>;"#;
+
+    let result = jsx_transformer(source).unwrap();
+
+    // Should not throw parsing errors
+    assert!(result.contains("`<p>Content</p>`"));
+
+    // All comments should be removed
+    assert!(!result.contains("JSDoc with"));
+    assert!(!result.contains("Block comment"));
+    assert!(!result.contains("Line comment"));
+    assert!(!result.contains("JSX comment"));
+}
+
+#[test]
+fn test_line_comments_multiline_handling() {
+    let source = r#"// First line comment with <div>JSX</div>
+// Second line comment with <span>more JSX</span>
+export default () => <main>Content</main>;"#;
+
+    let result = jsx_transformer(source).unwrap();
+
+    // Should transform the actual JSX
+    assert!(result.contains("`<main>Content</main>`"));
+
+    // Line comments should be removed
+    assert!(!result.contains("First line comment"));
+    assert!(!result.contains("Second line comment"));
+}
+
+#[test]
+fn test_nested_jsx_in_comments() {
+    let source = r#"/**
+ * Complex example: <Component prop={<Child />} />
+ * More complex: {items.map(item => <Item key={item.id} />)}
+ */
+export default () => <section>Test</section>;"#;
+
+    let result = jsx_transformer(source).unwrap();
+
+    // Should not throw parsing errors despite complex JSX in comments
+    assert!(result.contains("`<section>Test</section>`"));
+
+    // Complex JSX in comments should be removed
+    assert!(!result.contains("Complex example"));
+    assert!(!result.contains("More complex"));
+}
+
+#[test]
+fn test_comments_preserve_jsx_in_template_literals() {
+    let source = r#"// Comment with <div>fake JSX</div>
+export default () => {
+  const template = `<span>real JSX in template</span>`;
+  return <div>{template}</div>;
+};"#;
+
+    let result = jsx_transformer(source).unwrap();
+
+    // Should preserve the template literal
+    assert!(result.contains("`<span>real JSX in template</span>`"));
+
+    // Should transform the JSX return
+    assert!(result.contains("`<div>${template}</div>`"));
+
+    // Comment should be removed
+    assert!(!result.contains("Comment with"));
+}
+
+#[test]
+fn test_mixed_comment_and_jsx_expressions() {
+    let source = r#"/* Comment with <Component attr="value" /> */
+export default () => (
+  <div>
+    {/* Inline JSX comment with <span>content</span> */}
+    <p>Real content</p> // Inline comment
+  </div>
+);"#;
+
+    let result = jsx_transformer(source).unwrap();
+
+    // Should transform real JSX
+    assert!(result.contains("`<div>"));
+    assert!(result.contains("<p>Real content</p>"));
+
+    // Comments should be removed
+    assert!(!result.contains("Comment with"));
+    assert!(!result.contains("Inline JSX comment"));
+    assert!(!result.contains("Inline comment"));
+}
