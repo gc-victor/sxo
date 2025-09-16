@@ -1,3 +1,13 @@
+## [0.6.1] - 2025-09-16
+
+### 🐛 Bug Fixes
+
+- *(js)* Robust comment removal in JSX transformer
+
+### 🧪 Testing
+
+- *(jsx)* Add tests for comment removal and JSX parsing edge cases
+
 ## [0.6.0] - 2025-09-16
 
 ### 🚀 Features
