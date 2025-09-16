@@ -1,3 +1,41 @@
+## [0.6.0] - 2025-09-16
+
+### 🚀 Features
+
+- *(config)* Make per-route client entry subdirectory configurable via clientDir
+- *(cli)* Add --client-dir option and include in explicit flag set
+- *(jsx)* Introduce __jsxList helper for array rendering
+- *(jsx)* [**breaking**] Migrate to Rust/WASM JSX transformer
+
+### 🚜 Refactor
+
+- *(hot-reload)* Replace NodeList.forEach with for...of during state restoration
+- *(jsx)* Remove jsx_extractor module
+- *(jsx)* Implement streaming jsx parser
+- *(jsx)* Overhaul precompiler to use streaming parser
+- *(build)* Adopt transformer in esbuild plugin and dev server
+- *(jsx)* Modularize jsx_parser into separate modules
+- *(jsx)* Modularize jsx_transformer into separate modules
+- *(jsx)* Update mod.rs to include test modules
+
+### 📚 Documentation
+
+- Document configurable clientDir and update examples/CLI/env tables
+- Add prompt.txt assistant persona and SXO framework context
+- *(transformer)* Update docs and prompts for transformer + artifact path
+
+### 🧪 Testing
+
+- *(config,cli)* Cover clientDir defaults, env/file/flag precedence, and explicitness
+- *(jsx)* Add comprehensive test suites for modular JSX components
+
+### ⚙️ Miscellaneous Tasks
+
+- *(make)* Remove stray blank lines
+- *(repo)* Update ignore and npm packaging for transformer artifacts
+- *(pkg)* Update package description for transformer
+- *(dev)* Add Cargo dependency updater script
+
 ## [0.5.0] - 2025-09-03
 
 ### 🚀 Features
