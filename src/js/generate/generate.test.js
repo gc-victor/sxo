@@ -150,7 +150,7 @@ test("generate (CLI): invalid SSR export (no default/jsx function) -> exits non-
     assert.match(out, /No valid export found/i);
 });
 
-test("generate (CLI): SSR returns non-HTML -> exits non-zero and reports error", async () => {
+test("generate (CLI): SSR returns non-HTML -> treats as fragment and exits cleanly", async () => {
     const tmpRoot = await makeTempDir();
     const outDir = path.join(tmpRoot, "dist");
     const outServer = path.join(outDir, "server");
@@ -169,8 +169,8 @@ test("generate (CLI): SSR returns non-HTML -> exits non-zero and reports error",
     });
 
     const out = stdout + stderr;
-    assert.notEqual(code, 0);
-    assert.match(out, /must return an <html> tag/i);
+    assert.equal(code, 0);
+    assert.match(out, /fragment, not html file generated/i);
 });
 
 test("generate (CLI): successful generation writes doctype, HTML, and sets generated flag", async () => {
