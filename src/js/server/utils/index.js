@@ -13,15 +13,4 @@ export { injectAssets, injectCss, injectJs, normalizePublicPath } from "./inject
 import { routeMatch, SLUG_REGEX } from "./route-match.js";
 import { statics } from "./statics.js";
 
-export {
-    DIV_APP_REGEX,
-    TITLE_REGEX,
-    SLUG_REGEX,
-    routeMatch,
-    escapeHtml,
-    renderErrorHtml,
-    jsxBundlePath,
-    statics,
-    httpLogger,
-    logger,
-};
+export { DIV_APP_REGEX, TITLE_REGEX, SLUG_REGEX, routeMatch, escapeHtml, renderErrorHtml, jsxBundlePath, statics, httpLogger, logger };
