@@ -1356,7 +1356,7 @@ fn collect_jsx_slices(source: &str) -> Vec<String> {
 
 #[test]
 fn collector_jsx_doctype_handling() {
-    let input = r#"<!DOCTYPE html><html lang="en">Test</html>"#;
+    let input = r#"<!doctype html><html lang="en">Test</html>"#;
     let slices = collect_jsx_slices(input);
     assert_eq!(slices, vec!["<html lang=\"en\">Test</html>".to_string()]);
 }
