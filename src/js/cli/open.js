@@ -24,7 +24,7 @@ import { spawn } from "node:child_process";
  */
 export function buildUrl(opts = {}) {
     const protocol = (opts.protocol || "http").replace(/:$/, "");
-    if (protocol !== "http" && protocol !== "https" && protocol !== "https:") {
+    if (protocol !== "http" && protocol !== "https") {
         throw new Error(`Invalid protocol: ${protocol}. Must be http or https.`);
     }
     const host = opts.host || "localhost";
