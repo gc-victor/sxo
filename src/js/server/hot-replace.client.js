@@ -6,7 +6,7 @@
 //
 // Scroll restoration:
 // - Body scroll plus any element with data-hot-replace-scroll attribute is captured.
-// - After page (#page) innerHTML replacement, scroll is restored.
+// - After body innerHTML replacement, scroll is restored.
 
 let evSource;
 const HRC_STATE_GLOBAL_KEY = "___hrcStates"; // window.___hrcStates = Map<hrcId, stateObj>
@@ -64,13 +64,11 @@ function onHotMessage(e) {
         console.log(`${logTimer()}::[hot-replace] - preserved reactive states:`, preservedStates.size);
     }
 
-    // Replace page content
-    const pageEl = document.getElementById("page");
-    if (!pageEl) {
-        console.warn(`${logTimer()}::[hot-replace] - #page container missing; aborting content swap`);
-        return;
-    }
-    pageEl.innerHTML = data.page || "";
+    // Remove old hot-replace-injected route scripts (heuristic)
+    document.body.querySelectorAll("script[data-hr]").forEach((script) => script.remove());
+
+    // Replace body content
+    document.body.innerHTML = data.body || "";
 
     // Replace scripts (will also re-execute page logic)
     scripts(data);
@@ -87,55 +85,61 @@ function onHotMessage(e) {
 /* ----------------------------- Scripts Handling ---------------------------- */
 
 function scripts(data) {
-    if (!data.scripts || !Array.isArray(data.scripts)) return;
+    if (!data?.assets?.js?.length) return;
 
-    // Remove old hot-replace-injected route scripts (heuristic)
-    const oldScripts = document.querySelectorAll('script[src*="index.js"]');
-    for (let i = 0; i < oldScripts.length; i++) {
-        oldScripts[i].remove();
-    }
+    const paths = data.assets.js;
+    const publicPath = data.publicPath || "";
 
-    data.scripts.forEach((scriptData) => {
-        const attr = scriptData.attributes || {};
+    paths.forEach((path) => {
+        const src = publicPath + path;
         const script = document.createElement("script");
-        Object.entries(attr).forEach(([key, value]) => {
-            // boolean true -> attribute present (empty string)
-            script.setAttribute(key, value === true ? "" : value);
-        });
+        script.type = "module";
+        script.src = `${src}?${Date.now()}`;
+        script.dataset.hr = "true";
 
         script.addEventListener("load", () => {
-            console.log(`${logTimer()}::[hot-replace] - script loaded:`, attr.src);
+            console.log(`${logTimer()}::[hot-replace] - script loaded:`, src);
             // Additional attempt to restore state after a script loads (in case components defined late)
             scheduleStateRestoration(50);
         });
         script.addEventListener("error", (err) => {
-            console.error(`${logTimer()}::[hot-replace] - script failed:`, attr.src, err);
+            console.error(`${logTimer()}::[hot-replace] - script failed:`, src, err);
         });
 
-        const where = scriptData.location === "head" ? document.head : document.body;
-        where.appendChild(script);
+        document.body.appendChild(script);
     });
 }
 
 /* ------------------------------ Styles Handling ---------------------------- */
 
 function styles(data) {
-    if (!data.link?.attributes) return;
+    if (!data?.assets?.css?.length) return;
 
-    const newLink = document.createElement("link");
-    for (const [k, v] of Object.entries(data.link.attributes)) {
-        newLink.setAttribute(k, v);
-    }
-    const oldLink = document.querySelector('link[href*="global.css"]');
-    document.head.appendChild(newLink);
+    const paths = data.assets.css;
+    const publicPath = data.publicPath || "";
 
-    console.log(`${logTimer()}::[hot-replace] - style updated:`, newLink.getAttribute("href"));
+    paths.forEach((path) => {
+        const href = publicPath + path;
+        const newLink = document.createElement("link");
+        newLink.rel = "stylesheet";
+        newLink.href = href;
 
-    if (oldLink) {
-        setTimeout(() => {
-            oldLink.remove();
-        }, 250);
-    }
+        newLink.addEventListener("load", () => {
+            console.log(`${logTimer()}::[hot-replace] - style loaded:`, href);
+        });
+        newLink.addEventListener("error", (err) => {
+            console.error(`${logTimer()}::[hot-replace] - style failed:`, href, err);
+        });
+
+        const oldLink = document.querySelector(`link[href="${href}"]`);
+        document.head.appendChild(newLink);
+
+        if (oldLink) {
+            setTimeout(() => {
+                oldLink.remove();
+            }, 250);
+        }
+    });
 }
 
 /* -------------------- Custom Element Redefinition & State ------------------ */

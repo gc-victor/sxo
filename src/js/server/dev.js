@@ -3,34 +3,12 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import {
-    DANGER_OUTPUT_DIR,
-    ESBUILD_CONFIG_FILE,
-    OUTPUT_DIR_CLIENT,
-    PAGES_DIR,
-    PORT,
-    ROUTES_FILE,
-    ROUTES_RELATIVE_PATH,
-} from "../constants.js";
+import { DANGER_OUTPUT_DIR, ESBUILD_CONFIG_FILE, PAGES_DIR, PORT, ROUTES_FILE, ROUTES_RELATIVE_PATH } from "../constants.js";
 import { loadUserDefinedMiddlewares, runMiddleware } from "./middleware.js"; // AIDEV-NOTE: middleware runner integration
-import {
-    applyHead,
-    extractLinkTag,
-    extractScriptTags,
-    httpLogger,
-    injectPageContent,
-    jsxBundlePath,
-    logger,
-    renderErrorHtml,
-    routeMatch,
-    statics,
-} from "./utils/index.js";
+import { httpLogger, injectCss, jsxBundlePath, logger, normalizePublicPath, renderErrorHtml, routeMatch, statics } from "./utils/index.js";
 
 const YELLOW = "\x1b[33m";
 const RESET = "\x1b[0m";
-
-// AIDEV-NOTE: Built-in CORS handling removed in dev server. Users now add a CORS middleware
-// inside PAGES_DIR/middleware.js (see example) to set CORS headers and handle OPTIONS.
 
 let esbuildError = "";
 await esbuild();
@@ -170,13 +148,12 @@ const debouncedReloadDist = debounce(async () => {
         try {
             let data;
             if (esbuildError) {
-                data = JSON.stringify({ html: renderErrorHtml(`✘ [ERROR] ${esbuildError}`) });
+                data = JSON.stringify({ body: renderErrorHtml(esbuildError) });
                 esbuildError = "";
             } else {
                 data = await hotReplaceData(client);
             }
-            const message = `id: hot-replace\ndata: ${data}\nretry: 200\n\n`;
-            client.res.write(message);
+            client.res.write(`id: hot-replace\ndata: ${data}\nretry: 250\n\n`);
         } catch (err) {
             logger.error(`Error broadcasting hot reload: ${err}`);
         }
@@ -224,10 +201,9 @@ const server = http.createServer(async (req, res) => {
         // Send initial payload
         (async () => {
             try {
-                const data = await hotReplaceData(client);
-                res.write(`id: hot-replace\ndata: ${data}\nretry: 250\n\n`);
+                res.write(`id: hot-replace\ndata: ${await hotReplaceData(client)}\nretry: 250\n\n`);
             } catch (err) {
-                const data = JSON.stringify({ html: renderErrorHtml(err.message) });
+                const data = JSON.stringify({ body: renderErrorHtml(err.message) });
                 res.write(`id: hot-replace\ndata: ${data}\nretry: 250\n\n`);
             }
         })();
@@ -237,8 +213,6 @@ const server = http.createServer(async (req, res) => {
         });
     } else {
         httpLogger(req, res);
-
-        // AIDEV-NOTE: CORS headers are no longer applied here; add a CORS middleware in pages/middleware.js.
 
         // Handle preflight OPTIONS requests
         if (req.method === "OPTIONS") {
@@ -301,54 +275,51 @@ const server = http.createServer(async (req, res) => {
         }
 
         const { route, params } = found;
-        const htmlPath = path.resolve(OUTPUT_DIR_CLIENT, route.filename);
-        fs.readFile(htmlPath, "utf-8", async (err, html) => {
-            if (err) {
-                res.writeHead(500, { "Content-Type": "text/plain" });
-                res.end(`Failed to load ${route.filename}`);
-                return;
-            }
+        let page;
 
-            let page;
-            try {
-                const jsxFn = await loadJsxModule(route.jsx);
-                const jsxResult = await jsxFn(params);
+        try {
+            const jsxFn = await loadJsxModule(route.jsx);
+            page = await jsxFn(params);
+        } catch (e) {
+            // Handle JSX rendering errors
+            res.writeHead(400, { "Content-Type": "text/html" });
+            res.end(renderErrorHtml(e.message));
+            return;
+        }
 
-                // Replace <script type="module"> with <script type="text/hot-script">
-                html = html.replace(/<script([^>]*?)type=["']module["']([^>]*)>/g, '<script$1type="text/hot-script"$2>');
-                page = injectPageContent(html, jsxResult);
-
-                // AIDEV-NOTE: Apply new head export (object or function) to document head (idempotent)
-                const modulePath = jsxBundlePath(route.jsx);
-                const moduleUrl = `${pathToFileURL(modulePath).href}?t=${Date.now()}`;
-                const module = await import(moduleUrl);
-                page = applyHead(page, module.head, params);
-            } catch (e) {
-                // Use consistent injection helper. `renderErrorHtml` returns a full container,
-                const errHtml = renderErrorHtml(e.message);
-                page = injectPageContent(html, errHtml);
-            }
-
-            // Hot-replace client script to inject
-            const hotReplaceScript = `
-                <script type="module" data-skip-hot-replace="true">
-                    import { hotReplace } from "/hot-replace.js";
-                    hotReplace('${pathname}');
-                </script>
-            `;
-            page = page.replace(/<\/head>/i, `${hotReplaceScript}\n</head>`);
+        const isHtml = /^<html[\s>]/i.test(page);
+        if (!isHtml) {
             res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
             res.end(page);
-        });
+            return;
+        }
+
+        // Inject built assets for non-generated routes
+        const publicPath = normalizePublicPath(process.env.PUBLIC_PATH ?? "/");
+        if (route?.assets?.css && isHtml) {
+            page = injectCss(page, route.assets.css, publicPath);
+        }
+
+        const hotReplaceScript = `
+            <script type="module">
+                import { hotReplace } from "/hot-replace.js";
+                hotReplace('${pathname}');
+            </script>
+        `;
+        page = page.replace(/<\/head>/i, `${hotReplaceScript}\n</head>`);
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        res.end(`<!doctype html>\n${page}`);
     }
 });
 
 async function hotReplaceData(client) {
-    const htmlPath = path.resolve(OUTPUT_DIR_CLIENT, client.route.filename);
-    const html = fs.readFileSync(htmlPath, "utf-8");
     const jsxFn = await loadJsxModule(client.route.jsx, true);
-    const page = await jsxFn(client.params);
-    return JSON.stringify({ page, link: extractLinkTag(html), scripts: extractScriptTags(html) });
+    const jsxResult = await jsxFn(client.params);
+
+    const mFull = jsxResult.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+    const body = mFull ? mFull[1] : "";
+
+    return JSON.stringify({ body, assets: client.route.assets, publicPath: normalizePublicPath(process.env.PUBLIC_PATH ?? "/") });
 }
 
 server.listen(PORT, () => {
