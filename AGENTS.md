@@ -3,7 +3,8 @@
 ## Info
 
 - **Project**: sxo
-- **Last Update**: 2025-09-15
+- **Last Update**: 2025-09-19
+- **Rules**: `.rules/`
 
 ## Purpose
 
@@ -36,6 +37,7 @@ Authoritative onboarding & guard-rails for AI + human contributors. Read fully b
 - Avoid mega-refactors (>300 LOC or >3 files) without confirmation.
 - Never touch generated artifacts (`dist/**`, WASM outputs).
 - Keep edits task-focused; new task resets previous context.
+- Review the repository rules under `.rules/` before non-trivial changes.
 
 ---
 
@@ -278,7 +280,7 @@ Granular suites:
 - Utils (split: asset extraction, routing, statics security)
 - JSX helpers (attribute canonicalization)
 
-Add new test file when adding a discrete subsystem; keep responsibilities narrow.
+Add new test file when adding a discrete subsystem; keep responsibilities narrow. Read `.rules/testing.instructions.md` for detailed testing guidelines.
 
 ---
 
