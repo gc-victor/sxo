@@ -24,6 +24,9 @@ import { spawn } from "node:child_process";
  */
 export function buildUrl(opts = {}) {
     const protocol = (opts.protocol || "http").replace(/:$/, "");
+    if (protocol !== "http" && protocol !== "https" && protocol !== "https:") {
+        throw new Error(`Invalid protocol: ${protocol}. Must be http or https.`);
+    }
     const host = opts.host || "localhost";
     const port = opts.port ? String(opts.port) : "";
     let pathname = opts.pathname || "/";
@@ -186,6 +189,14 @@ async function openURL(url, opts = {}) {
     let cmd;
     let args = [];
 
+    // Validate URL to prevent command injection vectors
+    if (typeof url !== "string" || (!url.startsWith("http:") && !url.startsWith("https"))) {
+        throw new Error("Invalid URL: must be an http or https URL.");
+    }
+    if (/[\r\n]/.test(url)) {
+        throw new Error("Invalid URL: contains control characters.");
+    }
+
     if (app?.name) {
         cmd = String(app.name);
         args = [...(Array.isArray(app.arguments) ? app.arguments : []), url];
@@ -194,7 +205,7 @@ async function openURL(url, opts = {}) {
         args = ["/c", "start", "", url];
     } else if (platform === "darwin") {
         cmd = "open";
-        args = [url];
+        args = ["--", url];
     } else {
         cmd = "xdg-open";
         args = [url];
