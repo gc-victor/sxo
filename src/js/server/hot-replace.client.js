@@ -64,9 +64,6 @@ function onHotMessage(e) {
         console.log(`${logTimer()}::[hot-replace] - preserved reactive states:`, preservedStates.size);
     }
 
-    // Remove old hot-replace-injected route scripts (heuristic)
-    document.body.querySelectorAll("script[data-hr]").forEach((script) => script.remove());
-
     // Replace body content
     document.body.innerHTML = data.body || "";
 
@@ -95,7 +92,6 @@ function scripts(data) {
         const script = document.createElement("script");
         script.type = "module";
         script.src = `${src}?${Date.now()}`;
-        script.dataset.hr = "true";
 
         script.addEventListener("load", () => {
             console.log(`${logTimer()}::[hot-replace] - script loaded:`, src);
