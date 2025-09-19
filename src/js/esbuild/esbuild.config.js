@@ -1,10 +1,10 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { htmlPlugin } from "@craftamap/esbuild-plugin-html";
 import esbuild from "esbuild";
 import { OUTPUT_DIR_CLIENT, OUTPUT_DIR_SERVER, PAGES_DIR, ROUTES_FILE, SRC_DIR } from "../constants.js";
 import { entryPointsConfig } from "./entry-points-config.js";
 import { esbuildJsxPlugin } from "./esbuild-jsx.plugin.js";
+import { esbuildMetafilePlugin } from "./esbuild-metafile.plugin.js";
 
 try {
     const config = entryPointsConfig();
@@ -45,17 +45,14 @@ try {
             minify: minify,
             sourcemap: sourcemap,
             publicPath: process.env.PUBLIC_PATH ?? "/",
+            metafile: true,
             loader: loaders,
             alias: {
                 "@components": path.join(SRC_DIR, "components"),
                 "@pages": PAGES_DIR,
                 "@utils": path.join(SRC_DIR, "utils"),
             },
-            plugins: [
-                htmlPlugin({
-                    files: config,
-                }),
-            ],
+            plugins: [esbuildMetafilePlugin()],
         }),
         // Server (private SSR) build
         esbuild.build({
@@ -78,4 +75,7 @@ try {
             plugins: [esbuildJsxPlugin()],
         }),
     ]);
-} catch (_) {}
+} catch (error) {
+    console.error("Build failed:", error);
+    process.exit(1);
+}

@@ -94,8 +94,6 @@ test("root index.html route", () => {
     assert.equal(f.jsx, path.join(relPagesDir, "index.tsx"));
     assert.deepEqual(f.entryPoints, [path.join(relPagesDir, "client", "index.js"), "src/js/esbuild/fixtures/pages/global.css"]);
     assert.ok(!f.path, "root should not have path field");
-    // All routes use the root index.html as template
-    assert.match(f.htmlTemplate, /root/);
 });
 
 test("about/index.tsx route", () => {
@@ -104,8 +102,6 @@ test("about/index.tsx route", () => {
     assert.equal(f.jsx, path.join(relPagesDir, "about", "index.tsx"));
     assert.deepEqual(f.entryPoints, [path.join(relPagesDir, "about", "client", "index.js"), "src/js/esbuild/fixtures/pages/global.css"]);
     assert.equal(f.path, "about");
-    // All routes use the root index.html as template
-    assert.match(f.htmlTemplate, /root/);
 });
 
 test("blog/[slug]/index.tsx dynamic route", () => {
@@ -117,8 +113,6 @@ test("blog/[slug]/index.tsx dynamic route", () => {
         "src/js/esbuild/fixtures/pages/global.css",
     ]);
     assert.equal(f.path, "blog/[slug]");
-    // All routes use the root index.html as template
-    assert.match(f.htmlTemplate, /root/);
 });
 
 test("no-dynamic/no-dynamic/index.tsx nested static route", () => {
@@ -130,8 +124,6 @@ test("no-dynamic/no-dynamic/index.tsx nested static route", () => {
         "src/js/esbuild/fixtures/pages/global.css",
     ]);
     assert.equal(f.path, "no-dynamic/no-dynamic");
-    // All routes use the root index.html as template
-    assert.match(f.htmlTemplate, /root/);
 });
 
 test("no-dynamic/[slug]/index.tsx nested dynamic route", () => {
@@ -143,6 +135,4 @@ test("no-dynamic/[slug]/index.tsx nested dynamic route", () => {
         "src/js/esbuild/fixtures/pages/global.css",
     ]);
     assert.equal(f.path, "no-dynamic/[slug]");
-    // All routes use the root index.html as template
-    assert.match(f.htmlTemplate, /root/);
 });
