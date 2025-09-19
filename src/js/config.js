@@ -23,7 +23,7 @@ import dotenv from "dotenv";
  * @typedef {Object} ResolveOptions
  * @property {string} [cwd]
  * @property {Record<string, any>} [flags]
- * @property {Record<string, boolean>} [flagsExplicit] // AIDEV-NOTE: true if user explicitly provided the flag
+ * @property {Record<string, boolean>} [flagsExplicit] // true if user explicitly provided the flag
  * @property {"dev"|"build"|"start"|"preview"|"clean"} [command]
  *
  * @typedef {Object} SXOResolvedConfig
@@ -50,7 +50,7 @@ export async function resolveConfig(opts = {}) {
     const cwd = opts.cwd || process.cwd();
     const command = opts.command || "dev";
     const flags = opts.flags || {};
-    // AIDEV-NOTE: If provided by the caller, only explicit flags will override file/env/defaults
+    // If provided by the caller, only explicit flags will override file/env/defaults
     const flagsExplicit = opts.flagsExplicit && typeof opts.flagsExplicit === "object" ? opts.flagsExplicit : null;
 
     // 1) Load dotenv (non-destructive)
