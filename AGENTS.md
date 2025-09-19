@@ -17,10 +17,10 @@ Authoritative onboarding & guard-rails for AI + human contributors. Read fully b
 - Dual build outputs: `dist/client` (public) / `dist/server` (private).
 - Page module acceptance: **default export OR named `jsx`** (server picks `module.default || module.jsx`).
 - Middleware system: `SRC_DIR/middleware.js` (hot-replace in dev).
-- Managed head block markers: `<!-- sxo-head-start -->` / `<!-- sxo-head-end -->`.
+- Head injection removed: pages return full `<html>` and manage their own `<head>` contents directly.
 - Static asset server supports: hashed caching, ETag, precompressed variants, range requests (uncompressed only).
-- Hot reload: SSE endpoint `/hot-replace?href=<path>` with partial page (`#page`) replacement.
-- Public asset base path configurable via `--public-path`, `PUBLIC_PATH`, or config; empty string "" preserved; consumed by esbuild `publicPath`.
+- Hot reload: SSE endpoint `/hot-replace?href=<path>` with partial body replacement.
+- Public asset base path configurable via `--public-path`, `PUBLIC_PATH`, or config; empty string "" preserved; consumed by esbuild `publicPath`; normalized at runtime for injection (empty string preserved → no leading slash; non‑empty ensures trailing slash).
 - Per‑route client entry subdirectory configurable via `clientDir` (config), `CLIENT_DIR` (env), or `--client-dir` (flag). Default: "client".
 - Static generation support: `sxo generate` pre-renders non-dynamic routes, writes HTML into `dist/client`, and marks routes with `generated: true` in the manifest.
 - Prod server respects `generated` flag: if `generated: true`, serves built HTML as-is (skips SSR) with `Cache-Control: public, max-age=300`; otherwise SSR per request with `Cache-Control: public, max-age=0, must-revalidate`.
@@ -90,9 +90,10 @@ dist/
 
 ## 5. Manifest & Entry Discovery
 
-- Reuse strategy: if every cached `jsx` still exists & no new page `index.*` discovered, reuse JSON (refresh template & global.css).
-- Each route object fields: `filename, entryPoints[], jsx, htmlTemplate, scriptLoading, hash, path?, generated?`.
-- `hash`: boolean (dev true) used by HTML plugin to conditionally hash or assist reload semantics.
+- Reuse strategy: if every cached `jsx` still exists & no new page `index.*` discovered, reuse JSON (refresh global.css presence per route).
+- Each route object fields: `filename, entryPoints[], jsx, hash, assets: { css[], js[] }, path?, generated?`.
+- `hash`: boolean (dev true) used to assist reload/cache semantics; asset mapping is derived from esbuild’s metafile.
+- Assets are computed from the client build’s metafile and persisted per route in the manifest (`route.assets = { css: string[], js: string[] }`). No separate asset-manifest file is produced. These assets are injected by the `sxo generate` step (for static routes) and at runtime by the dev/prod servers for non‑generated routes.
 - `generated`: boolean set by `sxo generate` for static routes that were pre-rendered; prod server serves these as-is and skips SSR.
 - `global.css` optional; entry discovery appends it to each route's `entryPoints` when present (not hard-coded globally).
 - Per‑route client entry is discovered under `<clientDir>/index.(ts|tsx|js|jsx)` (precedence: .ts > .tsx > .js > .jsx). `<clientDir>` defaults to "client" and is configurable.
@@ -101,27 +102,33 @@ dist/
 
 ## 6. Page Module Semantics
 
-Acceptable patterns:
+Acceptable patterns (pages must return full HTML documents):
 
 ```/dev/null/example#L1-20
-// Preferred
-export const head = { title: "About" };
-export default (params) => "<div>...</div>";
+// Preferred: full HTML document
+export default (params) => `
+  <html>
+    <head>
+      <title>About</title>
+    </head>
+    <body>
+      <div>...</div>
+    </body>
+  </html>
+`;
 
 // Alternative (no default export)
 export function jsx(params) {
-  return "<div>...</div>";
+  return `
+    <html>
+      <head><title>About</title></head>
+      <body>...</body>
+    </html>
+  `;
 }
 ```
 
 Server chooses `module.default || module.jsx`. If adding transform logic, do not break this order.
-
-Head export:
-
-- Object or function returning object.
-- Title convenience: primitive or function allowed.
-- Boolean attr true = present; falsy removed.
-- Inline `script/style/title` content escaped.
 
 ---
 
@@ -153,28 +160,21 @@ Important: Avoid writing large bodies before delegating; run cheap checks early.
 SSE endpoint: `/hot-replace?href=<currentRoutePath>`
 Client script:
 
-- Replaces only `#page` innerHTML.
+- Replaces `<body>` innerHTML.
 - Re-injects stylesheet `<link>` (global) & relevant `<script>` tags.
 - Attempts reactive state preservation (heuristic; do not rely on for correctness).
 - Scroll capture & restoration (body + elements tagged with `data-hot-replace-scroll`).
 
 When editing logic here:
 
-- Maintain forward compatibility of SSE payload shape: `{ page, link, scripts }` or `{ html }` (error).
+- Maintain forward compatibility of SSE payload shape: `{ body, assets, publicPath }` on success, or `{ body }` on error.
 - Keep minimal bundler coupling (no React-like DOM diff assumptions).
 
 ---
 
-## 9. Head Injection
+## 9. Head Injection (Removed)
 
-`applyHead()`:
-
-- Removes prior managed block each invocation (idempotent).
-- Escapes dangerous characters.
-- Distinguishes void vs non-void tags.
-- If head function throws → old block removed, none inserted.
-
-Changing semantics requires doc update + test adjustments (`apply-head.test.js`).
+Head injection via a separate utility has been removed. Pages must return full `<html>` documents and include their own `<head>` content.
 
 ---
 
@@ -215,6 +215,7 @@ If expanding to multi-param or advanced patterns: update sections (README + here
   - Prod names: `[dir]/[name].[hash]`
   - publicPath: sourced from `PUBLIC_PATH` environment variable (defaults to "/"); empty string "" preserved
   - per‑route client entry directory: sourced from resolved `clientDir` (default: "client")
+  - After the client build finishes, the metafile plugin augments `dist/server/routes.json` with per‑route assets (`route.assets = { css: string[], js: string[] }`). It does not write any HTML files. The `sxo generate` step consumes `route.assets` to inject `<link rel="stylesheet">` and `<script type="module">` tags into generated HTML with PUBLIC_PATH normalization (empty string preserved; non‑empty values end with a trailing slash). At runtime, the dev and prod servers also inject `route.assets` for non‑generated routes using the same normalization rules.
 - Server:
   - Only route `jsx` modules (no minify, no sourcemap).
 - Loader mapping: if `LOADERS` is set (from config/env/flags), esbuild's `loader` option is applied to both client and server builds (dev/build only).
@@ -274,7 +275,7 @@ Granular suites:
 - Config precedence & explicit flags
 - Entry points (fixtures)
 - Middleware (dynamic export shapes)
-- Utils (split: head, scripts, links, route matching, statics security)
+- Utils (split: asset extraction, routing, statics security)
 - JSX helpers (attribute canonicalization)
 
 Add new test file when adding a discrete subsystem; keep responsibilities narrow.
@@ -325,21 +326,22 @@ Do NOT modify:
 
 ## 20. Quick Reference (Cheat Sheet)
 
-| Concern             | File                              |
-| ------------------- | --------------------------------- |
-| Manifest generation | `esbuild/entry-points-config.js`  |
-| Build Orchestrator  | `esbuild/esbuild.config.js`       |
-| JSX Plugin          | `esbuild/esbuild-jsx.plugin.js`   |
-| Dev Server          | `server/dev.js`                   |
-| Prod Server         | `server/prod.js`                  |
-| Middleware Loader   | `server/middleware.js`            |
-| Head Injection      | `server/utils/apply-head.js`      |
-| Static Assets       | `server/utils/statics.js`         |
-| Route Match         | `server/utils/route-match.js`     |
-| JSX Bundle Mapping  | `server/utils/jsx-bundle-path.js` |
-| Config Resolution   | `config.js`                       |
-| Readiness Probe     | `cli/open.js`                     |
-| Static Generation   | `generate/generate.js`            |
+| Concern                    | File                                 |
+| -------------------------- | ------------------------------------ |
+| Route Discovery & Manifest | `esbuild/entry-points-config.js`     |
+| Metafile & Asset Mapping   | `esbuild/esbuild-metafile.plugin.js` |
+| Build Orchestrator         | `esbuild/esbuild.config.js`          |
+| JSX Plugin                 | `esbuild/esbuild-jsx.plugin.js`      |
+| Dev Server                 | `server/dev.js`                      |
+| Prod Server                | `server/prod.js`                     |
+| Middleware Loader          | `server/middleware.js`               |
+
+| Static Assets | `server/utils/statics.js` |
+| Route Match | `server/utils/route-match.js` |
+| JSX Bundle Mapping | `server/utils/jsx-bundle-path.js` |
+| Config Resolution | `config.js` |
+| Readiness Probe | `cli/open.js` |
+| Static Generation | `generate/generate.js` |
 
 ---
 

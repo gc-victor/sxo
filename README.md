@@ -47,12 +47,12 @@ A **fast**, minimal architecture convention and CLI for building websites with s
 ## Key Features
 
 - **Directory-based routing**: each directory is a route and can include dynamic parts (for example a post ID or slug) which are provided to the page at render time.
-- **Per-page JSX render function + head metadata**: each page provides a JSX render function that produces the page markup and may also supply head metadata (title, meta, links, scripts) as an object or a function.
-- **Single HTML template + global stylesheet**: one HTML shell with a placeholder for page content plus a global stylesheet.
+- **Full HTML page components**: each page's render function returns a complete <html> document (including <head> and <body>).
+- **Full-document pages**: each page is self-contained and returns its own `<html>`, `<head>`, and `<body>`.
 - **Optimized for Reactive Components**: pair with tiny primitives from [reactive-component](https://github.com/gc-victor/reactive-component) to add islands only where needed.
 - **Dev server**: hot replace (SSE partial replacement) and auto-open with readiness probe.
 - **Production server**: minimal core (bring your own policy via middleware).
-- **Dual build outputs**: hashed client assets (prod), non-hashed (dev), separate server bundles (never exposed publicly).
+- **Dual build outputs**: client assets use hashed filenames; separate server bundles (never exposed publicly).
 - **Rust-powered JSX transformer**: fast + small runtime helpers.
 - **Configurable esbuild loaders**: assign loaders per file extension via config, env, or flags.
 - **Configurable public base path** for assets: set via flag (`--public-path`), env (`PUBLIC_PATH`), or config; empty string "" allowed for relative URLs.
@@ -66,8 +66,7 @@ A **fast**, minimal architecture convention and CLI for building websites with s
    - Optional `utils` directory with utility functions
    - Optional `middleware.js` defining user middleware chain
 2. **Pages Directory** (default `src/pages`) containing:
-   - `index.html` (HTML shell with `<div id="page"></div>`)
-   - `global.css`
+   - `global.css` (optional)
    - Route directories each with an `index.(tsx|jsx)`
 3. **Entry Point Discovery**
    - Each directory containing an `index.*` page file becomes a route.
@@ -78,8 +77,8 @@ A **fast**, minimal architecture convention and CLI for building websites with s
    - Server bundle (SSR modules) → `dist/server`
    - Manifest → `dist/server/routes.json`
 5. **Runtime**
-   - Dev: SSE hot replace updates only the rendered page fragment + asset tags.
-   - Prod: Minimal HTTP server loads server bundles (ESM), applies head transforms, injects JSX output.
+   - Dev: SSE hot replace updates the <body> innerHTML and re-applies relevant asset tags.
+   - Prod: Minimal HTTP server loads server bundles (ESM) and injects JSX output.
 
 **Aliases**
 Available in both client & server builds:
@@ -114,7 +113,6 @@ your-app
 │   │   ├── Page.jsx
 │   │   └── Header.jsx
 │   └── pages
-│       ├── index.html
 │       ├── global.css
 │       ├── index.jsx
 │       └── about
@@ -137,15 +135,19 @@ Example page:
 
 ```jsx
 // src/pages/index.jsx
-import { Page } from "@components/Page.js";
 import { Header } from "@components/Header.js";
 
-export const head = { title: "Home" };
 export default () => (
-  <Page>
-    <Header title="Home" />
-    <p>Welcome to SXO.</p>
-  </Page>
+  <html lang="en">
+    <head>
+      <meta charSet="UTF-8" />
+      <title>Home</title>
+    </head>
+    <body>
+      <Header title="Home" />
+      <p>Welcome to SXO.</p>
+    </body>
+  </html>
 );
 ```
 
@@ -174,7 +176,6 @@ Static example:
 
 ```shell
 src/pages/
-├── index.html
 ├── index.jsx        -> "/"
 ├── about/
 │   └── index.jsx    -> "/about"
@@ -188,37 +189,17 @@ Dynamic segments: directory named `[slug]` (currently limited to a single slug t
 src/pages/blog/[slug]/index.jsx  -> /blog/:slug
 ```
 
-Parameters object passed to the page render function & dynamic `head` is shaped from bracket names: `{ slug: string }`.
+Parameters object passed to the page render function is shaped from bracket names: `{ slug: string }`.
 
 ## Page Module API
 
 A page module can export:
 
-| Export    | Type                             | Required | Description                     |
-| --------- | -------------------------------- | -------- | ------------------------------- |
-| `default` | `(params) => JSX` or string      | Yes\*    | Page render function            |
-| `head`    | `object` or `(params) => object` | Optional | Declarative head meta structure |
+| Export    | Type                        | Required | Description          |
+| --------- | --------------------------- | -------- | -------------------- |
+| `default` | `(params) => JSX` or string | Yes\*    | Page render function |
 
-Head object keys map to tags:
-
-- `title` (string, number, or function via `(p)=>string`)
-- `meta`, `link`, `script`, `style`: object or array of objects
-- Any other tag name (advanced)
-
-Rules:
-
-- Boolean attribute `true` → valueless attribute; falsy omitted.
-- Void tags (`meta`, `link`, `base`) ignore `content` as inner HTML; `content` stays an attribute where appropriate.
-- Non-void tags w/ `content` produce escaped inner HTML.
-- Managed block inserted between:
-  ```html
-  <!-- sxo-head-start -->
-  ...tags...
-  <!-- sxo-head-end -->
-  ```
-  Re-applied idempotently per request.
-
-Inline script/style content is safely escaped. If a head function throws, the previous managed block is removed silently (no replacement).
+Note: Pages must return a full `<html>...</html>` document (including `<head>` and `<body>`). The separate `head` export is no longer supported.
 
 ## Middleware
 
@@ -260,11 +241,11 @@ Mechanism:
 
 - File watchers trigger a debounced rebuild (esbuild run).
 - Server-Sent Events endpoint: `/hot-replace?href=<current_path>`
-- Client script (`/hot-replace.js`) performs partial replacement:
-  - Re-renders only the server JSX fragment (`<div id="page">...</div>`)
-  - Reapplies `<link>` (global stylesheet) & route `<script>` tags
-  - Preserves scroll positions and (optionally) “reactive” component state heuristically (see client file comments)
-- Build errors are sent as an inline error fragment.
+- The client script (`/hot-replace.js`) receives a JSON payload (`{ body, assets, publicPath }`) and performs partial replacement:
+  - Replaces the `<body>` innerHTML.
+  - Re-injects all CSS and JS assets associated with the route from the manifest.
+  - Preserves scroll positions and (optionally) “reactive” component state heuristically.
+- Build errors are sent as an HTML fragment in the `body` field of the payload.
 
 Readiness Probe:
 
@@ -284,7 +265,7 @@ dist/
     └── routes.json   # routes manifest and metadata
 ```
 
-`routes.json` entries (one per route):
+`routes.json` entries (one per route; includes per‑route assets):
 
 ```json
 [
@@ -292,7 +273,6 @@ dist/
     "filename": "about/index.html",
     "entryPoints": ["src/pages/about/client/index.js", "src/pages/global.css"],
     "jsx": "src/pages/about/index.jsx",
-    "htmlTemplate": "<!doctype html> ...",
     "scriptLoading": "module",
     "hash": false,
     "path": "about",
@@ -306,14 +286,13 @@ Fields:
 - `filename` relative to `dist/client`
 - `entryPoints` (per‑route client entries and `global.css` if present)
 - `jsx` source page module relative path
-- `htmlTemplate` raw template text (inlined for HTML plugin usage)
 - `hash` boolean (true in dev for cache-busting semantics)
 - `path` (omitted for root route)
 - `generated` boolean; if true, the production server serves the built HTML as-is (skips SSR) with Cache-Control: public, max-age=300. Non-generated/dynamic pages are served with Cache-Control: public, max-age=0, must-revalidate.
 
 Manifest Reuse:
 
-- On rebuild, if every referenced `jsx` file still exists _and_ no new route `index.*` appeared, the existing manifest is reused with template + global.css refreshed.
+- On rebuild, if every referenced `jsx` file still exists _and_ no new route `index.*` appeared, the existing manifest is reused with global.css refreshed.
 
 ## Static Generation & Production Behavior
 
@@ -324,8 +303,8 @@ The generate workflow lets you pre-render static routes to HTML after a successf
 - How it works:
   - Reads `dist/server/routes.json`.
   - For each static route, imports its SSR module and executes it with empty params.
-  - Injects the rendered markup into the built HTML shell and applies `head` metadata.
-  - Writes the finalized HTML back to `dist/client/<route>/index.html`.
+  - Requires the SSR module (default or named `jsx`) to return a full `<html>` document, injects built assets from `route.assets` (PUBLIC_PATH normalized), and prepares the final HTML.
+  - Writes the finalized HTML to `dist/client/<route>/index.html`.
   - Sets `generated: true` for that route in the manifest.
 - Idempotent: rerunning the command skips routes already marked `generated: true`.
 - Missing outputs: if `routes.json` is not present, run `sxo build` first.
@@ -333,17 +312,17 @@ The generate workflow lets you pre-render static routes to HTML after a successf
 Production server behavior:
 
 - Generated pages: if a route entry has `generated: true`, the server sends the built HTML directly (no SSR) with `Cache-Control: public, max-age=300`.
-- Non-generated/dynamic pages: server performs SSR on each request and responds with `Cache-Control: public, max-age=0, must-revalidate`.
+- Non-generated/dynamic pages: server performs SSR on each request, injects assets from `route.assets` (PUBLIC_PATH normalized), and responds with `Cache-Control: public, max-age=0, must-revalidate`.
 
 Notes:
 
 - Dynamic routes (paths containing `[param]`) are never generated.
 - The manifest’s `generated` flag is persisted to `dist/server/routes.json`.
-- Page module selection remains `module.default || module.jsx`; `head` can be an object or a function.
+- Page module selection remains `module.default || module.jsx`.
 
 ## HTML Template and Styles
 
-`index.html` (required) must contain `<div id="page"></div>`.
+Pages must return a full `<html>...</html>` document (including `<head>` and `<body>`).
 
 `global.css` (optional) is included as a client entry for all routes when present. Recommended for shared styles.
 
@@ -354,10 +333,10 @@ Example:
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <!-- Head tags injected (managed block) above </head> -->
+    <!-- Head contents are authored directly by pages -->
   </head>
   <body>
-    <div id="page"></div>
+    <main>...</main>
   </body>
 </html>
 ```
@@ -495,7 +474,7 @@ Runtime helpers:
 - Middleware runs _before_ static + route handling—validate and sanitize inputs early.
 - Only whitelisted file extensions are served; no directory listings.
 - Dynamic slug validation restricts to `^[A-Za-z0-9._-]{1,200}$` (requests failing validation yield 400).
-- Head injection escapes inline content (script/style/title).
+- Pages own their <head> contents; sanitize or escape any untrusted HTML in JSX.
 - Avoid embedding untrusted HTML inside JSX without sanitization.
 
 ## Testing
@@ -511,7 +490,7 @@ Focused suites:
 - CLI: flag handling, spawns, readiness probe
 - Config: precedence, normalization, explicit flags
 - Middleware: loader + runner semantics
-- Utils: head injection, asset extraction, routing, statics security
+- Utils: asset extraction, routing, statics security
 - JSX helpers: attribute normalization, spreads
 - Entry points: manifest generation semantics
 
@@ -519,17 +498,17 @@ Focused suites:
 
 ### Basic Example
 
-A minimal SXO app showcasing simple routing, dynamic params, head metadata, per‑route client entry, and middleware.
+A minimal SXO app showcasing simple routing, dynamic params, per‑route client entry, and middleware.
 
 Location: `examples/basic`
 
 What it shows:
 
 - Static and dynamic routing: `/`, `/about`, `/about/[slug]`, `/counter`
-- Head metadata from JSON and functions: home uses `docs.json`; dynamic head varies by `slug`
+- Demonstrates route parameters and dynamic routes
 - Optional per‑route client entry (`src/pages/counter/client/index.js`) registering a custom element with `reactive-component`
 - Shared components under `src/components`
-- Single HTML template (`src/pages/index.html`) and global stylesheet (`src/pages/global.css`)
+- Global stylesheet (`src/pages/global.css`)
 - Example middleware chain: CORS, health check (`/healthz`), and OK endpoint (`/ok`)
 - Tailwind via CDN for styles on the counter page (loaded in head `script`)
 
@@ -559,7 +538,6 @@ examples/basic/
 │   │   └── cors.js
 │   ├── middleware.js
 │   └── pages/
-│       ├── index.html
 │       ├── global.css
 │       ├── docs.json
 │       ├── index.jsx
@@ -582,7 +560,7 @@ examples/basic/
 
 Also demonstrates:
 
-- API data fetching using JSONPlaceholder (posts/:id), with a dynamic route and synchronous head:
+- API data fetching using JSONPlaceholder (posts/:id), with a dynamic route:
   - routes: `/posts` (index listing) and `/posts/[slug]` (post details)
   - files: `examples/basic/src/pages/posts/index.jsx`, `examples/basic/src/pages/posts/[slug]/index.jsx`
 
@@ -602,7 +580,7 @@ What it shows:
 - Dynamic routing with `[slug]` segments
 - Optional per‑route client entry (`src/pages/<route>/client/index.js`)
 - Shared components under `src/components`
-- Single HTML template (`src/pages/index.html`) and global stylesheet (`src/pages/global.css`)
+- Global stylesheet (`src/pages/global.css`)
 - Post‑build script for edge import generation
 - Local dev and production deploy using Wrangler
 
@@ -637,7 +615,6 @@ examples/workers/
 │   │   ├── Header.jsx
 │   │   └── Page.jsx
 │   └── pages/
-│       ├── index.html
 │       ├── global.css
 │       ├── index.jsx
 │       ├── about/
@@ -671,7 +648,7 @@ Serve behind a reverse proxy (optional). Add your own middleware for:
 ## Acknowledgements
 
 - Built on top of esbuild — thanks to Evan Wallace and the esbuild project for the extremely fast bundler & plugin ecosystem: https://github.com/evanw/esbuild
-- HTML template plugin: esbuild-plugin-html — thanks for the handy HTML handling & template features: https://github.com/craftamap/esbuild-plugin-html
+- Custom metafile-based asset injection — thanks to the internal plugin that maps entry points to outputs via esbuild’s metafile
 - Utility inspiration / helper code from gc-victor/query — thanks for the lightweight query primitives used for route and JSX transform: https://github.com/gc-victor/query
 - Reactive components primitives: reactive-component — thanks for the tiny, framework-agnostic signals/effects runtime that powers "islands": https://github.com/gc-victor/reactive-component
 - Extra thanks to the open-source community for libraries and examples that influenced SXO's ergonomics and performance.
