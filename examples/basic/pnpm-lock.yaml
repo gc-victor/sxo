@@ -6,4 +6,24 @@ settings:
 
 importers:
 
-  .: {}
+  .:
+    dependencies:
+      '@qery/reactive-component':
+        specifier: ^0.4.0
+        version: 0.4.0
+
+packages:
+
+  '@qery/reactive-component@0.4.0':
+    resolution: {integrity: sha512-d2ap9Xaz1P1HktaaSdY72gxKxg1KjrCyWsYBBevbWFZKZWsk6BGifMFmCaCGL00HPBDUg3F29CixAIyH1nafcA==}
+
+  alien-signals@2.0.7:
+    resolution: {integrity: sha512-wE7y3jmYeb0+h6mr5BOovuqhFv22O/MV9j5p0ndJsa7z1zJNPGQ4ph5pQk/kTTCWRC3xsA4SmtwmkzQO+7NCNg==}
+
+snapshots:
+
+  '@qery/reactive-component@0.4.0':
+    dependencies:
+      alien-signals: 2.0.7
+
+  alien-signals@2.0.7: {}
