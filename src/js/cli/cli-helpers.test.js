@@ -265,5 +265,3 @@ test("prepareFlags filters out non-explicit clientDir", () => {
         process.argv = originalArgv;
     }
 });
-
-// AIDEV-NOTE: End of cli-helpers tests
