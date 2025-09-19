@@ -137,6 +137,21 @@ test("statics: ETag and conditional GET (If-None-Match) and If-Modified-Since", 
         });
         strictEqual(r2.status, 304);
         strictEqual(r2.body.length, 0);
+
+        // GET with If-Modified-Since equal or after Last-Modified should yield 304
+        const imsSameOrAfter = new Date(Date.parse(r1.headers["last-modified"]) + 1000).toUTCString();
+        const r3 = await httpRequest(port, "/etag/hello.txt", {
+            headers: { "If-Modified-Since": imsSameOrAfter },
+        });
+        strictEqual(r3.status, 304);
+        strictEqual(r3.body.length, 0);
+
+        // GET with stale If-Modified-Since should yield 200
+        const r4 = await httpRequest(port, "/etag/hello.txt", {
+            headers: { "If-Modified-Since": "Mon, 01 Jan 1990 00:00:00 GMT" },
+        });
+        strictEqual(r4.status, 200);
+        ok(r4.body.length > 0);
     } finally {
         await new Promise((r) => server.close(r));
     }
