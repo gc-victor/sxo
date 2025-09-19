@@ -113,11 +113,9 @@ fs.watch(watchPath, { recursive: true }, (_, filename) => {
     debouncedEsbuild(filename);
 });
 
-// esbuildError declared above
-
 function esbuild(filename) {
     return new Promise((resolve) => {
-        const child = spawn("node", [ESBUILD_CONFIG_FILE, PAGES_DIR], {
+        const child = spawn(process.execPath, [ESBUILD_CONFIG_FILE, PAGES_DIR], {
             env: { ...process.env, DEV: "true" },
             stdio: ["inherit", "inherit", "pipe"],
             cwd: process.cwd(),
