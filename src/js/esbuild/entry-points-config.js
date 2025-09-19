@@ -12,19 +12,17 @@ import { CLIENT_DIR, OUTPUT_DIR_SERVER, PAGES_DIR, PAGES_RELATIVE_DIR } from "..
  * - No configured client subdirectory prefix in output filenames
  */
 export function entryPointsConfig() {
-    const htmlTemplate = readHtmlTemplate();
     const globalCss = resolveGlobalCss();
     const cachePath = resolveRoutesCachePath();
     const cwd = process.cwd();
 
     if (cachePath && fsExists(cachePath)) {
-        const reused = tryReuseCachedRoutes(cachePath, htmlTemplate, globalCss);
+        const reused = tryReuseCachedRoutes(cachePath, globalCss);
         if (reused) return reused;
     }
 
     const metaMap = scanPagesTree();
     const routes = assembleRoutes(metaMap, {
-        htmlTemplate,
         globalCss,
         cwd,
     });
@@ -40,15 +38,6 @@ const ROUTES_CACHE_FILENAME = "routes.json";
 
 /* ------------------------------ Core Helpers ------------------------------ */
 
-function readHtmlTemplate() {
-    const rootHtmlPath = path.join(PAGES_DIR, "index.html");
-    try {
-        return fs.readFileSync(rootHtmlPath, "utf8");
-    } catch {
-        throw new Error(`The index.html template not found in ${PAGES_DIR}`);
-    }
-}
-
 function resolveGlobalCss() {
     const rel = `${PAGES_RELATIVE_DIR}/global.css`;
     const abs = path.join(process.cwd(), rel);
@@ -61,7 +50,7 @@ function resolveGlobalCss() {
  *  - Each route.jsx still exists
  *  - No new page index.* (excluding configured client subdirectory indexes) appeared
  */
-function tryReuseCachedRoutes(cachePath, htmlTemplate, globalCss) {
+function tryReuseCachedRoutes(cachePath, globalCss) {
     let cached;
     try {
         cached = JSON.parse(fs.readFileSync(cachePath, "utf8"));
@@ -82,7 +71,6 @@ function tryReuseCachedRoutes(cachePath, htmlTemplate, globalCss) {
 
     // Rehydrate template + global.css presence
     for (const r of cached) {
-        r.htmlTemplate = htmlTemplate;
         if (Array.isArray(r.entryPoints)) {
             const filtered = r.entryPoints.filter((ep) => !/[/\\]global\.css$/.test(ep));
             if (globalCss) filtered.push(globalCss);
@@ -212,7 +200,7 @@ function findClientEntry(parentDir) {
 /**
  * Turn metadata into final route objects.
  */
-function assembleRoutes(metaMap, { htmlTemplate, globalCss, cwd }) {
+function assembleRoutes(metaMap, { globalCss, cwd }) {
     const routes = [];
     for (const [absDir, { pageIndex, clientEntry }] of metaMap.entries()) {
         const relDir = path.relative(PAGES_DIR, absDir);
@@ -233,7 +221,6 @@ function assembleRoutes(metaMap, { htmlTemplate, globalCss, cwd }) {
             filename: normalizePath(filename),
             entryPoints,
             jsx: jsxRel,
-            htmlTemplate,
             scriptLoading: "module",
             hash: process.env.DEV === "true", // AIDEV-NOTE: boolean flag (true in dev) enabling htmlPlugin cache-busting hash
         };
