@@ -843,7 +843,6 @@ fn test_multiple_comment_types_with_jsx_syntax() {
  */
 
 /* Block comment with <span>JSX</span> */
-// Line comment with <div>JSX</div>
 {/* JSX comment with <footer>JSX</footer> */}
 
 export default () => <p>Content</p>;"#;
@@ -853,27 +852,10 @@ export default () => <p>Content</p>;"#;
     // Should not throw parsing errors
     assert!(result.contains("`<p>Content</p>`"));
 
-    // All comments should be removed
+    // JSDoc, block, and JSX comments should be removed
     assert!(!result.contains("JSDoc with"));
     assert!(!result.contains("Block comment"));
-    assert!(!result.contains("Line comment"));
     assert!(!result.contains("JSX comment"));
-}
-
-#[test]
-fn test_line_comments_multiline_handling() {
-    let source = r#"// First line comment with <div>JSX</div>
-// Second line comment with <span>more JSX</span>
-export default () => <main>Content</main>;"#;
-
-    let result = jsx_transformer(source).unwrap();
-
-    // Should transform the actual JSX
-    assert!(result.contains("`<main>Content</main>`"));
-
-    // Line comments should be removed
-    assert!(!result.contains("First line comment"));
-    assert!(!result.contains("Second line comment"));
 }
 
 #[test]
@@ -895,32 +877,12 @@ export default () => <section>Test</section>;"#;
 }
 
 #[test]
-fn test_comments_preserve_jsx_in_template_literals() {
-    let source = r#"// Comment with <div>fake JSX</div>
-export default () => {
-  const template = `<span>real JSX in template</span>`;
-  return <div>{template}</div>;
-};"#;
-
-    let result = jsx_transformer(source).unwrap();
-
-    // Should preserve the template literal
-    assert!(result.contains("`<span>real JSX in template</span>`"));
-
-    // Should transform the JSX return
-    assert!(result.contains("`<div>${template}</div>`"));
-
-    // Comment should be removed
-    assert!(!result.contains("Comment with"));
-}
-
-#[test]
 fn test_mixed_comment_and_jsx_expressions() {
     let source = r#"/* Comment with <Component attr="value" /> */
 export default () => (
   <div>
     {/* Inline JSX comment with <span>content</span> */}
-    <p>Real content</p> // Inline comment
+    <p>Real content</p>
   </div>
 );"#;
 
@@ -930,8 +892,7 @@ export default () => (
     assert!(result.contains("`<div>"));
     assert!(result.contains("<p>Real content</p>"));
 
-    // Comments should be removed
+    // Block and JSX comments should be removed
     assert!(!result.contains("Comment with"));
     assert!(!result.contains("Inline JSX comment"));
-    assert!(!result.contains("Inline comment"));
 }

@@ -78,20 +78,13 @@ static JSX_COMMENT_RE: LazyLock<Regex> =
 static BLOCK_COMMENT_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?s)/\*.*?\*/").expect("Invalid block comment regex"));
 
-// Matches line comments starting with //
-static LINE_COMMENT_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(?m)//.*?$").expect("Invalid line comment regex"));
-
 #[inline]
 fn remove_jsx_comments(source: &str) -> String {
     // Remove JSX-style comments: {/* ... */}
     let after_jsx = JSX_COMMENT_RE.replace_all(source, "");
 
     // Remove block comments: /* ... */ and /** ... */
-    let after_block = BLOCK_COMMENT_RE.replace_all(&after_jsx, "");
-
-    // Remove line comments: // ...
-    LINE_COMMENT_RE.replace_all(&after_block, "").into_owned()
+    BLOCK_COMMENT_RE.replace_all(&after_jsx, "").into_owned()
 }
 
 // Pretty diagnostic formatter for parser errors with line/column and caret.
