@@ -73,10 +73,19 @@ export async function statics(req, res) {
     try {
         // Parse and validate URL path
         const urlObj = new URL(req.url, "http://localhost");
-        const pathname = urlObj.pathname || "/";
-        if (pathname.length > MAX_PATH_LEN) return false;
-        // Disallow null bytes
-        if (pathname.includes("\0")) return false;
+        const rawPath = urlObj.pathname || "/";
+
+        // Basic validation on raw path before decoding
+        if (rawPath.length > MAX_PATH_LEN) return false;
+        if (rawPath.includes("\0") || /[\r\n]/.test(rawPath)) return false;
+
+        // Decode URI components *before* normalization
+        let pathname;
+        try {
+            pathname = decodeURIComponent(rawPath);
+        } catch {
+            return false; // Malformed URI
+        }
 
         // Only serve requests with a known extension
         const ext = path.posix.extname(pathname);
