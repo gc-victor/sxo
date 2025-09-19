@@ -24,7 +24,7 @@ import process from "node:process";
 import { pathToFileURL } from "node:url";
 
 import { OUTPUT_DIR_CLIENT, ROUTES_FILE } from "../constants.js";
-import { applyHead, injectPageContent, jsxBundlePath } from "../server/utils/index.js";
+import { injectAssets, jsxBundlePath, normalizePublicPath } from "../server/utils/index.js";
 
 /* ------------------------------ helpers ------------------------------ */
 
@@ -84,6 +84,7 @@ export async function generate() {
     let failed = 0;
 
     console.log(`generate: Preparing ${staticRoutes.length} page(s)...`);
+
     for (const route of staticRoutes) {
         const label = `/${route.path ?? ""}`.replace(/\/$/, "") || "/";
         try {
@@ -92,15 +93,6 @@ export async function generate() {
                 skipped++;
                 console.log(`- ${label} (skipped: already-generated-flag)`);
                 continue;
-            }
-
-            // Load HTML shell
-            const htmlPath = path.resolve(OUTPUT_DIR_CLIENT, route.filename);
-            let html;
-            try {
-                html = await fs.readFile(htmlPath, "utf8");
-            } catch {
-                throw new Error(`Missing HTML shell for route: ${route.filename}`);
             }
 
             // SSR the route's module
@@ -115,10 +107,25 @@ export async function generate() {
             const params = {}; // static routes: empty params
             const content = await jsxFn(params);
 
-            // Inject page content and apply head; do NOT write any generated marker into HTML
-            let out = injectPageContent(html, content);
-            out = applyHead(out, mod.head, params);
+            // It is a fragment not a full page
+            if (!/^<html[\s>]/i.test(content)) {
+                generated++;
+                console.log(`- ${label} ✓ (fragment, not html file generated)`);
+                continue;
+            }
+            let out = content;
 
+            // Inject assets from routes.json (client-relative paths) with PUBLIC_PATH normalization
+            const publicPath = normalizePublicPath(process.env.PUBLIC_PATH ?? "/");
+            if (route.assets && typeof route.assets === "object") {
+                out = injectAssets(out, route.assets, publicPath);
+            }
+
+            // Prepend doctype
+            out = `<!doctype html>\n${out}`;
+
+            // Write to client HTML file
+            const htmlPath = path.join(OUTPUT_DIR_CLIENT, route.filename);
             await fs.mkdir(path.dirname(htmlPath), { recursive: true });
             await fs.writeFile(htmlPath, out, "utf8");
 
