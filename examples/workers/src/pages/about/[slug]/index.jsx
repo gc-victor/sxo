@@ -1,9 +1,17 @@
-import { Page } from "@components/Page";
 import { Header } from "@components/Header";
+import { Page } from "@components/Page";
 
-export const head = ({ slug }) => ({ title: `Slug - ${slug}` });
 export default ({ slug }) => (
-        <Page>
-            <Header title={`Slug - ${slug}!`} />
-        </Page>
-    );
+    <html lang="en">
+        <head>
+            <meta charset="UTF-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+            <title>{`Slug - ${slug}`}</title>
+        </head>
+        <body>
+            <Page>
+                <Header title={`Slug - ${slug}!`} />
+            </Page>
+        </body>
+    </html>
+);
