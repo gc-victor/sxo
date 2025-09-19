@@ -20,16 +20,5 @@ export function escapeHtml(str) {
  * @returns {string}
  */
 export function renderErrorHtml(message) {
-    return `<div id="page"><pre style="color:red;">Error: ${escapeHtml(message)}</pre></div>`;
-}
-
-/**
- * @param {string} html - Full HTML template/document
- * @param {string} content - Already-rendered inner HTML for the page root
- * @returns {string} Updated HTML with substituted container content
- */
-export function injectPageContent(html, content) {
-    if (typeof html !== "string") return "";
-    const safeContent = typeof content === "string" ? content : String(content ?? "");
-    return html.replace(DIV_APP_REGEX, `<div id="page">${safeContent}</div>`);
+    return `<body><div id="page"><pre style="padding:32px;color:red;">✘ [ERROR]: ${escapeHtml(message)}</pre></div>`;
 }
