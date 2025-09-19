@@ -112,35 +112,6 @@ it("When asking for an admin, ensure only ordered admins in results", () => {
 });
 ```
 
-### Describe Expectations in a Product Language (BDD-style Assertions)
-
-Writing tests in a declarative style, often referred to as Behavior-Driven Development (BDD) style, makes them highly readable and immediately understandable. The goal is to express expectations in a human-like language, avoiding complex conditional logic within assertions.
-
-While `node:assert` is more imperative than some third-party assertion libraries, you can still strive for clarity by combining assertions and using helper functions where appropriate to make the intent explicit.
-
-**Example:**
-
-```javascript
-it("When asking for an admin, ensure only ordered admins in results", () => {
-  // Arrange
-  const getUsers = ({ adminOnly }) => {
-    const users = ["admin1", "user1", "admin2"];
-    if (adminOnly) {
-      return users.filter(user => user.startsWith("admin")).sort();
-    }
-    return users;
-  };
-
-  // Act
-  const allAdmins = getUsers({ adminOnly: true });
-
-  // Assert
-  // Using a combination of assertions to achieve a BDD-like clarity
-  assert.deepStrictEqual(allAdmins, ["admin1", "admin2"], "Should include ordered admins");
-  assert.ok(!allAdmins.includes("user1"), "Should not include regular users");
-});
-```
-
 ### Categorize Tests Under at Least 2 Levels
 
 To improve the readability, navigation, and reporting of your test suite, it's highly recommended to categorize your tests using at least two levels of `describe` blocks. This structure helps an occasional visitor quickly understand the requirements (as tests serve as excellent documentation) and the various scenarios being tested.
