@@ -83,18 +83,20 @@ export function esbuildJsxPlugin() {
             });
 
             // This hook renames hashed index files
-            build.onEnd((result) => {
+            build.onEnd(async (result) => {
                 if (!result.metafile || !result.metafile.outputs) {
                     return;
                 }
 
                 const outputs = result.metafile.outputs;
-                Object.keys(outputs).forEach(async (path) => {
-                    if (path.endsWith("index.js")) {
-                        const newPath = path.replace(/\/([^/]+\.index.js)$/, "/index.js");
-                        await fs.rename(path, newPath);
-                    }
-                });
+                await Promise.all(
+                    Object.keys(outputs).map(async (p) => {
+                        if (p.endsWith("index.js")) {
+                            const newPath = p.replace(/\/([^/]+\.index.js)$/, "/index.js");
+                            await fs.rename(p, newPath);
+                        }
+                    }),
+                );
             });
         },
     };
