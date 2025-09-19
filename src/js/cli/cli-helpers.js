@@ -1,4 +1,4 @@
-// AIDEV-NOTE: Utility helpers extracted from sxo.js for reuse and testability.
+// Utility helpers extracted from sxo.js for reuse and testability.
 
 import fs from "node:fs";
 import fsp from "node:fs/promises";
@@ -170,7 +170,7 @@ export function prepareFlags(command, rawFlags) {
     }
     const flagsForConfig = { ...rawFlags };
 
-    // AIDEV-NOTE: Normalize empty string flags (cac may coerce "" to 0); currently used for --public-path
+    // Normalize empty string flags (cac may coerce "" to 0); currently used for --public-path
     restoreEmptyStringFlag(flagsForConfig, flagsExplicit, argv, "public-path");
 
     for (const [camel, explicit] of Object.entries(flagsExplicit)) {
@@ -211,7 +211,7 @@ export async function ensureBuiltRoutesJson() {
 }
 
 /**
- * Validate that the pages directory and its index.html exist; exit(1) with helpful
+ * Validate that the pages directory exists; exit(1) with helpful
  * messages if not. Mirrors behavior in original CLI.
  * @param {string} pagesDir
  */
@@ -221,15 +221,6 @@ export async function validatePagesFolder(pagesDir) {
         log.error("Prebuild failed:");
         log.error(`Pages directory does not exist: ${toPosixPath(pagesDir)} (default)`);
         log.info("Hint: create the folder or use --pages-dir or set PAGES_DIR.");
-        process.exit(1);
-        return;
-    }
-
-    const indexHtmlPath = path.join(pagesDir, "index.html");
-    const indexHtmlExists = (await pathExists(indexHtmlPath)) && (await fsp.stat(indexHtmlPath)).isFile();
-    if (!indexHtmlExists) {
-        log.error(`Missing index.html in pages directory: ${toPosixPath(indexHtmlPath)} (default)`);
-        log.info("Hint: Add index.html to your pages directory.");
         process.exit(1);
         return;
     }
