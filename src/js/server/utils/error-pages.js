@@ -1,6 +1,4 @@
 /**
- * special-pages.js
- *
  * Utility helpers to resolve root-level special error pages (404 and 500)
  * inside the configured pages directory.
  *
