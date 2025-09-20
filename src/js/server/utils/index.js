@@ -8,7 +8,14 @@ import { DIV_APP_REGEX, escapeHtml, renderErrorHtml, TITLE_REGEX } from "./html-
 import { jsxBundlePath } from "./jsx-bundle-path.js";
 import { httpLogger, logger } from "./logger.js";
 
+export {
+    resolve404Page,
+    resolve500Page,
+    resolveErrorPage as resolveSpecialPage,
+    resolveErrorPages as resolveSpecialPages,
+} from "./error-pages.js";
 export { injectAssets, injectCss, injectJs, normalizePublicPath } from "./inject-assets.js";
+export { loadJsxModule } from "./load-jsx-module.js";
 
 import { routeMatch, SLUG_REGEX } from "./route-match.js";
 import { statics } from "./statics.js";
