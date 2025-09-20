@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import esbuild from "esbuild";
@@ -30,7 +31,23 @@ try {
         }
     }
 
-    const serverEntryPoints = config.map((f) => f.jsx); // SSR modules only (no client exposure)
+    const specialServerEntries = (() => {
+        const candidates = ["404.tsx", "404.jsx", "404.ts", "404.js", "500.tsx", "500.jsx", "500.ts", "500.js"];
+        const entries = [];
+        for (const name of candidates) {
+            const abs = path.join(PAGES_DIR, name);
+            try {
+                fs.accessSync(abs, fs.constants.F_OK);
+                const rel = path.relative(process.cwd(), abs).replace(/\\/g, "/");
+                entries.push(rel);
+            } catch {
+                // ignore missing files
+            }
+        }
+        return entries;
+    })();
+
+    const serverEntryPoints = [...config.map((f) => f.jsx), ...specialServerEntries]; // SSR modules only (no client exposure)
     await Promise.all([
         // Client (public) build
         esbuild.build({
