@@ -96,7 +96,7 @@ async function httpGet(port, pathname, { method = "GET", headers = {} } = {}) {
     return { status: res.status, headers: hdrs, body: text };
 }
 
-test("prod server: generated route served as-is; non-generated SSR with assets and proper caching", async () => {
+test("When routes are generated vs SSR in prod, then caching and asset injection behave as specified", async () => {
     const tmp = await makeTempDir();
     const outDir = path.join(tmp, "dist");
     const outClient = path.join(outDir, "client");
@@ -199,7 +199,118 @@ test("prod server: generated route served as-is; non-generated SSR with assets a
             assert.equal(res.status, 404);
         }
     } finally {
-        // Graceful shutdown
+        try {
+            child.kill("SIGINT");
+        } catch {}
+        await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+});
+
+test("When making HEAD to missing route in prod without custom 404, then fallback 404 has no body", async () => {
+    const tmp = await makeTempDir();
+    const outDir = path.join(tmp, "dist");
+    const outClient = path.join(outDir, "client");
+    const outServer = path.join(outDir, "server");
+    const pagesDirRel = "src/pages";
+    const pagesDirAbs = path.join(tmp, "src", "pages");
+
+    // Root generated route for readiness
+    const generatedHtml = [
+        "<!doctype html>",
+        "<html>",
+        "<head><title>Home</title></head>",
+        '<body><div id="page">HOME</div></body>',
+        "</html>",
+        "",
+    ].join("\n");
+    await writeFileEnsured(path.join(outClient, "index.html"), generatedHtml);
+    await writeFileEnsured(path.join(pagesDirAbs, "index.jsx"), "// src placeholder");
+
+    // No custom 404 provided
+
+    // Minimal manifest
+    const routes = [{ filename: "index.html", jsx: "src/pages/index.jsx", generated: true }];
+    await writeFileEnsured(path.join(outServer, "routes.json"), JSON.stringify(routes, null, 2));
+
+    const port = await getFreePort();
+    const { child } = spawnProd({
+        cwd: tmp,
+        outDir,
+        pagesDirRel,
+        port,
+        extraEnv: { PUBLIC_PATH: "/", REQUEST_TIMEOUT_MS: "5000", HEADER_TIMEOUT_MS: "5000" },
+    });
+
+    try {
+        const ready = await waitForReady({ port, pathname: "/" });
+        assert.equal(ready, true, "prod server should become ready");
+
+        const res = await httpGet(port, "/missing", { method: "HEAD" });
+        assert.equal(res.status, 404);
+        assert.equal(res.headers["content-type"], "text/plain; charset=utf-8");
+        assert.equal(res.headers["cache-control"], "public, max-age=0, must-revalidate");
+        assert.equal(res.body.length, 0, "HEAD must not include body");
+    } finally {
+        try {
+            child.kill("SIGINT");
+        } catch {}
+        await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+});
+
+test("When making HEAD to an SSR error route in prod without custom 500, then fallback 500 has no body", async () => {
+    const tmp = await makeTempDir();
+    const outDir = path.join(tmp, "dist");
+    const outClient = path.join(outDir, "client");
+    const outServer = path.join(outDir, "server");
+    const pagesDirRel = "src/pages";
+    const pagesDirAbs = path.join(tmp, "src", "pages");
+
+    // Root generated route for readiness
+    const generatedHtml = [
+        "<!doctype html>",
+        "<html>",
+        "<head><title>Home</title></head>",
+        '<body><div id="page">HOME</div></body>',
+        "</html>",
+        "",
+    ].join("\n");
+    await writeFileEnsured(path.join(outClient, "index.html"), generatedHtml);
+    await writeFileEnsured(path.join(pagesDirAbs, "index.jsx"), "// src placeholder");
+
+    // Route that throws on SSR
+    await writeFileEnsured(path.join(pagesDirAbs, "boom", "index.jsx"), "// src boom placeholder");
+    const ssrBoom = `export default function render(){ throw new Error("Boom"); }`;
+    await writeFileEnsured(path.join(outServer, "boom", "index.js"), ssrBoom);
+
+    // No custom 500 provided
+
+    // Manifest includes generated root and SSR boom route
+    const routes = [
+        { filename: "index.html", jsx: "src/pages/index.jsx", generated: true },
+        { path: "boom", filename: "boom/index.html", jsx: "src/pages/boom/index.jsx" },
+    ];
+    await writeFileEnsured(path.join(outServer, "routes.json"), JSON.stringify(routes, null, 2));
+
+    const port = await getFreePort();
+    const { child } = spawnProd({
+        cwd: tmp,
+        outDir,
+        pagesDirRel,
+        port,
+        extraEnv: { PUBLIC_PATH: "/", REQUEST_TIMEOUT_MS: "5000", HEADER_TIMEOUT_MS: "5000" },
+    });
+
+    try {
+        const ready = await waitForReady({ port, pathname: "/" });
+        assert.equal(ready, true, "prod server should become ready");
+
+        const res = await httpGet(port, "/boom", { method: "HEAD" });
+        assert.equal(res.status, 500);
+        assert.equal(res.headers["content-type"], "text/html; charset=utf-8");
+        assert.equal(res.headers["cache-control"], "no-store");
+        assert.equal(res.body.length, 0, "HEAD must not include body");
+    } finally {
         try {
             child.kill("SIGINT");
         } catch {}
