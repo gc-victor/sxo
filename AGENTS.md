@@ -1,5 +1,25 @@
 # AGENTS.md
 
+## Special Error Pages (404/500)
+
+This project supports root-level 404 and 500 pages that render as full HTML documents to replace simple text fallbacks.
+
+- Location and filenames:
+  - PAGES_DIR/404.(tsx|jsx|ts|js)
+  - PAGES_DIR/500.(tsx|jsx|ts|js)
+- Exports and semantics:
+  - Accepts default export or named export `jsx` (server uses `module.default || module.jsx`).
+  - Pages must return a full HTML document and include their own `<head>` (head injection is removed).
+  - These special pages are not routable and are not added to the manifest as public routes.
+
+- Build and manifest:
+  - The server build includes 404/500 SSR modules so they can be imported at runtime.
+  - No manifest schema changes; these pages do not receive route paths or asset mappings at this time.
+  - Static generation does not generate 404/500 pages.
+- Response semantics:
+  - HEAD requests: responses include headers only (no body) for 404/500 (custom or fallback).
+  - Cache-Control: 404 → `public, max-age=0, must-revalidate`; 500 → `no-store`.
+
 ## Info
 
 - **Project**: sxo
@@ -219,7 +239,7 @@ If expanding to multi-param or advanced patterns: update sections (README + here
   - per‑route client entry directory: sourced from resolved `clientDir` (default: "client")
   - After the client build finishes, the metafile plugin augments `dist/server/routes.json` with per‑route assets (`route.assets = { css: string[], js: string[] }`). It does not write any HTML files. The `sxo generate` step consumes `route.assets` to inject `<link rel="stylesheet">` and `<script type="module">` tags into generated HTML with PUBLIC_PATH normalization (empty string preserved; non‑empty values end with a trailing slash). At runtime, the dev and prod servers also inject `route.assets` for non‑generated routes using the same normalization rules.
 - Server:
-  - Only route `jsx` modules (no minify, no sourcemap).
+  - SSR bundles for route `jsx` modules plus special 404/500 modules (no minify, no sourcemap).
 - Loader mapping: if `LOADERS` is set (from config/env/flags), esbuild's `loader` option is applied to both client and server builds (dev/build only).
 - JSX transformer & runtime helpers:
   - Backed by a streaming JSX parser with error recovery (old precompiler removed; the `jsx_precompile.rs` file was deleted).
@@ -341,6 +361,8 @@ Do NOT modify:
 | Static Assets | `server/utils/statics.js` |
 | Route Match | `server/utils/route-match.js` |
 | JSX Bundle Mapping | `server/utils/jsx-bundle-path.js` |
+| Special Error Pages Resolver | `server/utils/error-pages.js` |
+| SSR Module Loader | `server/utils/load-jsx-module.js` |
 | Config Resolution | `config.js` |
 | Readiness Probe | `cli/open.js` |
 | Static Generation | `generate/generate.js` |
