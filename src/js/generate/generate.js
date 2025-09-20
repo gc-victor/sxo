@@ -24,7 +24,7 @@ import process from "node:process";
 import { pathToFileURL } from "node:url";
 
 import { OUTPUT_DIR_CLIENT, ROUTES_FILE } from "../constants.js";
-import { injectAssets, jsxBundlePath, normalizePublicPath } from "../server/utils/index.js";
+import { injectAssets, loadJsxModule, normalizePublicPath } from "../server/utils/index.js";
 
 /* ------------------------------ helpers ------------------------------ */
 
@@ -96,13 +96,7 @@ export async function generate() {
             }
 
             // SSR the route's module
-            const modulePath = jsxBundlePath(route.jsx);
-            const moduleUrl = pathToFileURL(modulePath).href;
-            const mod = await import(moduleUrl);
-            const jsxFn = mod.default || mod.jsx;
-            if (typeof jsxFn !== "function") {
-                throw new Error(`No valid export found in ${modulePath}`);
-            }
+            const jsxFn = await loadJsxModule(route.jsx);
 
             const params = {}; // static routes: empty params
             const content = await jsxFn(params);
