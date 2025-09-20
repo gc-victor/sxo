@@ -2,10 +2,21 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+
 import { DANGER_OUTPUT_DIR, ESBUILD_CONFIG_FILE, PAGES_DIR, PORT, ROUTES_FILE, ROUTES_RELATIVE_PATH } from "../constants.js";
 import { loadUserDefinedMiddlewares, runMiddleware } from "./middleware.js"; // AIDEV-NOTE: middleware runner integration
-import { httpLogger, injectCss, jsxBundlePath, logger, normalizePublicPath, renderErrorHtml, routeMatch, statics } from "./utils/index.js";
+import {
+    httpLogger,
+    injectCss,
+    loadJsxModule,
+    logger,
+    normalizePublicPath,
+    renderErrorHtml,
+    resolve404Page,
+    resolve500Page,
+    routeMatch,
+    statics,
+} from "./utils/index.js";
 
 const YELLOW = "\x1b[33m";
 const RESET = "\x1b[0m";
@@ -31,33 +42,11 @@ let userMiddlewares = [];
  */
 userMiddlewares = await loadUserDefinedMiddlewares();
 
-async function loadJsxModule(jsxPath, bustCache = false) {
-    const modulePath = jsxBundlePath(jsxPath);
-    const cacheKey = jsxPath;
-
-    if (bustCache || !jsxModules.has(cacheKey)) {
-        try {
-            const moduleUrl = `${pathToFileURL(modulePath).href}?t=${Date.now()}`;
-            const module = await import(moduleUrl);
-            const jsxFn = module.default || module.jsx;
-            if (typeof jsxFn !== "function") {
-                throw new Error(`No valid export found in ${modulePath}`);
-            }
-            jsxModules.set(cacheKey, jsxFn);
-        } catch (err) {
-            logger.error(`❌ Failed to load ${jsxPath}:`, err);
-            jsxModules.set(cacheKey, () => `<pre style="color:red;">Error loading ${jsxPath}: ${err.message}</pre>`);
-        }
-    }
-
-    return jsxModules.get(cacheKey);
-}
-
 async function reloadAllModules() {
     jsxModules.clear();
     for (const file of files) {
         if (file.jsx) {
-            await loadJsxModule(file.jsx, true);
+            await loadJsxModule(file.jsx, { bustCache: true, returnErrorStub: true, cache: jsxModules });
         }
     }
 }
@@ -262,8 +251,34 @@ const server = http.createServer(async (req, res) => {
 
         const found = routeMatch(pathname, files);
         if (!found) {
-            res.writeHead(404, { "Content-Type": "text/plain" });
-            res.end("Not found");
+            // Try custom 404 page if present
+            try {
+                const special404 = resolve404Page();
+                if (special404) {
+                    const jsx404 = await loadJsxModule(special404, { bustCache: true, returnErrorStub: true, cache: jsxModules });
+                    const page404 = await jsx404({});
+                    const isHtml404 = /^<html[\s>]/i.test(page404);
+                    if (isHtml404) {
+                        if (req.method === "HEAD") {
+                            res.writeHead(404, { "Content-Type": "text/html; charset=utf-8" });
+                            res.end();
+                        } else {
+                            res.writeHead(404, { "Content-Type": "text/html; charset=utf-8" });
+                            res.end(`<!doctype html>\n${page404}`);
+                        }
+                        return;
+                    }
+                }
+            } catch (e) {
+                logger.error({ err: e }, "Failed to render custom 404 page");
+            }
+            if (req.method === "HEAD") {
+                res.writeHead(404, { "Content-Type": "text/plain" });
+                res.end();
+            } else {
+                res.writeHead(404, { "Content-Type": "text/plain" });
+                res.end("Not found");
+            }
             return;
         }
         if (found.invalid) {
@@ -276,12 +291,38 @@ const server = http.createServer(async (req, res) => {
         let page;
 
         try {
-            const jsxFn = await loadJsxModule(route.jsx);
+            const jsxFn = await loadJsxModule(route.jsx, { returnErrorStub: true, cache: jsxModules });
             page = await jsxFn(params);
         } catch (e) {
-            // Handle JSX rendering errors
-            res.writeHead(400, { "Content-Type": "text/html" });
-            res.end(renderErrorHtml(e.message));
+            logger.error({ err: e }, "Request handling failed");
+            // Handle JSX rendering errors - attempt custom 500 page if available
+            try {
+                const special500 = resolve500Page();
+                if (special500) {
+                    const jsx500 = await loadJsxModule(special500, { bustCache: true, returnErrorStub: true, cache: jsxModules });
+                    const page500 = await jsx500({ error: e });
+                    const isHtml500 = /^<html[\s>]/i.test(page500);
+                    if (isHtml500) {
+                        if (req.method === "HEAD") {
+                            res.writeHead(500, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+                            res.end();
+                        } else {
+                            res.writeHead(500, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+                            res.end(`<!doctype html>\n${page500}`);
+                        }
+                        return;
+                    }
+                }
+            } catch (err500) {
+                logger.error({ err: err500 }, "Failed to render custom 500 page");
+            }
+            if (req.method === "HEAD") {
+                res.writeHead(500, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+                res.end();
+            } else {
+                res.writeHead(500, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+                res.end(renderErrorHtml(e));
+            }
             return;
         }
 
@@ -311,7 +352,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 async function hotReplaceData(client) {
-    const jsxFn = await loadJsxModule(client.route.jsx, true);
+    const jsxFn = await loadJsxModule(client.route.jsx, { bustCache: true, returnErrorStub: true, cache: jsxModules });
     const jsxResult = await jsxFn(client.params);
 
     const mFull = jsxResult.match(/<body[^>]*>([\s\S]*?)<\/body>/i);

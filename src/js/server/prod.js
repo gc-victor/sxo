@@ -1,10 +1,20 @@
 import fsp from "node:fs/promises";
 import http from "node:http";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+
 import { OUTPUT_DIR_CLIENT, PORT, ROUTES_FILE, ROUTES_RELATIVE_PATH } from "../constants.js";
 import { loadUserDefinedMiddlewares, runMiddleware } from "./middleware.js";
-import { httpLogger, injectAssets, jsxBundlePath, logger, normalizePublicPath, routeMatch, statics } from "./utils/index.js";
+import {
+    httpLogger,
+    injectAssets,
+    loadJsxModule,
+    logger,
+    normalizePublicPath,
+    resolve404Page,
+    resolve500Page,
+    routeMatch,
+    statics,
+} from "./utils/index.js";
 
 const MAX_URL_LEN = 2048;
 const HEADER_TIMEOUT_MS_RAW = process.env.HEADER_TIMEOUT_MS;
@@ -94,8 +104,35 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (!match) {
-        res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
-        res.end("Not found");
+        try {
+            const special404 = resolve404Page();
+            if (special404) {
+                const fn = await loadJsxModule(special404);
+                const page404 = await fn({});
+                const isHtml = /^<html[\s>]/i.test(page404);
+                res.setHeader("Content-Type", "text/html; charset=utf-8");
+                res.setHeader("Cache-Control", "public, max-age=0, must-revalidate");
+                if (req.method === "HEAD") {
+                    res.writeHead(404);
+                    res.end();
+                    return;
+                }
+                res.writeHead(404);
+                res.end(isHtml ? `<!doctype html>\n${page404}` : page404);
+                return;
+            }
+        } catch (e) {
+            logger.error({ err: e }, "Failed to render custom 404 page");
+        }
+        res.setHeader("Content-Type", "text/plain; charset=utf-8");
+        res.setHeader("Cache-Control", "public, max-age=0, must-revalidate");
+        if (req.method === "HEAD") {
+            res.writeHead(404);
+            res.end();
+        } else {
+            res.writeHead(404);
+            res.end("Not found");
+        }
         return;
     }
     if (match.invalid) {
@@ -128,14 +165,7 @@ const server = http.createServer(async (req, res) => {
         }
 
         // Import SSR module (ESM import is cached by Node by spec)
-        const jsxModulePath = jsxBundlePath(route.jsx);
-        const jsxModuleUrl = pathToFileURL(jsxModulePath).href;
-        const jsxModule = await import(jsxModuleUrl);
-        const jsxFn = jsxModule.default || jsxModule.jsx;
-        if (typeof jsxFn !== "function") {
-            throw new Error(`No valid export found in ${jsxModulePath}`);
-        }
-
+        const jsxFn = await loadJsxModule(route.jsx);
         let page = await jsxFn(params);
 
         const isHtml = /^<html[\s>]/i.test(page);
@@ -161,8 +191,33 @@ const server = http.createServer(async (req, res) => {
         res.end(isHtml ? `<!doctype html>\n${page}` : page);
     } catch (e) {
         logger.error({ err: e }, "Request handling failed");
-        res.writeHead(500, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
-        res.end("Internal Server Error");
+        try {
+            const special500 = resolve500Page();
+            if (special500) {
+                const fn = await loadJsxModule(special500);
+                const page500 = await fn({});
+                const isHtml = /^<html[\s>]/i.test(page500);
+                res.setHeader("Content-Type", "text/html; charset=utf-8");
+                res.setHeader("Cache-Control", "no-store");
+                if (req.method === "HEAD") {
+                    res.writeHead(500);
+                    res.end();
+                    return;
+                }
+                res.writeHead(500);
+                res.end(isHtml ? `<!doctype html>\n${page500}` : page500);
+                return;
+            }
+        } catch (err500) {
+            logger.error({ err: err500 }, "Failed to render custom 500 page");
+        }
+        if (req.method === "HEAD") {
+            res.writeHead(500, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+            res.end();
+        } else {
+            res.writeHead(500, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+            res.end("Internal Server Error");
+        }
     }
 });
 
