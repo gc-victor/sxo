@@ -1,24 +1,27 @@
 mod errors;
+mod jsx_scanner;
+#[cfg(test)]
+mod jsx_scanner_tests;
+
 pub mod tags_attrs;
 mod transform;
 
 pub use errors::{JSXError, JSXErrorKind};
 
 use crate::jsx_parser::Parser;
-use regex::Regex;
-use std::sync::LazyLock;
+use jsx_scanner::find_next_jsx_start;
 use transform::transform_to_template;
 
 // Common constants used across the transformer.
 const EMPTY_STRING: &str = "";
 
-/// Transforms JSX found in the provided source string into
-/// a template-literal-based output using the runtime helpers.
-/// - Streams through the input to find `<` and invokes the parser from that point
-/// - Aggregates parser diagnostics (pretty-formatted) instead of failing fast
-/// - Performs a final cleanup to remove empty interpolations produced by edge cases
+// Transforms JSX found in the provided source string into
+// a template-literal-based output using the runtime helpers.
+// - Streams through the input to find `<` and invokes the parser from that point
+// - Aggregates parser diagnostics (pretty-formatted) instead of failing fast
+// - Performs a final cleanup to remove empty interpolations produced by edge cases
 pub fn jsx_transformer(source: &str) -> Result<String, JSXError> {
-    let input = remove_jsx_comments(source);
+    let input = source;
     let mut out = String::with_capacity(input.len() + 32);
     let mut cursor = 0;
     let mut i: usize = 0;
@@ -26,8 +29,8 @@ pub fn jsx_transformer(source: &str) -> Result<String, JSXError> {
 
     // Streaming scan + error accumulation: on parse error advance one byte and continue
     while i < input.len() {
-        if let Some(rel) = input[i..].find('<') {
-            i += rel;
+        if let Some(next) = find_next_jsx_start(input, i) {
+            i = next;
         } else {
             break;
         }
@@ -41,14 +44,15 @@ pub fn jsx_transformer(source: &str) -> Result<String, JSXError> {
                     out.push_str(&input[cursor..start_abs]);
                 }
                 let template = transform_to_template(&ast)?;
-                let transformed = format!("`{template}`");
-                out.push_str(&transformed);
+                out.push('`');
+                out.push_str(&template);
+                out.push('`');
                 cursor = end_abs;
                 i = end_abs;
             }
             Some(Err(e)) => {
                 let pos_abs = i + e.position;
-                errors.push(format_diagnostic(&input, pos_abs, &e.message));
+                errors.push(format_diagnostic(input, pos_abs, &e.message));
                 i += 1; // recovery: advance and continue scanning
             }
             None => break,
@@ -66,25 +70,10 @@ pub fn jsx_transformer(source: &str) -> Result<String, JSXError> {
     }
 
     // Remove empty interpolation artifacts
-    Ok(out.replace("${}", EMPTY_STRING))
-}
-
-// Compile regex patterns once at runtime
-// Matches JSX comments of the form {/* ... */}
-static JSX_COMMENT_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(?s)\{/\*.*?\*/\}").expect("Invalid JSX comment regex"));
-
-// Matches block comments like /* ... */ (including /** ... */)
-static BLOCK_COMMENT_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(?s)/\*.*?\*/").expect("Invalid block comment regex"));
-
-#[inline]
-fn remove_jsx_comments(source: &str) -> String {
-    // Remove JSX-style comments: {/* ... */}
-    let after_jsx = JSX_COMMENT_RE.replace_all(source, "");
-
-    // Remove block comments: /* ... */ and /** ... */
-    BLOCK_COMMENT_RE.replace_all(&after_jsx, "").into_owned()
+    if out.contains("${}") {
+        out = out.replace("${}", EMPTY_STRING);
+    }
+    Ok(out)
 }
 
 // Pretty diagnostic formatter for parser errors with line/column and caret.
