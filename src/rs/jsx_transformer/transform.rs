@@ -243,6 +243,12 @@ impl JSXVisitor for TemplateTransformer {
         if self.error.is_some() {
             return;
         }
+
+        // Filter out JSX comments written as block comments inside expressions: {/* ... */}
+        if is_js_block_comment_only(expr) {
+            return;
+        }
+
         if let Some(b) = self.current_builder_mut() {
             if expr.contains(OPENING_BRACKET) {
                 match super::jsx_transformer(expr) {
@@ -317,6 +323,13 @@ impl TemplateBuilder {
     fn finalize(self) -> String {
         self.out.trim().to_string()
     }
+}
+
+// Filter: true when an expression is exactly a JSX block comment (e.g., {/* ... */})
+#[inline]
+fn is_js_block_comment_only(s: &str) -> bool {
+    let t = s.trim();
+    t.len() >= 4 && t.starts_with("/*") && t.ends_with("*/")
 }
 
 // Scans an expression to determine if it should be wrapped with __jsxList(...).
