@@ -64,3 +64,43 @@ test("jsxBundlePath returns OUTPUT_DIR_SERVER root if given pages root itself (e
     const out = jsxBundlePath(PAGES_RELATIVE_DIR);
     assert.equal(out, path.resolve(OUTPUT_DIR_SERVER), "Pages root maps to server output root");
 });
+
+test("jsxBundlePath honors PAGES_DIR env for relative and absolute inputs", () => {
+    const previous = process.env.PAGES_DIR;
+    try {
+        process.env.PAGES_DIR = "custom/pages-env";
+
+        const relInput = "custom/pages-env/site/home/index.tsx";
+        const absInput = path.resolve(process.cwd(), "custom/pages-env/blog/post/index.jsx");
+
+        const outRel = jsxBundlePath(relInput);
+        const outAbs = jsxBundlePath(absInput);
+
+        assert.equal(outRel, expected("site/home/index.js"));
+        assert.equal(outAbs, expected("blog/post/index.js"));
+    } finally {
+        if (previous === undefined) {
+            delete process.env.PAGES_DIR;
+        } else {
+            process.env.PAGES_DIR = previous;
+        }
+    }
+});
+
+test("jsxBundlePath with PAGES_DIR env validates prefix and root mapping", () => {
+    const previous = process.env.PAGES_DIR;
+    try {
+        process.env.PAGES_DIR = "alt/pages";
+
+        assert.throws(() => jsxBundlePath("not-pages/thing.jsx"), /JSX path must start with/);
+
+        const out = jsxBundlePath("alt/pages");
+        assert.equal(out, path.resolve(OUTPUT_DIR_SERVER), "Env pages root maps to server output root");
+    } finally {
+        if (previous === undefined) {
+            delete process.env.PAGES_DIR;
+        } else {
+            process.env.PAGES_DIR = previous;
+        }
+    }
+});
