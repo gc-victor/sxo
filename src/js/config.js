@@ -24,10 +24,10 @@ import dotenv from "dotenv";
  * @property {string} [cwd]
  * @property {Record<string, any>} [flags]
  * @property {Record<string, boolean>} [flagsExplicit] // true if user explicitly provided the flag
- * @property {"dev"|"build"|"start"|"preview"|"clean"} [command]
+ * @property {"dev"|"build"|"start"|"preview"|"clean"|"add"} [command]
  *
  * @typedef {Object} SXOResolvedConfig
- * @property {"dev"|"build"|"start"|"preview"|"clean"} command
+ * @property {"dev"|"build"|"start"|"preview"|"clean"|"add"} command
  * @property {number} port
  * @property {string} pagesDir    // normalized POSIX-style relative path (e.g., "src/pages")
  * @property {string} outDir      // absolute path
@@ -37,6 +37,7 @@ import dotenv from "dotenv";
  * @property {boolean} minify
  * @property {boolean} sourcemap
  * @property {string} publicPath
+ * @property {string} componentsDir // normalized POSIX-style relative path (e.g., "src/components")
  * @property {Record<string,string>} env   // environment variables to pass to child processes
  * @property {string|null} configFilePath
  */
@@ -93,6 +94,7 @@ export async function resolveConfig(opts = {}) {
         sourcemap: normalized.sourcemap,
         publicPath: normalized.publicPath,
         clientDir: normalized.clientDir,
+        componentsDir: normalized.componentsDir,
         env: spawnEnv,
         configFilePath: configFilePath,
     };
@@ -114,6 +116,7 @@ export async function resolveRuntimeConfig(opts = {}) {
                 publicPath: fromParent.publicPath,
                 loaders,
                 clientDir: fromParent.clientDir,
+                componentsDir: fromParent.componentsDir,
             };
         } catch {
             // fall through to recompute
@@ -128,6 +131,7 @@ export async function resolveRuntimeConfig(opts = {}) {
         sourcemap: process.env.SOURCEMAP,
         publicPath: process.env.PUBLIC_PATH,
         clientDir: process.env.CLIENT_DIR,
+        componentsDir: process.env.COMPONENTS_DIR,
     };
 
     const command = opts.command || process.env.SXO_COMMAND || (process.env.DEV === "true" ? "dev" : "build");
@@ -241,12 +245,13 @@ function readEnvConfig(env) {
         publicPath: env.PUBLIC_PATH,
         loaders: env.LOADERS,
         clientDir: env.CLIENT_DIR,
+        componentsDir: env.COMPONENTS_DIR,
     };
 }
 
 /**
  * Command-aware default config
- * @param {"dev"|"build"|"start"|"preview"|"clean"} command
+ * @param {"dev"|"build"|"start"|"preview"|"clean"|"add"} command
  * @param {string} cwd
  */
 function defaultConfigForCommand(command, cwd) {
@@ -264,6 +269,7 @@ function defaultConfigForCommand(command, cwd) {
         sourcemap: sourcemapDefault,
         publicPath: "/", // default; can be ""
         clientDir: "client",
+        componentsDir: "src/components",
     };
 }
 
@@ -276,7 +282,7 @@ function defaultConfigForCommand(command, cwd) {
  * @param {Record<string,any>} ctx.flags
  * @param {Record<string,boolean>|null} [ctx.flagsExplicit]
  * @param {string} ctx.cwd
- * @param {"dev"|"build"|"start"|"preview"|"clean"} ctx.command
+ * @param {"dev"|"build"|"start"|"preview"|"clean"|"add"} ctx.command
  */
 function normalizeConfig({ defaults, env, file, flags, flagsExplicit, cwd, command }) {
     // Step 1: coerce each layer to normalized primitive types (without applying precedence)
@@ -332,6 +338,9 @@ function normalizeConfig({ defaults, env, file, flags, flagsExplicit, cwd, comma
         const clientDir = get("clientDir", "client-dir");
         if (clientDir !== undefined) norm.clientDir = String(clientDir);
 
+        const componentsDir = get("componentsDir", "components-dir");
+        if (componentsDir !== undefined) norm.componentsDir = toPosixRelativePath(String(componentsDir), cwd);
+
         return norm;
     };
 
@@ -367,12 +376,14 @@ function normalizeConfig({ defaults, env, file, flags, flagsExplicit, cwd, comma
         publicPath: pickDefined(g.publicPath, f.publicPath, e.publicPath, d.publicPath),
         loaders: pickDefined(g.loaders, f.loaders, e.loaders, d.loaders),
         clientDir: pickDefined(g.clientDir, f.clientDir, e.clientDir, d.clientDir),
+        componentsDir: pickDefined(g.componentsDir, f.componentsDir, e.componentsDir, d.componentsDir),
     };
 
     // Step 3: final normalization adjustments
     merged.port = clampPort(merged.port, 3000);
     merged.pagesDir = toPosixRelativePath(merged.pagesDir, cwd);
     merged.outDir = toAbsolutePath(merged.outDir, cwd);
+    merged.componentsDir = toPosixRelativePath(merged.componentsDir, cwd);
 
     // open default depends on command; but precedence already set, so if undefined use defaults
     if (merged.open === undefined || merged.open === null) {
@@ -400,6 +411,9 @@ function validateConfig(cfg) {
     if (typeof cfg.clientDir !== "string" || cfg.clientDir.length === 0 || cfg.clientDir.includes("/") || cfg.clientDir.includes("\\")) {
         throw new Error(`Invalid clientDir: ${cfg.clientDir}. Expected a non-empty single-segment folder name (e.g., "client").`);
     }
+    if (typeof cfg.componentsDir !== "string" || cfg.componentsDir.length === 0) {
+        throw new Error(`Invalid componentsDir: ${cfg.componentsDir}. Expected a non-empty string path.`);
+    }
 }
 
 /**
@@ -407,7 +421,7 @@ function validateConfig(cfg) {
  * DEV is true only for "dev" command; otherwise false.
  * SOURCEMAP is "true" when enabled (esbuild config will map to "inline" in our setup).
  * @param {ReturnType<typeof normalizeConfig>} cfg
- * @param {"dev"|"build"|"start"|"preview"|"clean"} command
+ * @param {"dev"|"build"|"start"|"preview"|"clean"|"add"} command
  */
 function toSpawnEnv(cfg, command) {
     const isDev = command === "dev";
@@ -420,6 +434,7 @@ function toSpawnEnv(cfg, command) {
         OUTPUT_DIR_CLIENT: path.join(cfg.outDir, "client"), // public client build output
         OUTPUT_DIR_SERVER: path.join(cfg.outDir, "server"), // private server (SSR) build output
         CLIENT_DIR: cfg.clientDir,
+        COMPONENTS_DIR: cfg.componentsDir,
     };
 
     env.SXO_COMMAND = command;
@@ -433,6 +448,7 @@ function toSpawnEnv(cfg, command) {
         publicPath: cfg.publicPath,
         loaders: cfg.loaders,
         clientDir: cfg.clientDir,
+        componentsDir: cfg.componentsDir,
     });
 
     // Build-only controls that esbuild.config.js honors via env
