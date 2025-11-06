@@ -4,6 +4,7 @@ dist/
 jsx-transformer/
 **/dist/
 *.local
+.env
 
 .vscode/*
 .idea

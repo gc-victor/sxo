@@ -92,7 +92,7 @@ try {
             plugins: [esbuildJsxPlugin()],
         }),
     ]);
-} catch (error) {
-    console.error("Build failed:", error);
+} catch (_) {
+    // console.error("Build failed:", error);
     process.exit(1);
 }

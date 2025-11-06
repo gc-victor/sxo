@@ -21,8 +21,10 @@ function assertString(v, label) {
 export function jsxBundlePath(jsxPath) {
     assertString(jsxPath, "jsxPath");
 
-    const pagesAbs = path.resolve(PAGES_DIR);
-    const pagesRel = PAGES_RELATIVE_DIR; // e.g. "src/pages"
+    // Use env if set (for generate with custom pagesDir), else constants
+    const pagesDirEnv = process.env.PAGES_DIR;
+    const pagesAbs = pagesDirEnv ? path.resolve(process.cwd(), pagesDirEnv) : PAGES_DIR;
+    const pagesRel = pagesDirEnv ? path.relative(process.cwd(), pagesAbs) : PAGES_RELATIVE_DIR;
     const absInput = path.resolve(jsxPath);
 
     // Accept either already-absolute path inside pagesAbs or a relative path

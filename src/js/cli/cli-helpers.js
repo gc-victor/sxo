@@ -150,7 +150,7 @@ function restoreEmptyStringFlag(flagsForConfig, flagsExplicit, argv, flagName) {
  * Returns { flagsForConfig, flagsExplicit } where:
  *  - flagsExplicit: { normalizedKey: boolean }
  *  - flagsForConfig: copy of rawFlags with non-explicit keys removed
- * @param {"dev"|"build"|"start"|"clean"} command
+ * @param {"dev"|"build"|"start"|"clean"|"add"} command
  * @param {Record<string,any>} rawFlags
  */
 export function prepareFlags(command, rawFlags) {
@@ -161,6 +161,7 @@ export function prepareFlags(command, rawFlags) {
         build: ["open", "minify", "sourcemap", "verbose", "color", "port", "pages-dir", "out-dir", "public-path", "client-dir"],
         start: ["open", "verbose", "color", "port", "pages-dir", "out-dir", "public-path", "client-dir"],
         clean: ["verbose", "color", "port", "pages-dir", "out-dir"],
+        add: ["verbose", "color", "components-dir"],
     };
     const relevant = commandFlagMap[command] || [];
     const flagsExplicit = {};
