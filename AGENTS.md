@@ -1,5 +1,25 @@
 # AGENTS.md
 
+## Quick Start (TL;DR)
+
+**Commands:**
+
+- `node --test` - run all tests
+- `node --test src/js/path/to/file.test.js` - run single test file
+- `npm run check` - lint with Biome
+- `npm run format` - format code
+- `./bin/sxo.js dev|build|start|clean|generate`
+
+**Architecture:** ESM-only Node 20+ SSR framework. Dual esbuild outputs ([`dist/client`](dist/client) public, [`dist/server`](dist/server) SSR bundles). Route discovery from `pages/` dir, manifest at [`dist/server/routes.json`](dist/server/routes.json). JSX via Rust/WASM transformer. Middleware in [`src/middleware.js`](src/middleware.js).
+
+**Style:** Small modules, ESM imports, JSDoc on exported utilities. No React patterns. Pages return full HTML docs (`<html>` + `<head>`). See [`.rules/jsx-standards.md`](.rules/jsx-standards.md) for examples, [`.rules/jsdoc.md`](.rules/jsdoc.md) for docs, [`.rules/testing.instructions.md`](.rules/testing.instructions.md) for tests.
+
+**Constraints:** Only modify [`src/js/**`](src/js) unless directed. Never edit [`jsx-transformer/jsx_transformer.js`](jsx-transformer/jsx_transformer.js), [`dist/**`](dist), or generated artifacts. No mega-refactors (>300 LOC / >3 files) without confirmation. Preserve `AIDEV-*` anchors.
+
+**Key Files:** [`src/js/esbuild/`](src/js/esbuild) (build pipeline), [`src/js/server/`](src/js/server) (dev/prod servers), [`src/js/config.js`](src/js/config.js) (resolution), [`src/js/cli/`](src/js/cli) (commands). Read full sections below for details.
+
+---
+
 ## Special Error Pages (404/500)
 
 This project supports root-level 404 and 500 pages that render as full HTML documents to replace simple text fallbacks.
@@ -23,8 +43,8 @@ This project supports root-level 404 and 500 pages that render as full HTML docu
 ## Info
 
 - **Project**: sxo
-- **Last Update**: 2025-09-19
-- **Rules**: `.rules/`
+- **Last Update**: 2025-09-25
+- **Rules**: [`.rules/`](.rules)
 
 ## Purpose
 
@@ -34,8 +54,8 @@ Authoritative onboarding & guard-rails for AI + human contributors. Read fully b
 
 ## 0. Project Overview
 
-- Manifest path: `dist/server/routes.json` (NOT `dist/routes.json`).
-- Dual build outputs: `dist/client` (public) / `dist/server` (private).
+- Manifest path: [`dist/server/routes.json`](dist/server/routes.json) (NOT `dist/routes.json`).
+- Dual build outputs: [`dist/client`](dist/client) (public) / [`dist/server`](dist/server) (private).
 - Page module acceptance: **default export OR named `jsx`** (server picks `module.default || module.jsx`).
 - Middleware system: `SRC_DIR/middleware.js` (hot-replace in dev).
 - Head injection removed: pages return full `<html>` and manage their own `<head>` contents directly.
@@ -43,7 +63,7 @@ Authoritative onboarding & guard-rails for AI + human contributors. Read fully b
 - Hot reload: SSE endpoint `/hot-replace?href=<path>` with partial body replacement.
 - Public asset base path configurable via `--public-path`, `PUBLIC_PATH`, or config; empty string "" preserved; consumed by esbuild `publicPath`; normalized at runtime for injection (empty string preserved → no leading slash; non‑empty ensures trailing slash).
 - Per‑route client entry subdirectory configurable via `clientDir` (config), `CLIENT_DIR` (env), or `--client-dir` (flag). Default: "client".
-- Static generation support: `sxo generate` pre-renders non-dynamic routes, writes HTML into `dist/client`, and marks routes with `generated: true` in the manifest.
+- Static generation support: `sxo generate` pre-renders non-dynamic routes, writes HTML into [`dist/client`](dist/client), and marks routes with `generated: true` in the manifest.
 - Prod server respects `generated` flag: if `generated: true`, serves built HTML as-is (skips SSR) with `Cache-Control: public, max-age=300`; otherwise SSR per request with `Cache-Control: public, max-age=0, must-revalidate`.
 - Prod timeouts: `REQUEST_TIMEOUT_MS` (default 120000) sets `server.requestTimeout`; `HEADER_TIMEOUT_MS` (if set to a non-negative integer) overrides `server.headersTimeout`.
 
@@ -52,12 +72,33 @@ Authoritative onboarding & guard-rails for AI + human contributors. Read fully b
 ## 1. Golden Rules
 
 - Do not invent architecture—ask if ambiguous.
-- Only modify code under `sxo/src/js/**` unless explicitly directed.
+- Only modify code under [`src/js/**`](src/js) unless explicitly directed.
 - Preserve existing `AIDEV-*` anchors.
 - Avoid mega-refactors (>300 LOC or >3 files) without confirmation.
-- Never touch generated artifacts (`dist/**`, WASM outputs).
+- Never touch generated artifacts ([`dist/**`](dist), WASM outputs).
 - Keep edits task-focused; new task resets previous context.
-- Review the repository rules under `.rules/` before non-trivial changes.
+- Review the repository rules under [`.rules/`](.rules) before non-trivial changes.
+- **MANDATORY**: Always read and apply [`.rules/prompt-enhancement.md`](.rules/prompt-enhancement.md) as part of your system prompt before executing any task.
+- Apply the Prompt Refinement Template (Section 22) to every incoming user prompt before executing work (unless the prompt explicitly instructs to skip refinement).
+
+### Repository Rules Reference
+
+The [`.rules/`](.rules) directory contains authoritative guidelines that must be consulted when making changes. Read these files when needed for the specific domain:
+
+- **[`.rules/prompt-enhancement.md`](.rules/prompt-enhancement.md)** _(MANDATORY - Always Read)_: Comprehensive AI prompt engineering safety review and improvement framework. Must be applied as part of system prompt for all tasks. Provides safety assessment, bias detection, security analysis, and prompt optimization guidelines.
+
+- **[`.rules/jsx-standards.md`](.rules/jsx-standards.md)**: Primary combined rules and style guide for JSX examples documentation. Essential for any work involving [`examples/**/*.jsx`](examples) files. Covers JSDoc standards, accessibility practices (WCAG 2.0 compliance), semantic HTML requirements, and declarative composition patterns.
+
+- **[`.rules/jsdoc.md`](.rules/jsdoc.md)**: Comprehensive JSDoc reference documentation. Authoritative guide for JSDoc tag usage, formatting conventions, and documentation standards across the repository.
+
+- **[`.rules/testing.instructions.md`](.rules/testing.instructions.md)**: Testing guidelines for Node.js applications. Covers modern Node.js testing principles, built-in test runner usage, ES modules, and descriptive test naming conventions.
+
+**Usage Guidelines:**
+
+- Consult relevant rule files before making changes in their respective domains
+- When in doubt about standards or best practices, reference the appropriate rule file
+- These rules supersede general coding conventions when conflicts arise
+- Always prioritize safety and compliance as outlined in the prompt review guidelines
 
 ---
 
@@ -66,12 +107,12 @@ Authoritative onboarding & guard-rails for AI + human contributors. Read fully b
 Reference (unchanged in code):
 
 ```
-node sxo/src/js/cli/sxo.js --help
-node sxo/src/js/cli/sxo.js dev
-node sxo/src/js/cli/sxo.js build
-node sxo/src/js/cli/sxo.js start
-node sxo/src/js/cli/sxo.js clean
-node sxo/src/js/cli/sxo.js generate
+node src/js/cli/sxo.js --help
+node src/js/cli/sxo.js dev
+node src/js/cli/sxo.js build
+node src/js/cli/sxo.js start
+node src/js/cli/sxo.js clean
+node src/js/cli/sxo.js generate
 node --test
 ```
 
@@ -87,12 +128,63 @@ Dev auto-open uses readiness probe (HEAD then GET, status < 500 = ready).
 - Structured errors or clear messages near boundaries; do not deeply wrap generic exceptions unless adding value.
 - Avoid broad repository reformatting; respect existing style.
 
----
+### JSX Examples Documentation & Style
+
+JSX examples in this project documentation and style standards to ensure consistency, maintainability, and proper vanilla JSX patterns.
+
+Authoritative sources (read these before editing any [`examples/**/*.jsx`](examples) files):
+
+- [`.rules/jsx-standards.md`](.rules/jsx-standards.md) (primary combined rules + style guide)
+- [`.rules/jsdoc.md`](.rules/jsdoc.md) (comprehensive JSDoc reference)
+
+Quick non-normative summary:
+
+- Every example file includes a structured `@fileoverview` header (with “vanilla JSX” mention).
+- Each exported component with object props has a `<Name>Props` typedef documenting `class` / `className`
+  aliasing, `children`, and `rest`.
+- Use native HTML semantics (`<details>/<summary>`, `<dialog>`, etc.) plus `// LIMITATION:` notes instead of
+  re‑creating behavior imperatively.
+- Avoid React runtime patterns, `data-*` attributes, and uncontrolled `id` usage.
+- Tag each new public export with `@public` and `@since`.
+- Follow migration & validation checklists in the referenced rule file.
+
+#### Native HTML Attribute Inheritance
+
+All component `*Props` typedefs now explicitly extend shared `HTML*Attributes` typedefs defined in [`examples/basecoat/src/types/jsx.d.ts`](examples/basecoat/src/types/jsx.d.ts).
+
+Pattern:
+
+- Each component typedef uses intersection syntax: `HTML[Element]Attributes & { customProps }`
+- Components with conditional rendering (Button, Badge) use attribute union: `(HTMLButtonAttributes & HTMLAnchorAttributes) & { customProps }`
+- Components with dynamic tag selection use `HTMLElementAttributes & { as?: string, customProps }`
+- No `HTMLElementAttributes` base type (each element type is self-contained)
+- Custom props documented explicitly; native attributes inherited implicitly
+- Import required types at top of each component file
+
+Example:
+
+```javascript
+/**
+ * Props accepted by `<ComponentName />`.
+ *
+ * [Brief description of what the component does]
+ * [Note about conditional rendering if applicable]
+ * [Note about forwarded attributes]
+ *
+ * @typedef {HTML[Element]Attributes & ComponentProps & {
+ *   customProp1?: type,
+ *   customProp2?: type,
+ * }} ComponentNameProps
+ * @since 1.0.0
+ */
+
+
+Exception: Sentinel pattern components (e.g., `ComboboxOption`, `ComboboxGroup`) return plain objects, not DOM nodes, and do not inherit element attributes.
 
 ## 4. Layout (Key Directories)
 
 ```
-sxo/src/js/
+src/js/
   cli/              # CLI + helpers (+ readiness, spawn)
   config.js         # flag/env/config resolution
   constants.js      # derived paths from resolved config
@@ -148,7 +240,7 @@ export function jsx(params) {
     </html>
   `;
 }
-```
+````
 
 Server chooses `module.default || module.jsx`. If adding transform logic, do not break this order.
 
@@ -224,7 +316,7 @@ If adding new MIME types: update mapping + tests if behavior differs.
 - Slug validation: `SLUG_REGEX` (return `{invalid:true}` on fail).
 - Root matches `""`, `/`, `/index.html`.
 
-If expanding to multi-param or advanced patterns: update sections (README + here) & tests under `utils/tests/route-match.test.js`.
+If expanding to multi-param or advanced patterns: update sections (README + here) & tests under [`src/js/server/utils/tests/route-match.test.js`](src/js/server/utils/tests/route-match.test.js).
 
 ---
 
@@ -237,12 +329,12 @@ If expanding to multi-param or advanced patterns: update sections (README + here
   - Prod names: `[dir]/[name].[hash]`
   - publicPath: sourced from `PUBLIC_PATH` environment variable (defaults to "/"); empty string "" preserved
   - per‑route client entry directory: sourced from resolved `clientDir` (default: "client")
-  - After the client build finishes, the metafile plugin augments `dist/server/routes.json` with per‑route assets (`route.assets = { css: string[], js: string[] }`). It does not write any HTML files. The `sxo generate` step consumes `route.assets` to inject `<link rel="stylesheet">` and `<script type="module">` tags into generated HTML with PUBLIC_PATH normalization (empty string preserved; non‑empty values end with a trailing slash). At runtime, the dev and prod servers also inject `route.assets` for non‑generated routes using the same normalization rules.
+  - After the client build finishes, the metafile plugin augments [`dist/server/routes.json`](dist/server/routes.json) with per‑route assets (`route.assets = { css: string[], js: string[] }`). It does not write any HTML files. The `sxo generate` step consumes `route.assets` to inject `<link rel="stylesheet">` and `<script type="module">` tags into generated HTML with PUBLIC_PATH normalization (empty string preserved; non‑empty values end with a trailing slash). At runtime, the dev and prod servers also inject `route.assets` for non‑generated routes using the same normalization rules.
 - Server:
   - SSR bundles for route `jsx` modules plus special 404/500 modules (no minify, no sourcemap).
 - Loader mapping: if `LOADERS` is set (from config/env/flags), esbuild's `loader` option is applied to both client and server builds (dev/build only).
 - JSX transformer & runtime helpers:
-  - Backed by a streaming JSX parser with error recovery (old precompiler removed; the `jsx_precompile.rs` file was deleted).
+  - Backed by a streaming JSX parser with error recovery (old precompiler removed; the [`jsx_precompile.rs`](jsx-transformer/jsx_precompile.rs) file was deleted).
   - Emits template literals and relies on runtime helpers:
     - `__jsxComponent(Component, propsArrayOrObject, children?)`
     - `__jsxSpread(object)` for attribute serialization
@@ -254,10 +346,10 @@ If expanding to multi-param or advanced patterns: update sections (README + here
   - Attribute name normalization mirrors HTML expectations (e.g., `className` → `class`, `htmlFor` → `for`); keep JS and Rust normalization in sync.
   - Diagnostics: aggregated, caret-aligned errors when parsing fails (preserve formatting).
   - WASM transformer + virtual helpers import.
-  - Do NOT edit `jsx-transformer/jsx_transformer.js`.
+  - Do NOT edit [`jsx-transformer/jsx_transformer.js`](jsx-transformer/jsx_transformer.js).
   - If you change helper names/semantics, parser strategy, or array detection heuristics, update README + AGENTS and adjust tests accordingly.
 - Manifest write precedes builds (ensures server can start even if later build step fails?).
-- Post-build optional step: `sxo generate` pre-renders non-dynamic routes using the built SSR modules, writes HTML back to `dist/client`, and sets `generated: true` in the manifest. Idempotent (skips already generated routes).
+- Post-build optional step: `sxo generate` pre-renders non-dynamic routes using the built SSR modules, writes HTML back to [`dist/client`](dist/client), and sets `generated: true` in the manifest. Idempotent (skips already generated routes).
 
 ---
 
@@ -272,7 +364,7 @@ Derived env injected:
 - `LOADERS` (JSON mapping of extension -> loader; only set in dev/build; also embedded in `SXO_RESOLVED_CONFIG`)
 - `PUBLIC_PATH` (string public base URL for assets; defaults to "/" when unset; empty string "" preserved)
 - `CLIENT_DIR` (per‑route client entry subdirectory; defaults to "client")
-  Flag explicitness tests in `config.test.js`; maintain those if adding new flags.
+  Flag explicitness tests in [`src/js/config.test.js`](src/js/config.test.js); maintain those if adding new flags.
 
 ---
 
@@ -283,7 +375,7 @@ Derived env injected:
 - Backoff HEAD → GET
 - Status < 500 (including 404) = success
 - Timeout returns `{ opened:false, timedOut:true }`
-  If altering thresholds or logic, update README & tests in `open.test.js`.
+  If altering thresholds or logic, update README & tests in [`src/js/cli/open.test.js`](src/js/cli/open.test.js).
 
 ---
 
@@ -291,7 +383,7 @@ Derived env injected:
 
 Granular suites:
 
-- CLI helpers (`cli-helpers.test.js`)
+- CLI helpers ([`cli-helpers.test.js`](src/js/cli/cli-helpers.test.js))
 - Spawn utilities
 - Open/readiness logic
 - Config precedence & explicit flags
@@ -300,7 +392,7 @@ Granular suites:
 - Utils (split: asset extraction, routing, statics security)
 - JSX helpers (attribute canonicalization)
 
-Add new test file when adding a discrete subsystem; keep responsibilities narrow. Read `.rules/testing.instructions.md` for detailed testing guidelines.
+Add new test file when adding a discrete subsystem; keep responsibilities narrow. Read [`.rules/testing.instructions.md`](.rules/testing.instructions.md) for detailed testing guidelines.
 
 ---
 
@@ -339,10 +431,10 @@ Trigger an update if you:
 
 Do NOT modify:
 
-- `jsx-transformer/jsx_transformer.js`
+- [`jsx-transformer/jsx_transformer.js`](jsx-transformer/jsx_transformer.js)
 - Generated build outputs
 - Future Rust/WASM build scripts
-- `routes.json` directly (always produced by build)
+- [`routes.json`](dist/server/routes.json) directly (always produced by build)
 
 ---
 
@@ -350,22 +442,22 @@ Do NOT modify:
 
 | Concern                    | File                                 |
 | -------------------------- | ------------------------------------ |
-| Route Discovery & Manifest | `esbuild/entry-points-config.js`     |
-| Metafile & Asset Mapping   | `esbuild/esbuild-metafile.plugin.js` |
-| Build Orchestrator         | `esbuild/esbuild.config.js`          |
-| JSX Plugin                 | `esbuild/esbuild-jsx.plugin.js`      |
-| Dev Server                 | `server/dev.js`                      |
-| Prod Server                | `server/prod.js`                     |
-| Middleware Loader          | `server/middleware.js`               |
+| Route Discovery & Manifest | [`esbuild/entry-points-config.js`](src/js/esbuild/entry-points-config.js)     |
+| Metafile & Asset Mapping   | [`esbuild/esbuild-metafile.plugin.js`](src/js/esbuild/esbuild-metafile.plugin.js) |
+| Build Orchestrator         | [`esbuild/esbuild.config.js`](src/js/esbuild/esbuild.config.js)          |
+| JSX Plugin                 | [`esbuild/esbuild-jsx.plugin.js`](src/js/esbuild/esbuild-jsx.plugin.js)      |
+| Dev Server                 | [`server/dev.js`](src/js/server/dev.js)                      |
+| Prod Server                | [`server/prod.js`](src/js/server/prod.js)                     |
+| Middleware Loader          | [`server/middleware.js`](src/js/server/middleware.js)               |
 
-| Static Assets | `server/utils/statics.js` |
-| Route Match | `server/utils/route-match.js` |
-| JSX Bundle Mapping | `server/utils/jsx-bundle-path.js` |
-| Special Error Pages Resolver | `server/utils/error-pages.js` |
-| SSR Module Loader | `server/utils/load-jsx-module.js` |
-| Config Resolution | `config.js` |
-| Readiness Probe | `cli/open.js` |
-| Static Generation | `generate/generate.js` |
+| Static Assets | [`server/utils/statics.js`](src/js/server/utils/statics.js) |
+| Route Match | [`server/utils/route-match.js`](src/js/server/utils/route-match.js) |
+| JSX Bundle Mapping | [`server/utils/jsx-bundle-path.js`](src/js/server/utils/jsx-bundle-path.js) |
+| Special Error Pages Resolver | [`server/utils/error-pages.js`](src/js/server/utils/error-pages.js) |
+| SSR Module Loader | [`server/utils/load-jsx-module.js`](src/js/server/utils/load-jsx-module.js) |
+| Config Resolution | [`config.js`](src/js/config.js) |
+| Readiness Probe | [`cli/open.js`](src/js/cli/open.js) |
+| Static Generation | [`generate/generate.js`](src/js/generate/generate.js) |
 
 ---
 
@@ -378,3 +470,172 @@ Do NOT modify:
 5. Update docs when surface area changes.
 6. Add / adjust tests before changing runtime semantics.
 7. Never “optimize” readability at cost of behavior without approval.
+
+---
+
+## 22. Prompt Refinement Template
+
+Mandatory: Every incoming user prompt (coding / architectural task) must be refined using this template before execution (unless the prompt explicitly instructs to skip refinement). This guarantees consistent structure, explicit constraints, and actionable acceptance criteria.
+
+Refinement Goal:
+Produce a higher-clarity, higher-specificity prompt preserving original intent while adding any missing explicit constraints relevant to this repository (see earlier sections for authoritative constraints).
+
+Distilled Key Additions (Reference-Inspired):
+Priority Order (apply when resolving conflicts):
+
+1. Safety & Compliance
+2. Factual Accuracy & Integrity
+3. User Goal Fulfillment (task completeness)
+4. Instruction / Format Adherence (schemas, tools, required output contract)
+5. Efficiency (token, latency, minimal unnecessary tool calls)
+6. Maintainability & Auditability
+7. Style / Tone (last; never override higher priorities)
+
+Core Success Criteria:
+
+- All explicit user requirements satisfied or explicitly scoped out with rationale.
+- No safety / compliance violations; no fabricated claims.
+- No unresolved contradictory instructions (log assumption if ambiguity remains).
+- Output matches requested structure (sections, patch format, code fences, etc.).
+- Tool usage (when available) is purposeful; no redundant lookups.
+- Assumptions are minimal, explicitly listed if materially affecting output.
+- Tests / diagnostics remain green (or newly added if surface area expands).
+
+Tool Usage Principles (when tools are available in the environment):
+
+- Use tools to inspect before modifying; evidence over inference.
+- Avoid repeated identical searches.
+- Only exceed implicit tool budget if correctness or safety would suffer; note justification.
+- If required info is unavailable, proceed with clearly marked assumptions instead of stalling.
+
+Assumption Logging:
+
+- Only create assumptions for blocking unknowns.
+- Each assumption should be necessary, testable, and low-risk; otherwise seek clarification (unless user forbids).
+- If user forbids refinement/clarification, proceed under clearly stated assumptions.
+
+Failure / Uncertainty Handling:
+
+- If a required resource is missing: state the gap + proposed fallback.
+- If ambiguity persists after refinement: choose the safest minimally invasive interpretation and continue; note it.
+- Do not loop requesting clarification unless safety-critical.
+
+Optional Refinement Parameters (lightweight mapping to extended template ideas—do not over-engineer):
+
+- reasoning_effort: minimal | standard | deep (controls plan verbosity; default: standard).
+- verbosity: low | normal | high (affects explanatory prose; never reduces required structural output).
+  (If user supplies analogous parameters, honor them; otherwise defaults apply silently.)
+
+Operating Principles:
+
+- Preserve original intent; do not introduce speculative requirements.
+- Eliminate ambiguity and implicit assumptions.
+- Prefer direct positive instructions over negations.
+- Encourage: (a) brief high‑level plan, then (b) the deliverable.
+- Include repository-relevant constraints when applicable.
+- For code changes: specify language (ESM, Node 20), file paths, testing expectations, performance/security constraints if relevant.
+- When tools (file read/edit, search, diagnostics) are available: instruct model to use them judiciously.
+- Keep meta-commentary minimal—focus on actionable structure.
+
+Output Requirement (when performing refinement task):
+Return only the improved prompt (plain text) — no preamble, no justification. If the source prompt is already excellent, make minimal surgical edits.
+
+Recommended Formatting Pattern (adapt as needed):
+
+```
+Role: <authoritative role; e.g., "You are an expert Node 20 ESM engineer contributing to the SXO project.">
+Context:
+- Project: SXO build + SSR system (see AGENTS.md sections for manifest, build, routing, constraints).
+- Non-editable: jsx-transformer, generated artifacts, dist outputs.
+- Relevant sections: <list sections that matter for this task>
+Task:
+<Clear, imperative statement of what to do.>
+Constraints:
+- ESM only; Node 20+.
+- Modify only under [`src/js/**`](src/js) unless stated otherwise.
+- Preserve architecture; no mega-refactors (>300 LOC or >3 files) without prior approval.
+- Do not touch non-editable artifacts (Section 19).
+- Follow Coding Standards & JSDoc rules (Section 3) if editing examples.
+Steps (concise):
+1. Analyze current state (use search / diagnostics if needed).
+2. Propose minimal plan.
+3. Implement changes.
+4. Add/adjust tests (if behavior changes or new surface area).
+5. Provide diff-focused summary.
+Tools:
+- Use available file read/search/edit and diagnostics tools as needed; prefer evidence over assumptions.
+I/O:
+- Output: <describe exact expected output format (e.g., "Return only the patch in the mandated <edits> format")>.
+Quality bar:
+- All tests pass.
+- No lint or diagnostics regressions.
+- Adheres to Golden Rules & security considerations.
+- Success criteria (Section 22) satisfied; assumptions explicitly listed if any.
+```
+
+Example Invocation Input (raw user asks for vague change):
+"Make the build faster."
+
+Refined Prompt Output (illustrative):
+(You would emit only the structured refined prompt per the pattern above, populated with concrete, testable acceptance criteria.)
+
+Use this template verbatim structure only when refinement is explicitly requested or clearly beneficial; otherwise proceed with direct execution per Section 21 workflow.
+
+Mandatory: Every incoming user prompt (coding / architectural task) must be refined using this template before execution (unless the prompt explicitly instructs to skip refinement). This guarantees consistent structure, explicit constraints, and actionable acceptance criteria.
+
+Refinement Goal:
+Produce a higher-clarity, higher-specificity prompt preserving original intent while adding any missing explicit constraints relevant to this repository (see earlier sections for authoritative constraints).
+
+Operating Principles:
+
+- Preserve original intent; do not introduce speculative requirements.
+- Eliminate ambiguity and implicit assumptions.
+- Prefer direct positive instructions over negations.
+- Encourage: (a) brief high‑level plan, then (b) the deliverable.
+- Include repository-relevant constraints when applicable.
+- For code changes: specify language (ESM, Node 20), file paths, testing expectations, performance/security constraints if relevant.
+- When tools (file read/edit, search, diagnostics) are available: instruct model to use them judiciously.
+- Keep meta-commentary minimal—focus on actionable structure.
+
+Output Requirement (when performing refinement task):
+Return only the improved prompt (plain text) — no preamble, no justification. If the source prompt is already excellent, make minimal surgical edits.
+
+Recommended Formatting Pattern (adapt as needed):
+
+```
+Role: <authoritative role; e.g., "You are an expert Node 20 ESM engineer contributing to the SXO project.">
+Context:
+- Project: SXO build + SSR system (see AGENTS.md sections for manifest, build, routing, constraints).
+- Non-editable: jsx-transformer, generated artifacts, dist outputs.
+- Relevant sections: <list sections that matter for this task>
+Task:
+<Clear, imperative statement of what to do.>
+Constraints:
+- ESM only; Node 20+.
+- Modify only under [`src/js/**`](src/js) unless stated otherwise.
+- Preserve architecture; no mega-refactors (>300 LOC or >3 files) without prior approval.
+- Do not touch non-editable artifacts (Section 19).
+- Follow Coding Standards & JSDoc rules (Section 3) if editing examples.
+Steps (concise):
+1. Analyze current state (use search / diagnostics if needed).
+2. Propose minimal plan.
+3. Implement changes.
+4. Add/adjust tests (if behavior changes or new surface area).
+5. Provide diff-focused summary.
+Tools:
+- Use available file read/search/edit and diagnostics tools as needed; prefer evidence over assumptions.
+I/O:
+- Output: <describe exact expected output format (e.g., "Return only the patch in the mandated <edits> format")>.
+Quality bar:
+- All tests pass.
+- No lint or diagnostics regressions.
+- Adheres to Golden Rules & security considerations.
+```
+
+Example Invocation Input (raw user asks for vague change):
+"Make the build faster."
+
+Refined Prompt Output (illustrative):
+(You would emit only the structured refined prompt per the pattern above, populated with concrete, testable acceptance criteria.)
+
+Use this template verbatim structure only when refinement is explicitly requested or clearly beneficial; otherwise proceed with direct execution per Section 21 workflow.
