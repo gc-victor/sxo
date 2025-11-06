@@ -1,0 +1,15 @@
+{
+    "name": "web",
+    "version": "0.0.0",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "build": "../bin/sxo.js build && ../bin/sxo.js generate && cp -r ./dist/client/* ./public/",
+        "deploy": "wrangler deploy",
+        "dev": "wrangler dev",
+        "start": "wrangler dev"
+    },
+    "devDependencies": {
+        "wrangler": "^4.45.4"
+    }
+}
