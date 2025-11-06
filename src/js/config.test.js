@@ -17,6 +17,7 @@ const KEYS = [
     "PUBLIC_PATH",
     "LOADERS",
     "CLIENT_DIR",
+    "COMPONENTS_DIR",
 ];
 
 // Utility: run a function within an isolated temporary directory
@@ -480,6 +481,51 @@ test("config: clientDir flags precedence over file and env", async () => {
                 flags: { "client-dir": "assets" },
             });
             assert.equal(cfg.env.CLIENT_DIR, "assets");
+        });
+    });
+});
+
+test("config: componentsDir default is 'src/components' and is propagated in env", async () => {
+    await withTempProject(async (dir) => {
+        await withEnvCapture(async () => {
+            const cfg = await resolveConfig({ cwd: dir, command: "build" });
+            assert.equal(cfg.env.COMPONENTS_DIR, "src/components");
+        });
+    });
+});
+
+test("config: componentsDir env override via COMPONENTS_DIR", async () => {
+    await withTempProject(async (dir) => {
+        await withEnvCapture(async () => {
+            await writeFile(dir, ".env", "COMPONENTS_DIR=lib/components\n");
+            const cfg = await resolveConfig({ cwd: dir, command: "build" });
+            assert.equal(cfg.env.COMPONENTS_DIR, "lib/components");
+        });
+    });
+});
+
+test("config: componentsDir file override beats env", async () => {
+    await withTempProject(async (dir) => {
+        await withEnvCapture(async () => {
+            await writeFile(dir, ".env", "COMPONENTS_DIR=lib/components\n");
+            await writeFile(dir, "sxo.config.json", JSON.stringify({ componentsDir: "src/ui" }, null, 2));
+            const cfg = await resolveConfig({ cwd: dir, command: "build" });
+            assert.equal(cfg.env.COMPONENTS_DIR, "src/ui");
+        });
+    });
+});
+
+test("config: componentsDir flags precedence over file and env", async () => {
+    await withTempProject(async (dir) => {
+        await withEnvCapture(async () => {
+            await writeFile(dir, ".env", "COMPONENTS_DIR=lib/components\n");
+            await writeFile(dir, "sxo.config.json", JSON.stringify({ componentsDir: "src/ui" }, null, 2));
+            const cfg = await resolveConfig({
+                cwd: dir,
+                command: "build",
+                flags: { "components-dir": "components" },
+            });
+            assert.equal(cfg.env.COMPONENTS_DIR, "components");
         });
     });
 });
