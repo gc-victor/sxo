@@ -1,0 +1,41 @@
+{
+    "compilerOptions": {
+        "checkJs": true,
+        "allowJs": true,
+        "lib": ["ESNext", "DOM"],
+        "baseUrl": "../components/src",
+        "paths": {
+            "@/*": ["./*"],
+            "@components/*": ["components/*"],
+            "@utils/*": ["utils/*"],
+            "@pages/*": ["pages/*"]
+        },
+        "module": "esnext",
+        "target": "esnext",
+        "moduleResolution": "bundler",
+        "moduleDetection": "force",
+        "noImplicitAny": true,
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
+        "exactOptionalPropertyTypes": true,
+        "strictNullChecks": true,
+        "strictFunctionTypes": false,
+        "strictPropertyInitialization": false,
+        "strictBindCallApply": false,
+        "strict": true,
+        "allowImportingTsExtensions": true,
+        "noEmit": true,
+        "composite": true,
+        "downlevelIteration": true,
+        "skipLibCheck": true,
+        "jsx": "preserve",
+        "jsxFactory": "jsx",
+        "jsxFragmentFactory": "Fragment",
+        "allowSyntheticDefaultImports": true,
+        "forceConsistentCasingInFileNames": true,
+        "typeRoots": ["./src/types", "./node_modules/@types"],
+        "types": []
+    },
+    "include": ["../components/src/**/*"],
+    "exclude": ["node_modules"]
+}
