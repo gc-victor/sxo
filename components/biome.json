@@ -1,4 +1,5 @@
 {
+    "root": false,
     "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
     "linter": {
         "enabled": true,
@@ -6,12 +7,10 @@
             "recommended": true,
             "correctness": {
                 "useJsxKeyInIterable": "off"
+            },
+            "suspicious": {
+                "noUnknownAtRules": "off"
             }
-        }
-    },
-    "css": {
-        "parser": {
-            "tailwindDirectives": true
         }
     },
     "formatter": {
@@ -20,6 +19,11 @@
         "indentStyle": "space",
         "indentWidth": 4,
         "lineWidth": 140
+    },
+    "css": {
+        "parser": {
+            "tailwindDirectives": true
+        }
     },
     "files": {
         "includes": [
@@ -34,7 +38,7 @@
             "!.env",
             "!target",
             "!coverage",
-            "!components/src/pages/global.css"
+            "!src/pages/global.css"
         ]
     }
 }

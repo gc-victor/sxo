@@ -1,0 +1,67 @@
+/* Select Menu */
+@layer components {
+    .select-menu {
+        @apply relative inline-flex;
+    }
+
+    .select-menu-popover {
+        @apply absolute top-full z-50 mt-1 min-w-32 rounded-md border bg-popover p-1 text-popover-foreground shadow-md;
+
+        &[aria-hidden="true"] {
+            @apply hidden;
+        }
+
+        .select-menu-option {
+            @apply aria-hidden:hidden [&_svg]:text-muted-foreground relative flex cursor-default items-center gap-2 rounded-sm pl-2 py-1.5 pr-7.5 text-sm outline-hidden select-none [&_svg]:shrink-0 [&_svg]:size-4 aria-disabled:opacity-50 aria-disabled:pointer-events-none disabled:opacity-50 disabled:pointer-events-none w-full truncate;
+
+            &[aria-selected="true"] {
+                background: var(--check-icon) no-repeat center right 0.5rem / 0.875rem;
+            }
+            &.active,
+            &:focus-visible {
+                @apply bg-accent text-accent-foreground;
+            }
+        }
+
+        .select-menu-list .select-menu-group legend {
+            @apply flex text-muted-foreground px-2 py-1.5 text-xs;
+        }
+
+        .select-menu-list .select-menu-group:not(:has(.select-menu-option:not([aria-hidden="true"]))) {
+            @apply hidden;
+        }
+
+        .select-menu-separator {
+            @apply border-border -mx-1 my-1;
+        }
+
+        > header {
+            @apply flex h-9 items-center gap-2 border-b px-3 -mx-1 -mt-1 mb-1;
+
+            svg {
+                @apply size-4 shrink-0 opacity-50;
+            }
+            input[role="combobox"] {
+                @apply placeholder:text-muted-foreground flex h-10 flex-1 w-full rounded-md bg-transparent py-3 text-sm outline-hidden disabled:cursor-not-allowed disabled:opacity-50 min-w-0;
+            }
+        }
+
+        .select-menu-list:not(:has([data-value]:not([aria-hidden="true"])))::before {
+            @apply flex items-center justify-center p-6 text-sm truncate;
+        }
+        .select-menu-list[data-empty]:not(:has([data-value]:not([aria-hidden="true"])))::before {
+            @apply content-[attr(data-empty)];
+        }
+        .select-menu-list:not([data-empty]):not(:has([data-value]:not([aria-hidden="true"])))::before {
+            content: "No results found";
+        }
+    }
+
+    .select-menu:not([data-select-menu-initialized]) .select-menu-popover .select-menu-option {
+        @apply hover:bg-accent hover:text-accent-foreground;
+    }
+
+    .select-menu-trigger {
+        background: var(--chevron-down-icon-50) no-repeat center right 0.75rem / 1rem;
+    }
+}

@@ -150,7 +150,7 @@ Quick non-normative summary:
 
 #### Native HTML Attribute Inheritance
 
-All component `*Props` typedefs now explicitly extend shared `HTML*Attributes` typedefs defined in [`examples/basecoat/src/types/jsx.d.ts`](examples/basecoat/src/types/jsx.d.ts).
+All component `*Props` typedefs now explicitly extend shared `HTML*Attributes` typedefs defined in [`components/src/types/jsx.d.ts`](components/src/types/jsx.d.ts).
 
 Pattern:
 
