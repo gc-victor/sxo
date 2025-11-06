@@ -53,7 +53,7 @@ mod tests {
 
         assert!(result.is_ok());
         let output = result.unwrap();
-        let expected_snippet = "${__jsxComponent(App, [], `${__jsxComponent(Header, [{\"title\":\"Welcome!\"}])} ${__jsxComponent(Content, [], `<p>This is a <strong>complex</strong> JSX example.</p> ${__jsxComponent(CustomComponent, [{\"prop1\":42},{\"prop2\":\"hello\"}])}`)} ${__jsxComponent(Footer, [])}`)}";
+        let expected_snippet = "${__jsxComponent(App, [], `${__jsxComponent(Header, [{\"title\":\"Welcome!\"}])}${__jsxComponent(Content, [], `<p>This is a <strong>complex</strong> JSX example.</p>${__jsxComponent(CustomComponent, [{\"prop1\":42},{\"prop2\":\"hello\"}])}`)}${__jsxComponent(Footer, [])}`)}";
         assert!(normalize_ws(&output).contains(&normalize_ws(expected_snippet)));
     }
 }
