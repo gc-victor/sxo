@@ -320,7 +320,7 @@ const result = <GrandParent />;`;
     const out = jsx(source);
     const expected = `
 const Child = ({ children, ...props }) => \`<div><p>\${ props.attr }</p>\${children}</div>\`;
-const Parent = (props) => ( \`\${__jsxComponent(Child, [{...props}], \`<p>Parent Content</p> <p>Another Content</p>\`)}\` );
+const Parent = (props) => ( \`\${__jsxComponent(Child, [{...props}], \`<p>Parent Content</p><p>Another Content</p>\`)}\` );
 const GrandParent = () => ( \`\${__jsxComponent(Parent, [{"attr":"Test"}], \`<p>GrandParent Content</p>\`)}\` );
 const result = \`\${__jsxComponent(GrandParent, [])}\`;`;
     assert.equal(normalizeWs(out), normalizeWs(expected));
@@ -385,7 +385,7 @@ test("scanner: division vs comparison does not confuse scanner", () => {
         // skip: known edge for JS-level scan
         out = "";
     }
-    
+
     // The conditional remains; JSX after is still transformed.
     if (out) assert.ok(out.includes("a / b < c ? 1 : 2"));
     if (out) assert.ok(out.includes("<tag></tag>"));

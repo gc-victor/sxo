@@ -322,3 +322,42 @@ test("should preserve regular attribute names", () => {
     };
     assert.strictEqual(__jsxSpread(customProps), ' dataTest="value"');
 });
+
+test("should handle __jsxComponent returning an array", () => {
+    const MultiComponent = () => ["<div>First</div>", "<div>Second</div>", "<div>Third</div>"];
+    const result = __jsxComponent(MultiComponent, []);
+    assert.strictEqual(result.toString(), "<div>First</div><div>Second</div><div>Third</div>");
+});
+
+/* New intrinsic element support tests */
+
+test("should render intrinsic string element with attributes and children", () => {
+    const result = __jsxComponent("section", [{ id: "intro", class: "hero" }], "<p>Hello</p>");
+    assert.strictEqual(result.toString(), '<section id="intro" class="hero"><p>Hello</p></section>');
+});
+
+test("should render intrinsic void element and ignore children", () => {
+    const result = __jsxComponent("img", [{ src: "/logo.png", alt: "Logo" }], "IGNORED");
+    assert.strictEqual(result.toString(), '<img src="/logo.png" alt="Logo"/>');
+});
+
+test("should render intrinsic element with no children producing empty content", () => {
+    const result = __jsxComponent("div", [{ class: "wrap" }]);
+    assert.strictEqual(result.toString(), '<div class="wrap"></div>');
+});
+
+test("should allow prop objects (non-array) for intrinsic element", () => {
+    const result = __jsxComponent("nav", { role: "navigation", class: "main" }, "<span>Menu</span>");
+    assert.strictEqual(result.toString(), '<nav role="navigation" class="main"><span>Menu</span></nav>');
+});
+
+test("should throw when component is not function or string", () => {
+    let threw = false;
+    try {
+        __jsxComponent(42, []);
+    } catch (e) {
+        threw = true;
+        assert.match(String(e), /expected a function or intrinsic tag string/i);
+    }
+    assert.ok(threw, "Expected __jsxComponent to throw for invalid component type");
+});
