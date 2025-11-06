@@ -17,7 +17,7 @@ Non-goals: historical variants, stylistic forks, redundant verbosity, metadata-r
 **Related Files & Globs:**
 
 - [.rules/jsx-standards.md](./.rules/jsx-standards.md)
-- [examples/basecoat/src/types/jsx.d.ts](./examples/basecoat/src/types/jsx.d.ts)
+- [components/src/types/jsx.d.ts](./components/src/types/jsx.d.ts)
 
 ---
 
@@ -129,7 +129,7 @@ If structural metadata was formerly modeled by sentinel components:
 
 ## 3. Native Attribute Inheritance (Strict)
 
-Use the concrete element interfaces defined in `examples/basecoat/src/types/jsx.d.ts`:
+Use the concrete element interfaces defined in `components/src/types/jsx.d.ts`:
 
 Examples: `HTMLButtonAttributes`, `HTMLInputAttributes`, `HTMLAnchorAttributes`, `HTMLDivAttributes`,
 `HTMLTextAreaAttributes`, `HTMLSelectAttributes`, `HTMLFormAttributes`.

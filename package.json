@@ -33,27 +33,27 @@
     },
     "scripts": {
         "help": "./bin/sxo.js --help",
-        "dev": "./bin/sxo.js dev",
-        "build": "./bin/sxo.js build",
-        "start": "./bin/sxo.js start",
-        "clean": "./bin/sxo.js clean",
         "wasm-build": "node scripts/wasm-build.js",
         "format": "biome format src/js --write",
-        "check": "biome check src/js",
-        "check:fix": "biome check --write --unsafe src/js",
-        "check:basecoat": "biome check examples/basecoat/src/**/*.{js,jsx}",
-        "test": "node --test $(find src/js -type f -name '*.test.js')"
+        "check": "biome check src/js components/e2e components/src",
+        "check:fix": "biome check --write --unsafe src/js components/e2e components/src",
+        "components:dev": "pnpm run --filter ./components dev",
+        "components:build": "pnpm run --filter ./components build",
+        "components:start": "pnpm run --filter ./components start",
+        "components:clean": "pnpm run --filter ./components clean",
+        "test": "node --test $(find src/js -type f -name '*.test.js')",
+        "test:e2e": "pnpm run --filter ./components test:e2e"
     },
     "devDependencies": {
-        "@biomejs/biome": "^2.2.6",
-        "@qery/reactive-component": "^0.6.1",
-        "@types/node": "^24.7.2"
+        "@biomejs/biome": "^2.3.4",
+        "@qery/reactive-component": "^0.8.0",
+        "@types/node": "^24.10.0"
     },
     "dependencies": {
         "cac": "^6.7.14",
         "dotenv": "^17.2.3",
-        "esbuild": "^0.25.10",
-        "pino": "^10.0.0",
+        "esbuild": "^0.25.12",
+        "pino": "^10.1.0",
         "pino-http": "^11.0.0",
         "pino-pretty": "^13.1.2"
     }

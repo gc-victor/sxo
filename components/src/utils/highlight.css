@@ -1,0 +1,92 @@
+/**
+ * @fileoverview CSS styles for syntax highlighting (JSX and CSS)
+ *
+ * Provides color schemes for highlighted code elements. These styles work
+ * with the highlight utilities to display syntax-highlighted code snippets
+ * in documentation and examples.
+ *
+ * Classes:
+ * - .jsx-tag: JSX tag delimiters (< > /)
+ * - .jsx-name: JSX tag names (Button, div)
+ * - .jsx-attribute: JSX attribute names (variant, className)
+ * - .jsx-string: JSX string values in double quotes ("primary")
+ * - .jsx-expression: JavaScript expressions in curly braces ({ })
+ * - .css-name: CSS selector names
+ * - .css-string: CSS string values
+ * - .css-keyword: CSS keywords and properties
+ *
+ * Design notes:
+ * - Colors chosen for readability and accessibility (WCAG compliant)
+ * - Supports both light and dark color schemes via .dark class
+ * - Uses semantic color values for consistent theming
+ *
+ * @author Victor García
+ * @license MIT
+ * @version 1.0.0
+ */
+
+.css-highlight,
+.jsx-highlight {
+    background-color: var(--color-muted);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    overflow-x: auto;
+}
+
+.jsx-tag {
+    color: #032f62;
+    font-weight: 500;
+}
+
+.css-name,
+.jsx-name {
+    color: #22863a;
+    font-weight: 500;
+}
+
+.jsx-attribute {
+    color: #6f42c1;
+    font-weight: 500;
+}
+
+.css-string,
+.jsx-string {
+    color: #032f62;
+    font-weight: 500;
+}
+
+.css-keyword,
+.jsx-expression {
+    color: #d73a49;
+    font-weight: 500;
+}
+
+.dark {
+    & .css-name,
+    & .jsx-name {
+        color: #7ee787;
+        font-weight: 500;
+    }
+
+    & .jsx-attribute {
+        color: #d2a8ff;
+        font-weight: 500;
+    }
+
+    & .jsx-tag {
+        color: #79c0ff;
+        font-weight: 500;
+    }
+
+    & .css-string,
+    & .jsx-string {
+        color: #79c0ff;
+        font-weight: 500;
+    }
+
+    & .css-keyword,
+    & .jsx-expression {
+        color: #ff7b98;
+        font-weight: 500;
+    }
+}

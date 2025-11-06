@@ -1,0 +1,39 @@
+{
+    "name": "sxo-components",
+    "version": "0.0.0",
+    "private": true,
+    "type": "module",
+    "description": "A complete set of ready-to-use UI components built for SXO.",
+    "license": "MIT",
+    "scripts": {
+        "check": "biome check src/",
+        "check:fix": "biome check --write --unsafe src/ e2e/",
+        "dev": "pnpm run sxo:dev & pnpm run tailwind:watch",
+        "server": "pnpm run sxo:build && pnpm run sxo:start",
+        "sxo:help": "node ../bin/sxo.js --help",
+        "sxo:dev": "node ../bin/sxo.js dev",
+        "sxo:build": "node ../bin/sxo.js build",
+        "sxo:generate": "node ../bin/sxo.js generate",
+        "sxo:start": "node ../bin/sxo.js start --port 3001",
+        "sxo:clean": "node ../bin/sxo.js clean",
+        "playwright:install": "playwright install --with-deps",
+        "test:e2e": "sh -c 'pnpm run server >/dev/null 2>&1 & SERVER_PID=$!; trap \"kill $SERVER_PID 2>/dev/null\" EXIT; pnpm run test:e2e:runner -- \"$@\"' --",
+        "test:e2e:runner": "playwright test",
+        "test:e2e:ui": "playwright test --ui",
+        "test:e2e:headed": "playwright test --headed",
+        "test:e2e:debug": "playwright test --debug",
+        "tailwind": "tailwindcss -i src/styles.css -o src/pages/global.css",
+        "tailwind:watch": "pnpm tailwind -w"
+    },
+    "dependencies": {
+        "@qery/reactive-component": "^0.8.0",
+        "sxo": "^0.6.1"
+    },
+    "devDependencies": {
+        "@biomejs/biome": "^2.3.4",
+        "@playwright/test": "^1.56.1",
+        "@tailwindcss/cli": "4.1.17",
+        "basecoat-css": "0.3.3",
+        "tailwindcss": "4.1.17"
+    }
+}
