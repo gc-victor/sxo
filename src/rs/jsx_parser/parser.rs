@@ -29,7 +29,6 @@ const ERR_EXPECT_IDENTIFIER: &str = "Expected identifier";
 const ERR_UNTERMINATED_STRING: &str = "Unterminated string literal";
 const ERR_EXPECT_STRING_OR_EXPR: &str = "Expected string or expression";
 const ERR_UNCLOSED_EXPRESSION: &str = "Unclosed expression";
-const ERR_EXPECT_SPREAD_OPERATOR: &str = "Expected identifier after spread operator";
 
 pub struct Parser<'a> {
     chars: Peekable<Chars<'a>>,
@@ -234,9 +233,16 @@ impl<'a> Parser<'a> {
                 self.bump();
                 self.bump();
 
-                let name = match self.parse_identifier() {
-                    Ok(name) => format!("...{name}"),
-                    Err(_) => return Err(ERR_EXPECT_SPREAD_OPERATOR.to_string()),
+                let name = match self.peek() {
+                    Some(c) if c.is_ascii_alphabetic() || c == UNDERSCORE || c == DOLLAR_SIGN => {
+                        let ident = self.parse_identifier()?;
+                        format!("...{ident}")
+                    }
+                    _ => {
+                        // Accept any JS expression until the matching '}' for spread attributes like {...(expr)}
+                        let expr = self.parse_expression_content()?;
+                        format!("...{expr}")
+                    }
                 };
 
                 attributes.push(JSXAttribute { name, value: None });
@@ -393,7 +399,8 @@ impl<'a> Parser<'a> {
         }
 
         while let Some(c) = self.peek() {
-            if c.is_alphanumeric() || c == UNDERSCORE || c == DOLLAR_SIGN || c == HYPHEN {
+            if c.is_alphanumeric() || c == UNDERSCORE || c == DOLLAR_SIGN || c == HYPHEN || c == DOT
+            {
                 ident.push(c);
                 self.bump();
             } else {

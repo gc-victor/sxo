@@ -9,6 +9,7 @@ function __jsxList(value) {
 }
 
 function __jsxComponent(Component, props, children) {
+    // Accept both array-of-prop-objects (current transformer output) or a single object.
     let finalProps;
     if (Array.isArray(props)) {
         finalProps = {};
@@ -20,10 +21,46 @@ function __jsxComponent(Component, props, children) {
             }
         }
     } else {
-        finalProps = props;
+        finalProps = props || {};
+    }
+    // Attach children last so explicit "children" in prop objects can override if desired
+    finalProps = { ...finalProps, children };
+
+    // Intrinsic element support: if Component is a string (e.g. "div", "section"), render as an HTML element.
+    if (typeof Component === "string") {
+        const tag = Component;
+        // Handle void elements (no closing tag, children ignored)
+        const voidTags = new Set([
+            "area",
+            "base",
+            "br",
+            "col",
+            "embed",
+            "hr",
+            "img",
+            "input",
+            "link",
+            "meta",
+            "param",
+            "source",
+            "track",
+            "wbr",
+        ]);
+        // Separate children from attributes
+        const { children: _ignoredChildren, ...rest } = finalProps;
+        const spread = __jsxSpread(rest);
+        if (voidTags.has(tag)) {
+            return `<${tag}${spread}/>`;
+        }
+        return `<${tag}${spread}>${children == null ? "" : children}</${tag}>`;
     }
 
-    return Component({ ...finalProps, children });
+    if (typeof Component !== "function") {
+        throw new TypeError(`__jsxComponent expected a function or intrinsic tag string; received ${typeof Component}`);
+    }
+
+    const result = Component(finalProps);
+    return Array.isArray(result) ? result.join("") : result;
 }
 
 function __jsxSpread(obj) {
@@ -59,7 +96,7 @@ function normalizeAttributeName(name) {
         return lowerCased;
     }
 
-    if (name.startsWith("aria")) {
+    if (name.startsWith("aria") && !name.startsWith("aria-")) {
         return `aria-${name.slice(4).toLowerCase()}`;
     }
 

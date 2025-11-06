@@ -51,7 +51,8 @@ pub(crate) fn transform_attribute(attr: &JSXAttribute, target: TagType) -> Strin
     match target {
         TagType::Component => match &attr.value {
             Some(JSXAttributeValue::Expression(expr)) => {
-                format!(r#"{{"{}":{}}}"#, &attr.name, expr)
+                let transformed = super::jsx_transformer(expr).unwrap_or_else(|_| expr.to_string());
+                format!(r#"{{"{}":{}}}"#, &attr.name, transformed)
             }
             Some(JSXAttributeValue::DoubleQuote(value)) => {
                 format!(r#"{{"{}":"{}"}}"#, &attr.name, value)
@@ -72,7 +73,13 @@ pub(crate) fn transform_attribute(attr: &JSXAttribute, target: TagType) -> Strin
             // Handle boolean and spread first (no normalized name for boolean to preserve legacy behavior)
             if attr.value.is_none() {
                 if attr.name.starts_with("...") {
-                    return format!("${{__jsxSpread({})}}", attr.name.replace("...", ""));
+                    return format!(
+                        "${{__jsxSpread({})}}",
+                        attr.name
+                            .replace("...", "")
+                            .trim_start_matches('(')
+                            .trim_end_matches(')')
+                    );
                 } else {
                     return attr.name.to_string();
                 }
@@ -95,7 +102,9 @@ pub(crate) fn transform_attribute(attr: &JSXAttribute, target: TagType) -> Strin
     }
 }
 
-pub(crate) fn transform_component_attributes(attributes: &[JSXAttribute]) -> Result<String, JSXError> {
+pub(crate) fn transform_component_attributes(
+    attributes: &[JSXAttribute],
+) -> Result<String, JSXError> {
     let mut attr_parts = Vec::new();
     for attr in attributes.iter() {
         attr_parts.push(transform_attribute(attr, TagType::Component));
@@ -103,7 +112,9 @@ pub(crate) fn transform_component_attributes(attributes: &[JSXAttribute]) -> Res
     Ok(format!("[{}]", attr_parts.join(COMMA)))
 }
 
-pub(crate) fn transform_element_attributes(attributes: &[JSXAttribute]) -> Result<Vec<String>, JSXError> {
+pub(crate) fn transform_element_attributes(
+    attributes: &[JSXAttribute],
+) -> Result<Vec<String>, JSXError> {
     let mut attr_parts = Vec::new();
     for attr in attributes {
         attr_parts.push(transform_attribute(attr, TagType::Element));

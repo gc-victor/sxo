@@ -234,6 +234,29 @@ impl JSXVisitor for TemplateTransformer {
         if self.error.is_some() {
             return;
         }
+
+        // AIDEV-NOTE: Skip indentation-only whitespace text nodes that contain at least one
+        // newline (typical pretty-print / indentation artifacts) except when inside a
+        // &lt;pre&gt; or &lt;textarea&gt; element where whitespace is significant.
+        // This prevents extra spaces between adjacent component insertions like:
+        // <A></A>
+        //     <B/>
+        // which previously produced a single space text node.
+        if text.contains('\n') && text.trim().is_empty() {
+            let mut preserve = false;
+            for frame in &self.stack {
+                if let NodeFrame::Element { tag, .. } = frame {
+                    if tag == "pre" || tag == "textarea" {
+                        preserve = true;
+                        break;
+                    }
+                }
+            }
+            if !preserve {
+                return;
+            }
+        }
+
         if let Some(b) = self.current_builder_mut() {
             b.push_text(text);
         }
