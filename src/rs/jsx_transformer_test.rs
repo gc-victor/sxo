@@ -127,7 +127,7 @@ fn test_component_children() {
     let result = jsx_transformer(source).unwrap();
     assert_eq!(
             result.replace('\n', "").split_whitespace().collect::<Vec<&str>>().join(" "),
-            "const Child = ({ children, ...props }) => `<div><p>${ props.attr }</p>${children}</div>`; const Parent = (props) => ( `${__jsxComponent(Child, [{...props}], `<p>Parent Content</p> <p>Another Content</p>`)}` ); const GrandParent = () => ( `${__jsxComponent(Parent, [{\"attr\":\"Test\"}], `<p>GrandParent Content</p>`)}` ); const result = `${__jsxComponent(GrandParent, [])}`;"
+            "const Child = ({ children, ...props }) => `<div><p>${ props.attr }</p>${children}</div>`; const Parent = (props) => ( `${__jsxComponent(Child, [{...props}], `<p>Parent Content</p><p>Another Content</p>`)}` ); const GrandParent = () => ( `${__jsxComponent(Parent, [{\"attr\":\"Test\"}], `<p>GrandParent Content</p>`)}` ); const result = `${__jsxComponent(GrandParent, [])}`;"
         );
 }
 
@@ -445,7 +445,7 @@ fn test_fragment_with_child_expresion() {
             )}
         </>;"#;
     let result = jsx_transformer(source).unwrap();
-    let expected = r#"const el = `<label>After Image</label> <input type="text"/><span>After Input</span> ${description ? ( `<span>${description}</span>` ) : ( "" )}`;"#;
+    let expected = r#"const el = `<label>After Image</label><input type="text"/><span>After Input</span>${description ? ( `<span>${description}</span>` ) : ( "" )}`;"#;
     assert_eq!(normalize_ws(&result), normalize_ws(expected));
 }
 
@@ -571,7 +571,7 @@ onChange={() => onToggle(index)}
         .trim();
 
     let result = jsx_transformer(source).unwrap();
-    let expected = "const TodoList = ({items, onToggle}) => (\n`<div class=\"${`todo-list ${items.length ? 'has-items' : ''}`}\"><header class=\"todo-header\"><h1>${items.length} Tasks Remaining</h1> <input type=\"text\"${__jsxSpread(inputProps)} placeholder=\"Add new task\"/></header> <ul class=\"todo-items\">${__jsxList(items.map((item, index) => ( `<li key=\"${item.id}\" class=\"${item.completed ? 'completed' : ''}\"><input type=\"checkbox\" checked=\"${item.completed}\" onchange=\"${() => onToggle(index)}\"/> <span class=\"todo-text\">${item.text}</span> <button onclick=\"${() => onDelete(item.id)}\">Delete</button></li>` )))}</ul></div>`)";
+    let expected = "const TodoList = ({items, onToggle}) => (\n`<div class=\"${`todo-list ${items.length ? 'has-items' : ''}`}\"><header class=\"todo-header\"><h1>${items.length} Tasks Remaining</h1><input type=\"text\"${__jsxSpread(inputProps)} placeholder=\"Add new task\"/></header><ul class=\"todo-items\">${__jsxList(items.map((item, index) => ( `<li key=\"${item.id}\" class=\"${item.completed ? 'completed' : ''}\"><input type=\"checkbox\" checked=\"${item.completed}\" onchange=\"${() => onToggle(index)}\"/><span class=\"todo-text\">${item.text}</span><button onclick=\"${() => onDelete(item.id)}\">Delete</button></li>` )))}</ul></div>`)";
 
     assert_eq!(normalize_ws(&result), normalize_ws(expected));
 }
@@ -625,7 +625,7 @@ fn test_complex_jsx_with_conditions() {
             </div>
         ;"#;
     let result = jsx_transformer(input).unwrap();
-    let expected = "const el = `<div class=\"${`container ${theme}`}\"><header class=\"${styles.header}\"><h1>${title || \"Default Title\"}</h1> <nav>${__jsxList(menuItems.map((item, index) => ( `<a key=\"${index}\" href=\"${item.href}\" class=\"${`${styles.link} ${currentPath === item.href ? styles.active : ''}`}\">${item.icon && `${__jsxComponent(Icon, [{\"name\":item.icon}])}`} <span>${item.label}</span> ${item.badge && ( `${__jsxComponent(Badge, [{\"count\":item.badge},{\"type\":item.badgeType}])}` )}</a>` )))}</nav> ${user ? ( `<div class=\"${styles.userMenu}\"><img src=\"${user.avatar}\" alt=\"User avatar\"/> <span>${user.name}</span> <button onclick=\"${handleLogout}\">Logout</button></div>` ) : ( `<button class=\"${styles.loginButton}\" onclick=\"${handleLogin}\">Login</button>` )}</header> <main class=\"${styles.main}\">${loading ? ( `<div class=\"${styles.loader}\">${__jsxComponent(Spinner, [{\"size\":\"large\"},{\"color\":theme === 'dark' ? 'white' : 'black'}])}</div>` ) : error ? ( `${__jsxComponent(ErrorMessage, [{\"message\":error},{\"onRetry\":handleRetry}])}` ) : ( `${children}` )}</main> <footer class=\"${styles.footer}\"><p>&copy; ${currentYear} My Application</p></footer></div>`\n        ;";
+    let expected = "const el = `<div class=\"${`container ${theme}`}\"><header class=\"${styles.header}\"><h1>${title || \"Default Title\"}</h1><nav>${__jsxList(menuItems.map((item, index) => ( `<a key=\"${index}\" href=\"${item.href}\" class=\"${`${styles.link} ${currentPath === item.href ? styles.active : ''}`}\">${item.icon && `${__jsxComponent(Icon, [{\"name\":item.icon}])}`}<span>${item.label}</span>${item.badge && ( `${__jsxComponent(Badge, [{\"count\":item.badge},{\"type\":item.badgeType}])}` )}</a>` )))}</nav>${user ? ( `<div class=\"${styles.userMenu}\"><img src=\"${user.avatar}\" alt=\"User avatar\"/><span>${user.name}</span><button onclick=\"${handleLogout}\">Logout</button></div>` ) : ( `<button class=\"${styles.loginButton}\" onclick=\"${handleLogin}\">Login</button>` )}</header><main class=\"${styles.main}\">${loading ? ( `<div class=\"${styles.loader}\">${__jsxComponent(Spinner, [{\"size\":\"large\"},{\"color\":theme === 'dark' ? 'white' : 'black'}])}</div>` ) : error ? ( `${__jsxComponent(ErrorMessage, [{\"message\":error},{\"onRetry\":handleRetry}])}` ) : ( `${children}` )}</main><footer class=\"${styles.footer}\"><p>&copy; ${currentYear} My Application</p></footer></div>`\n        ;";
     assert_eq!(normalize_ws(&result), normalize_ws(expected));
 }
 
@@ -1044,4 +1044,96 @@ export default () => (
     // Block and JSX comments should be removed
     assert!(result.contains("Comment with"));
     assert!(!result.contains("Inline JSX comment"));
+}
+
+#[test]
+fn test_complex_li_with_conditional_link_and_spread_attrs() {
+    let source = r#"
+        <li>
+            {href && !isCurrent ? (
+                <a href={href} class={linkClass} {...(item?.attrs ?? {})}>
+                    {label}
+                </a>
+            ) : (
+                <span class={currentClass} aria-current={isCurrent ? "page" : null} {...(item?.attrs ?? {})}>
+                    {label}
+                </span>
+            )}
+        </li>
+    "#;
+    let result = jsx_transformer(source).unwrap();
+    let expected = r#"`<li>${href && !isCurrent ? ( `<a href="${href}" class="${linkClass}"${__jsxSpread(item?.attrs ?? {})}>${label}</a>` ) : ( `<span class="${currentClass}" aria-current="${isCurrent ? "page" : null}"${__jsxSpread(item?.attrs ?? {})}>${label}</span>` )}</li>`"#;
+    assert_eq!(normalize_ws(&result), normalize_ws(expected));
+}
+
+#[test]
+fn test_tabs_with_items_array_of_components() {
+    let source = r#"const el = <Tabs
+  items={[
+    {
+      value: "account",
+      label: "Account",
+      content: (
+        <div id="account" className="grid gap-4 max-w-sm">
+          <Input label="Name" placeholder="Jane Doe" />
+          <Input label="Username" placeholder="@jdoe" />
+          <Button>Save changes</Button>
+        </div>
+      ),
+    },
+    {
+      value: "password",
+      label: "Password",
+      content: (
+        <div id="password" className="grid gap-4 max-w-sm">
+          <Input label="Current password" type="password" />
+          <Input label="New password" type="password" />
+          <Button>Save Password</Button>
+        </div>
+      ),
+    },
+  ]}
+/>;"#;
+    let result = jsx_transformer(source).unwrap();
+
+    // The output should contain a __jsxComponent call for Tabs
+    assert!(result.contains("__jsxComponent(Tabs, ["));
+
+    // The items array should be preserved and transformed
+    assert!(result.contains("\"items\":["));
+    assert!(result.contains("value: \"account\""));
+    assert!(result.contains("label: \"Account\""));
+    assert!(result.contains("content: ("));
+    assert!(result.contains(r#"`<div id="account" class="grid gap-4 max-w-sm">"#));
+    assert!(result
+        .contains("__jsxComponent(Input, [{\"label\":\"Name\"},{\"placeholder\":\"Jane Doe\"}])"));
+    assert!(result.contains("__jsxComponent(Button, [], `Save changes`)"));
+
+    assert!(result.contains("value: \"password\""));
+    assert!(result.contains("label: \"Password\""));
+    assert!(result.contains("content: ("));
+    assert!(result.contains(r#"`<div id="password" class="grid gap-4 max-w-sm">"#));
+    assert!(result.contains(
+        "__jsxComponent(Input, [{\"label\":\"Current password\"},{\"type\":\"password\"}])"
+    ));
+    assert!(result.contains("__jsxComponent(Button, [], `Save Password`)"));
+
+    // The Tabs component should be self-closing and not have children
+    assert!(result.contains("`${__jsxComponent(Tabs, ["));
+    assert!(result.ends_with(";"));
+}
+
+#[test]
+fn test_accordion_nested_components() {
+    let source = r#"
+        <Accordion type="single" collapsible>
+            <Accordion.Item value="item-1" open>
+                <Accordion.Header>Is it accessible?</Accordion.Header>
+                <Accordion.Content>Yes. It adheres to the WAI-ARIA design pattern.</Accordion.Content>
+            </Accordion.Item>
+        </Accordion>
+    "#;
+    let result = jsx_transformer(source).unwrap();
+    let expected = r#"`${__jsxComponent(Accordion, [{"type":"single"},{"collapsible":true}], `${__jsxComponent(Accordion.Item, [{"value":"item-1"},{"open":true}], `${__jsxComponent(Accordion.Header, [], `Is it accessible?`)}${__jsxComponent(Accordion.Content, [], `Yes. It adheres to the WAI-ARIA design pattern.`)}`)}`)}`"#;
+    assert_eq!(normalize_ws(&result), normalize_ws(expected));
 }
