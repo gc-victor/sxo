@@ -18,6 +18,7 @@ import { fileURLToPath } from "node:url";
 import cac from "cac";
 import { resolveConfig } from "../config.js";
 import { ESBUILD_CONFIG_FILE, ROUTES_RELATIVE_PATH, SERVER_DEV_FILE, SERVER_PROD_FILE } from "../constants.js";
+import { handleAddCommand } from "./add.js";
 import {
     absoluteScript,
     askYesNo,
@@ -331,6 +332,26 @@ registerCommonOptions(cli.command("generate", "Generate static HTML into dist fr
     } catch (e) {
         const msg = e && typeof e === "object" && "message" in e ? e.message : String(e);
         log.error(`generate failed: ${msg}`);
+        process.exitCode = 1;
+    }
+});
+
+/* add */
+registerCommonOptions(cli.command("add <component>", "Add a component from SXO")).action(async (component, _flags) => {
+    const root = path.resolve(process.cwd());
+
+    try {
+        // centralized explicit flag handling (see prepareFlags)
+        const { flagsForConfig, flagsExplicit } = prepareFlags("add", _flags);
+        const cfg = await resolveConfig({ cwd: root, flags: flagsForConfig, flagsExplicit, command: "add" });
+
+        const success = await handleAddCommand(component, { ...cfg, cwd: root });
+        if (!success) {
+            process.exitCode = 1;
+        }
+    } catch (e) {
+        const msg = e && typeof e === "object" && "message" in e ? e.message : String(e);
+        log.error(`add failed: ${msg}`);
         process.exitCode = 1;
     }
 });
