@@ -118,7 +118,7 @@ function styles(data) {
         const href = publicPath + path;
         const newLink = document.createElement("link");
         newLink.rel = "stylesheet";
-        newLink.href = href;
+        newLink.href = `${href}?${Date.now()}`;
 
         newLink.addEventListener("load", () => {
             console.log(`${logTimer()}::[hot-replace] - style loaded:`, href);
