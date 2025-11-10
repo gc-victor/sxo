@@ -35,7 +35,7 @@ jobs:
         run: pnpm build
 
       - name: Deploy to Cloudflare Workers
-        uses: cloudflare/wrangler-action@707f63750981584eb6abc365a50d441516fb04b8
+        uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           workingDirectory: web
