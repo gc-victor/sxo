@@ -66,24 +66,41 @@ define("el-dropdown-menu", function DropdownMenu({ $element, $on, $effect }) {
 
     /**
      * Focus the first menu item when the menu opens.
-     * Observe the details element for attribute changes (open/close).
+     * Listen to the native toggle event on the details element.
      */
     $effect(() => {
         const details = queryDetails();
         if (!details) return;
 
-        const observer = new MutationObserver(() => {
-            if (details.hasAttribute("open") && isOpen()) {
-                requestAnimationFrame(() => {
-                    const items = queryMenuItems();
-                    items[0]?.focus();
-                });
+        const focusFirstMenuItem = () => {
+            const items = queryMenuItems().filter(
+                (el) =>
+                    el.getAttribute("aria-disabled") !== "true" &&
+                    !(el instanceof HTMLButtonElement && el.disabled),
+            );
+            if (items.length) {
+                items[0].focus({ preventScroll: true });
             }
-        });
+        };
 
-        observer.observe(details, { attributes: true, attributeFilter: ["open"] });
+        const onToggle = () => {
+            if (details.open) {
+                // Defer until after native toggle + default summary focus + layout
+                requestAnimationFrame(() => {
+                    setTimeout(focusFirstMenuItem, 0);
+                });
+            } else {
+                // If focus is inside menu, return to trigger
+                if ($element.contains(document.activeElement)) {
+                    requestAnimationFrame(() => {
+                        querySummary()?.focus({ preventScroll: true });
+                    });
+                }
+            }
+        };
 
-        return () => observer.disconnect();
+        details.addEventListener("toggle", onToggle);
+        return () => details.removeEventListener("toggle", onToggle);
     });
 
     /**
