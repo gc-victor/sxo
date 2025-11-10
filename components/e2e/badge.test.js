@@ -25,12 +25,12 @@ test.describe("Badge", () => {
         const badgeSection = page.locator("#badge");
         const preview = badgeSection.locator('[data-name="preview"]');
 
-        // Check badge with link text and arrow icon
-        const linkBadge = preview.locator("span").filter({ hasText: "Link" });
-        await expect(linkBadge).toBeVisible();
+        // Check badge with outline variant and arrow icon (the one containing SVG)
+        const iconBadge = preview.locator("span.badge-outline:has(svg)");
+        await expect(iconBadge).toBeVisible();
 
         // Should contain SVG icon
-        await expect(linkBadge.locator("svg")).toBeVisible();
+        await expect(iconBadge.locator("svg")).toBeVisible();
     });
 
     test("should display numeric badges", async ({ page }) => {
