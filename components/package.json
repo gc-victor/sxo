@@ -16,9 +16,8 @@
         "sxo:generate": "node ../bin/sxo.js generate",
         "sxo:start": "node ../bin/sxo.js start --port 3001",
         "sxo:clean": "node ../bin/sxo.js clean",
-        "playwright:install": "playwright install --with-deps",
-        "test:e2e": "sh -c 'pnpm run server >/dev/null 2>&1 & SERVER_PID=$!; trap \"kill $SERVER_PID 2>/dev/null\" EXIT; pnpm run test:e2e:runner -- \"$@\"' --",
-        "test:e2e:runner": "playwright test",
+        "playwright:install": "playwright install chromium --with-deps",
+        "test:e2e": "playwright test --workers 4",
         "test:e2e:ui": "playwright test --ui",
         "test:e2e:headed": "playwright test --headed",
         "test:e2e:debug": "playwright test --debug",
@@ -26,8 +25,7 @@
         "tailwind:watch": "pnpm tailwind -w"
     },
     "dependencies": {
-        "@qery/reactive-component": "^0.8.0",
-        "sxo": "^0.6.1"
+        "@qery/reactive-component": "^0.8.0"
     },
     "devDependencies": {
         "@biomejs/biome": "^2.3.4",
