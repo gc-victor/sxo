@@ -27,6 +27,9 @@ jobs:
       - name: Install components dependencies
         run: pnpm --filter ./components install --frozen-lockfile
 
+      - name: Install web dependencies
+        run: pnpm --filter ./web install --frozen-lockfile
+
       - name: Setup wasm-bindgen
         uses: ./.github/actions/setup-wasm-bindgen
 
@@ -34,9 +37,9 @@ jobs:
         working-directory: web
         run: pnpm build
 
-      - name: Deploy to Cloudflare Workers
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          workingDirectory: web
-          command: deploy
+      - name: Deploy to Cloudflare Workers via CLI
+        working-directory: web
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: pnpm wrangler deploy
