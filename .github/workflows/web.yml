@@ -1,0 +1,45 @@
+name: Deploy Web
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: web-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-wasm:
+    uses: ./.github/workflows/build-wasm.yml
+
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    needs: [ci, build-wasm]
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js and pnpm
+        uses: ./.github/actions/setup-node-pnpm
+
+      - name: Install components dependencies
+        run: pnpm --filter ./components install --frozen-lockfile
+
+      - name: Setup wasm-bindgen
+        uses: ./.github/actions/setup-wasm-bindgen
+
+      - name: Build web
+        working-directory: web
+        run: pnpm build
+
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@707f63750981584eb6abc365a50d441516fb04b8
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          workingDirectory: web
+          command: deploy
