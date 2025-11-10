@@ -34,9 +34,6 @@ help:
 	@echo "Version:"
 	@echo "  version                  - Show current version from package.json"
 	@echo
-	@echo "WASM:"
-	@echo "  wasm-build               - Build WASM package"
-	@echo
 	@echo "Notes:"
 	@echo "  - Single source of truth for version: package.json"
 	@echo "  - Do NOT bump manually before 'make release'. The release target bumps inside a dedicated branch."
@@ -55,7 +52,6 @@ ensure-clean:
 # Requires git-cliff: https://git-cliff.org/docs/installation
 
 changelog:
-	@node --test; \
 	version=$$(make version -s); \
 	release_commit=$$(git log --grep="release: " --format="%H" -n 1); \
 	if [ -z "$$release_commit" ]; then \
@@ -91,7 +87,8 @@ npm-un-prerelease:
 # Usage: make release [major|minor|patch]  (default: patch)
 
 release: ensure-clean
-	@node --test; \
+	pnpm run test; \
+	pnpm run test:e2e; \
 	bump="$(ARGUMENTS)"; \
 	if [ -z "$$bump" ]; then bump="patch"; fi; \
 	if [ "$$bump" != "major" ] && [ "$$bump" != "minor" ] && [ "$$bump" != "patch" ]; then \
@@ -144,7 +141,8 @@ release-major:
 # Tag main after the release PR is merged
 
 release-tag: ensure-clean
-	@node --test; \
+	pnpm run test; \
+	pnpm run test:e2e; \
 	if ! git checkout main; then \
 		echo "Error: Failed to checkout main branch"; \
 		exit 1; \
@@ -173,7 +171,8 @@ release-tag: ensure-clean
 # Pre-release: bump to prerelease inside a new branch and push it
 
 pre-release: ensure-clean
-	@node --test; \
+	pnpm run test; \
+	pnpm run test:e2e; \
 	if ! git checkout main; then \
 		echo "Error: Failed to checkout main branch"; \
 		exit 1; \
@@ -236,11 +235,6 @@ tag-delete:
 
 version:
 	@npm pkg get version | tr -d '"' | tr -d 'v'
-
-# WASM build
-
-wasm-build:
-	@npm run wasm-build
 
 # Catch anything and do nothing
 %:
