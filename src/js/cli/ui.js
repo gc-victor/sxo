@@ -373,26 +373,31 @@ export function printInfoGrid(rows, opts = {}) {
 
 export const log = {
     info(msg) {
+        if (process.env.NODE_ENV === "test") return;
         const { noColor, isTTY } = detectTTY();
         const c = makeColors(isTTY && !noColor);
         process.stdout.write(`${c.cyan(baseSymbols.info)} ${msg}\n`);
     },
     success(msg) {
+        if (process.env.NODE_ENV === "test") return;
         const { noColor, isTTY } = detectTTY();
         const c = makeColors(isTTY && !noColor);
         process.stdout.write(`${c.green(baseSymbols.success)} ${msg}\n`);
     },
     warn(msg) {
+        if (process.env.NODE_ENV === "test") return;
         const { noColor, isTTY } = detectTTY();
         const c = makeColors(isTTY && !noColor);
         process.stdout.write(`${c.yellow(baseSymbols.warning)} ${msg}\n`);
     },
     error(msg) {
+        if (process.env.NODE_ENV === "test") return;
         const { noColor, isTTY } = detectTTY();
         const c = makeColors(isTTY && !noColor);
         process.stderr.write(`${c.red(baseSymbols.error)} ${msg}\n`);
     },
     dim(msg) {
+        if (process.env.NODE_ENV === "test") return;
         const { noColor, isTTY } = detectTTY();
         const c = makeColors(isTTY && !noColor);
         process.stdout.write(`${c.dim(String(msg))}\n`);
