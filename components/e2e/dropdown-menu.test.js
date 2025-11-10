@@ -84,16 +84,9 @@ test.describe("Dropdown Menu", () => {
         await trigger.click();
         await page.waitForTimeout(300); // Allow time for focus to move
 
-        // Check if any menu item is focused (focus management may not be implemented)
-        const _menuItems = dropdownSection.locator("button[role='menuitem']");
-        const focusedItem = dropdownSection.locator("button[role='menuitem']:focus");
-
-        try {
-            await expect(focusedItem).toBeAttached();
-        } catch (_e) {
-            // Focus management might not be working, skip this assertion
-            console.log("Focus management on menu open not implemented, skipping assertion");
-        }
+        // Check if the first menu item has focus
+        const firstMenuItem = dropdownSection.locator("button[role='menuitem']").first();
+        await expect(firstMenuItem).toBeFocused();
     });
 
     test("should return focus to trigger when closed", async ({ page }) => {
