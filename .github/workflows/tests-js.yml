@@ -1,0 +1,27 @@
+name: JS Tests
+
+# This workflow expects WASM artifacts from a parent workflow (e.g., CI).
+# It should not be triggered directly on PRs to avoid duplicate builds.
+
+on:
+  workflow_call:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Setup Node.js and pnpm
+        uses: ./.github/actions/setup-node-pnpm
+
+      - name: Setup wasm-bindgen
+        uses: ./.github/actions/setup-wasm-bindgen
+        # Using default auto mode for setup-wasm-bindgen (no explicit inputs)
+
+      - name: Run tests
+        run: pnpm test
