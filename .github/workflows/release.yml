@@ -1,0 +1,191 @@
+name: Release
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [closed]
+
+permissions:
+  contents: write
+
+jobs:
+  guard:
+    # Only run when PR was merged into main and source branch starts with release/
+    if: >
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == 'main' &&
+      startsWith(github.head_ref, 'release/')
+    runs-on: ubuntu-latest
+    outputs:
+      should_release: ${{ steps.meta.outputs.should_release }}
+      version: ${{ steps.meta.outputs.version }}
+      reason: ${{ steps.meta.outputs.reason }}
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          fetch-depth: 0
+
+      - id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=""
+          head_ref="${{ github.head_ref != '' && github.head_ref || github.event.pull_request.head.ref }}"
+
+          # Version from branch name: release/<version>
+          if [[ "$head_ref" =~ ^release/([0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9._-]+)?)$ ]]; then
+            version="${BASH_REMATCH[1]}"
+            src="branch_name"
+          fi
+
+          if [[ -z "$version" ]]; then
+            echo "Could not determine version; skipping release."
+            {
+              echo "should_release=false"
+              echo "reason=version_not_found"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+            echo "Determined version: $version (source=$src)"
+          {
+            echo "should_release=true"
+            echo "version=$version"
+            echo "reason=ok"
+          } >> "$GITHUB_OUTPUT"
+
+  release:
+    needs: guard
+    if: needs.guard.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: release-v${{ needs.guard.outputs.version }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          fetch-depth: 0
+
+      - name: Configure git user
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Create tag if missing
+        id: tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${{ needs.guard.outputs.version }}"
+          tag="v${version}"
+          git fetch --tags --prune --force
+          if git rev-parse "$tag" >/dev/null 2>&1; then
+            echo "Tag $tag already exists."
+            echo "created=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Creating tag $tag"
+            git tag -a "$tag" -m "release: $tag"
+            git push origin "$tag"
+            echo "created=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Determine previous tag
+        id: prev
+        shell: bash
+        run: |
+          curr="v${{ needs.guard.outputs.version }}"
+          if prev=$(git describe --tags --abbrev=0 "${curr}^" 2>/dev/null); then
+            echo "value=$prev" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Derive git-cliff range
+        id: range
+        shell: bash
+        run: |
+          if [ -n "${{ steps.prev.outputs.value }}" ]; then
+            echo "value=${{ steps.prev.outputs.value }}..v${{ needs.guard.outputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=--current" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate changelog
+        id: cliff
+        uses: orhun/git-cliff-action@v4
+        with:
+          config: cliff.toml
+          args: ${{ steps.range.outputs.value }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Determine prerelease
+        id: prerelease
+        shell: bash
+        run: |
+          v="${{ needs.guard.outputs.version }}"
+          # If the version contains a hyphen, treat as prerelease.
+          [[ "$v" == *-* ]] && echo "is_prerelease=true" >> "$GITHUB_OUTPUT" || echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+
+      - name: Create or update release
+        env:
+          VERSION: ${{ needs.guard.outputs.version }}
+          NOTES: ${{ steps.cliff.outputs.content }}
+          IS_PRE: ${{ steps.prerelease.outputs.is_prerelease }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="v${VERSION}"
+
+          # Normalize IS_PRE to "true" or "false"
+          if [ "${IS_PRE}" != "true" ]; then
+            IS_PRE="false"
+          fi
+
+          notes="${NOTES:-No changelog entry}"
+
+          # Use a temp file for notes to handle multiline and avoid shell quoting issues.
+          notes_file="$(mktemp)"
+          printf '%s\n' "$notes" > "$notes_file"
+
+          # Determine flags:
+          # Creation: omit --prerelease for stable (implicit), include flag for prerelease.
+          # Edit: must explicitly set --prerelease or --prerelease=false to ensure state transitions.
+          if gh release view "$tag" >/dev/null 2>&1; then
+            if [ "$IS_PRE" = "true" ]; then
+              echo "Editing existing release $tag (prerelease=true)"
+              gh release edit "$tag" \
+                --title "Release ${VERSION}" \
+                --prerelease \
+                --notes-file "$notes_file"
+            else
+              echo "Editing existing release $tag (prerelease=false)"
+              gh release edit "$tag" \
+                --title "Release ${VERSION}" \
+                --prerelease=false \
+                --notes-file "$notes_file"
+            fi
+          else
+            if [ "$IS_PRE" = "true" ]; then
+              echo "Creating new prerelease $tag"
+              gh release create "$tag" \
+                --title "Release ${VERSION}" \
+                --prerelease \
+                --notes-file "$notes_file"
+            else
+              echo "Creating new stable release $tag"
+              gh release create "$tag" \
+                --title "Release ${VERSION}" \
+                --notes-file "$notes_file"
+            fi
+          fi
+
+      - name: Summary
+        run: |
+          echo "Version: ${{ needs.guard.outputs.version }}"
+          echo "Tag created: ${{ steps.tag.outputs.created }}"
+          echo "Previous: ${{ steps.prev.outputs.value || 'None' }}"
+          echo "Prerelease: ${{ steps.prerelease.outputs.is_prerelease }}"
+          echo "Range: ${{ steps.range.outputs.value }}"
