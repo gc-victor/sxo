@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  workflow_call:
+  pull_request:
+    paths:
+      - "src/**"
+      - "components/**"
+      - "package.json"
+      - "Cargo.toml"
+
+concurrency:
+  group: "ci-${{ github.ref }}"
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-wasm:
+    uses: ./.github/workflows/build-wasm.yml
+
+  test-rs:
+    uses: ./.github/workflows/tests-rs.yml
+
+  test-js:
+    needs: [build-wasm]
+    uses: ./.github/workflows/tests-js.yml
+
+  e2e:
+    needs: [build-wasm]
+    uses: ./.github/workflows/e2e.yml
