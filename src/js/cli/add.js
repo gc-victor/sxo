@@ -27,7 +27,7 @@ import { log } from "./ui.js";
 export async function addComponent(component, componentsDir) {
     const baseUrl = "https://raw.githubusercontent.com/gc-victor/sxo/main/components/src/components/";
     const baseDir = path.join(process.cwd(), "components/src/components"); // fallback
-    const extensions = [".jsx", ".client.js", ".css", ".script.js"];
+    const extensions = [".jsx", ".client.js", ".css"];
     let installed = false;
 
     for (const ext of extensions) {
