@@ -1,0 +1,83 @@
+name: "Setup wasm-bindgen"
+description: "Sets up wasm-bindgen-cli with caching and builds WASM + JSX Transformer"
+inputs:
+  install-cli:
+    description: "Whether to install wasm-bindgen-cli"
+    required: false
+    default: "true"
+  cargo-toml-path:
+    description: "Path to Cargo.toml (to extract wasm-bindgen crate version)"
+    required: false
+    default: "Cargo.toml"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Extract wasm-bindgen version from Cargo.toml
+      if: inputs.install-cli == 'true'
+      id: extract-version
+      shell: bash
+      run: |
+        set -euo pipefail
+        CARGO_TOML="${{ inputs.cargo-toml-path }}"
+        if [ ! -f "$CARGO_TOML" ]; then
+          echo "::error::Cargo.toml not found at $CARGO_TOML"
+          exit 1
+        fi
+        VERSION=$(grep -E '^\s*wasm-bindgen\s*=\s*"[^"]*"' "$CARGO_TOML" | sed -E 's/.*"([^"]+)".*/\1/' | head -1)
+        if [ -z "$VERSION" ]; then
+          VERSION=$(grep -E '^\s*wasm-bindgen\s*=\s*\{' "$CARGO_TOML" | grep -oE 'version\s*=\s*"[^"]+"' | sed -E 's/.*"([^"]+)".*/\1/' | head -1)
+        fi
+        if [ -z "$VERSION" ]; then
+          echo "::error::Could not extract wasm-bindgen version from $CARGO_TOML"
+          exit 1
+        fi
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Extracted wasm-bindgen version: $VERSION"
+
+    - name: Cache wasm-bindgen-cli
+      if: inputs.install-cli == 'true'
+      uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+      id: wasm-bindgen-cache
+      with:
+        path: ~/.cargo/bin/wasm-bindgen
+        key: ${{ runner.os }}-wasm-bindgen-cli-${{ steps.extract-version.outputs.version }}-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-wasm-bindgen-cli-${{ steps.extract-version.outputs.version }}-
+
+    - name: Install wasm-bindgen-cli
+      if: inputs.install-cli == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        REQUIRED_VERSION="${{ steps.extract-version.outputs.version }}"
+        INSTALLED_VERSION="$(command -v wasm-bindgen >/dev/null 2>&1 && wasm-bindgen --version 2>/dev/null | awk '{print $2}' || true)"
+        if [ "$INSTALLED_VERSION" = "$REQUIRED_VERSION" ]; then
+          echo "✓ wasm-bindgen-cli $REQUIRED_VERSION already installed"
+        else
+          [ -n "$INSTALLED_VERSION" ] && echo "! Version mismatch: installed=$INSTALLED_VERSION required=$REQUIRED_VERSION"
+          cargo install wasm-bindgen-cli --version "$REQUIRED_VERSION" --force
+          echo "✓ Installed wasm-bindgen-cli $REQUIRED_VERSION"
+        fi
+        FINAL_VERSION="$(wasm-bindgen --version | awk '{print $2}')"
+        echo "✓ wasm-bindgen $FINAL_VERSION"
+
+    - name: Prepare WASM transformer
+      shell: bash
+      run: |
+        set -euo pipefail
+        ARTIFACT_DIR="target/wasm32-unknown-unknown/release"
+        WASM_FILE="$(ls -1 "$ARTIFACT_DIR"/*.wasm 2>/dev/null | head -n 1 || true)"
+        if [ -n "$WASM_FILE" ]; then
+          echo "Generating JSX Transformer from artifact: $WASM_FILE"
+          pnpm wasm-build
+        else
+          echo "No artifact found. Building locally..."
+          rustup target add wasm32-unknown-unknown >/dev/null 2>&1 || true
+          pnpm wasm-build
+        fi
+        if [ ! -f "jsx-transformer/jsx_transformer.js" ]; then
+          echo "::error::JSX Transformer (jsx_transformer.js) not generated"
+          exit 1
+        fi
+        echo "✓ JSX transformer ready"

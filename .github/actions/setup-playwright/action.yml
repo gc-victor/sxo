@@ -1,0 +1,32 @@
+name: "Setup Playwright"
+description: "Sets up Playwright with browser caching and dependencies. For best results, use with container: mcr.microsoft.com/playwright:focal in your workflow job"
+inputs:
+  install-command:
+    description: "Command to run for installing Playwright"
+    required: false
+    default: "pnpm run components:playwright:install"
+  working-directory:
+    description: "Working directory for Playwright commands"
+    required: false
+    default: "components"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Cache Playwright Browsers
+      uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+      id: playwright-cache
+      with:
+        path: ~/.cache/ms-playwright
+        key: ${{ runner.os }}-playwright-${{ hashFiles('**/pnpm-lock.yaml') }}
+
+    - name: Install Playwright Browsers and Dependencies
+      shell: bash
+      run: |
+        if [ "${{ steps.playwright-cache.outputs.cache-hit }}" != "true" ]; then
+          # Install browsers and system dependencies when cache miss
+          ${{ inputs.install-command }}
+        else
+          # Install only system dependencies when cache hit
+          cd ${{ inputs.working-directory }} && pnpm exec playwright install-deps
+        fi
