@@ -25,7 +25,7 @@ test.describe("Toast", () => {
 
         // Check toast templates exist
         const toastTemplates = toastSection.locator("el-toast template");
-        await expect(toastTemplates).toHaveCount(4); // success, info, warning, destructive
+        await expect(toastTemplates).toHaveCount(4); // top-right, bottom-center, bottom-left, bottom-right
 
         // Wait for reactive components to initialize
         await page.waitForTimeout(1000);
@@ -34,12 +34,12 @@ test.describe("Toast", () => {
     test("should show success toast with correct content and position", async ({ page }) => {
         await page.evaluate(() => {
             document.dispatchEvent(
-                new CustomEvent("el-toast:success", { detail: { title: "Saved", description: "Your settings have been saved." } }),
+                new CustomEvent("el-toast:top-right", { detail: { title: "Saved", description: "Your settings have been saved." } }),
             );
         });
 
         // Wait for toast to appear with auto-wait
-        const toast = page.locator('.toast[data-category="success"]');
+        const toast = page.locator('.toast[data-category="top-right"]');
         await expect(toast).toBeVisible({ timeout: 1000 });
 
         // Check content
@@ -52,7 +52,7 @@ test.describe("Toast", () => {
     test("should show info toast with correct content and position", async ({ page }) => {
         await page.evaluate(() => {
             document.dispatchEvent(
-                new CustomEvent("el-toast:info", {
+                new CustomEvent("el-toast:bottom-center", {
                     detail: { title: "New Feature", description: "Check out the latest updates in your dashboard." },
                 }),
             );
@@ -61,7 +61,7 @@ test.describe("Toast", () => {
 
         // Wait for toast to appear in the center-aligned toaster
         const toasterCenter = page.locator('.toaster[data-align="center"]');
-        const toast = toasterCenter.locator('.toast[data-category="info"]');
+        const toast = toasterCenter.locator('.toast[data-category="bottom-center"]');
         await expect(toast).toBeVisible();
 
         // Check content
@@ -72,13 +72,13 @@ test.describe("Toast", () => {
     test("should show warning toast with correct content and position", async ({ page }) => {
         await page.evaluate(() => {
             document.dispatchEvent(
-                new CustomEvent("el-toast:warning", { detail: { title: "Heads up", description: "You have unsaved changes." } }),
+                new CustomEvent("el-toast:bottom-right", { detail: { title: "Heads up", description: "You have unsaved changes." } }),
             );
         });
         await page.waitForTimeout(1000);
 
         // Wait for toast to appear
-        const toast = page.locator('.toast[data-category="warning"]');
+        const toast = page.locator('.toast[data-category="bottom-right"]');
         await expect(toast).toBeVisible();
 
         // Check content
@@ -91,7 +91,7 @@ test.describe("Toast", () => {
     test("should show error toast with correct content and position", async ({ page }) => {
         await page.evaluate(() => {
             document.dispatchEvent(
-                new CustomEvent("el-toast:destructive", {
+                new CustomEvent("el-toast:bottom-left", {
                     detail: { title: "Error", description: "Failed to save your changes. Please try again." },
                 }),
             );
@@ -100,7 +100,7 @@ test.describe("Toast", () => {
 
         // Wait for toast to appear in the start-aligned toaster
         const toasterStart = page.locator('.toaster[data-align="start"]');
-        const toast = toasterStart.locator('.toast[data-category="destructive"]');
+        const toast = toasterStart.locator('.toast[data-category="bottom-left"]');
         await expect(toast).toBeVisible();
 
         // Check content
@@ -111,12 +111,12 @@ test.describe("Toast", () => {
     test("should auto-dismiss toasts after duration", async ({ page }) => {
         await page.evaluate(() => {
             document.dispatchEvent(
-                new CustomEvent("el-toast:success", { detail: { title: "Saved", description: "Your settings have been saved." } }),
+                new CustomEvent("el-toast:top-right", { detail: { title: "Saved", description: "Your settings have been saved." } }),
             );
         });
         await page.waitForTimeout(1000);
 
-        const toast = page.locator('.toast[data-category="success"]');
+        const toast = page.locator('.toast[data-category="top-right"]');
         await expect(toast).toBeVisible();
 
         // Wait for auto-dismiss (default 3000ms)
@@ -127,12 +127,12 @@ test.describe("Toast", () => {
     test("should dismiss toast on click", async ({ page }) => {
         await page.evaluate(() => {
             document.dispatchEvent(
-                new CustomEvent("el-toast:success", { detail: { title: "Clickable", description: "Click to dismiss." } }),
+                new CustomEvent("el-toast:top-right", { detail: { title: "Clickable", description: "Click to dismiss." } }),
             );
         });
         await page.waitForTimeout(100);
 
-        const toast = page.locator('.toast[data-category="success"]');
+        const toast = page.locator('.toast[data-category="top-right"]');
         await expect(toast).toBeVisible();
 
         // Click on the toast to dismiss
@@ -141,28 +141,28 @@ test.describe("Toast", () => {
     });
 
     test("should have correct ARIA attributes for different categories", async ({ page }) => {
-        // Test success toast (status role, polite live region)
+        // Test top-right toast (status role, polite live region)
         await page.evaluate(() => {
             document.dispatchEvent(
-                new CustomEvent("el-toast:success", { detail: { title: "Success", description: "Operation completed." } }),
+                new CustomEvent("el-toast:top-right", { detail: { title: "Success", description: "Operation completed." } }),
             );
         });
         await page.waitForTimeout(100);
 
-        const successToast = page.locator('.toast[data-category="success"]');
+        const successToast = page.locator('.toast[data-category="top-right"]');
         await expect(successToast).toHaveAttribute("role", "status");
         await expect(successToast).toHaveAttribute("aria-live", "polite");
         await expect(successToast).toHaveAttribute("aria-atomic", "true");
 
-        // Test error toast (alert role, assertive live region)
+        // Test bottom-left toast (alert role, assertive live region)
         await page.evaluate(() => {
             document.dispatchEvent(
-                new CustomEvent("el-toast:destructive", { detail: { title: "Error", description: "Something went wrong." } }),
+                new CustomEvent("el-toast:bottom-left", { detail: { title: "Error", description: "Something went wrong." } }),
             );
         });
         await page.waitForTimeout(100);
 
-        const errorToast = page.locator('.toast[data-category="destructive"]');
+        const errorToast = page.locator('.toast[data-category="bottom-left"]');
         await expect(errorToast).toHaveAttribute("role", "alert");
         await expect(errorToast).toHaveAttribute("aria-live", "assertive");
         await expect(errorToast).toHaveAttribute("aria-atomic", "true");
@@ -171,14 +171,16 @@ test.describe("Toast", () => {
     test("should handle multiple toasts simultaneously", async ({ page }) => {
         // Show multiple toasts
         await page.evaluate(() => {
-            document.dispatchEvent(new CustomEvent("el-toast:success", { detail: { title: "First", description: "First toast." } }));
-            document.dispatchEvent(new CustomEvent("el-toast:info", { detail: { title: "Second", description: "Second toast." } }));
+            document.dispatchEvent(new CustomEvent("el-toast:top-right", { detail: { title: "First", description: "First toast." } }));
+            document.dispatchEvent(
+                new CustomEvent("el-toast:bottom-center", { detail: { title: "Second", description: "Second toast." } }),
+            );
         });
         await page.waitForTimeout(100);
 
         // Check both toasts are visible
-        const successToast = page.locator('.toast[data-category="success"]');
-        const infoToast = page.locator('.toast[data-category="info"]');
+        const successToast = page.locator('.toast[data-category="top-right"]');
+        const infoToast = page.locator('.toast[data-category="bottom-center"]');
 
         await expect(successToast).toBeVisible();
         await expect(infoToast).toBeVisible();
@@ -191,41 +193,43 @@ test.describe("Toast", () => {
     test("should position toasts correctly", async ({ page }) => {
         // Test end position (default)
         await page.evaluate(() => {
-            document.dispatchEvent(new CustomEvent("el-toast:success", { detail: { title: "End", description: "End positioned." } }));
+            document.dispatchEvent(new CustomEvent("el-toast:top-right", { detail: { title: "End", description: "End positioned." } }));
         });
         await page.waitForTimeout(100);
 
         const endToaster = page.locator(".toaster:not([data-align])");
-        const endToast = endToaster.locator('.toast[data-category="success"]');
+        const endToast = endToaster.locator('.toast[data-category="top-right"]');
         await expect(endToast).toBeVisible();
 
         // Test center position
         await page.evaluate(() => {
-            document.dispatchEvent(new CustomEvent("el-toast:info", { detail: { title: "Center", description: "Center positioned." } }));
+            document.dispatchEvent(
+                new CustomEvent("el-toast:bottom-center", { detail: { title: "Center", description: "Center positioned." } }),
+            );
         });
         await page.waitForTimeout(100);
 
         const centerToaster = page.locator('.toaster[data-align="center"]');
-        const centerToast = centerToaster.locator('.toast[data-category="info"]');
+        const centerToast = centerToaster.locator('.toast[data-category="bottom-center"]');
         await expect(centerToast).toBeVisible();
 
         // Test start position
         await page.evaluate(() => {
             document.dispatchEvent(
-                new CustomEvent("el-toast:destructive", { detail: { title: "Start", description: "Start positioned." } }),
+                new CustomEvent("el-toast:bottom-left", { detail: { title: "Start", description: "Start positioned." } }),
             );
         });
         await page.waitForTimeout(100);
 
         const startToaster = page.locator('.toaster[data-align="start"]');
-        const startToast = startToaster.locator('.toast[data-category="destructive"]');
+        const startToast = startToaster.locator('.toast[data-category="bottom-left"]');
         await expect(startToast).toBeVisible();
     });
 
     test("should populate dynamic content correctly", async ({ page }) => {
         await page.evaluate(() => {
             document.dispatchEvent(
-                new CustomEvent("el-toast:success", {
+                new CustomEvent("el-toast:top-right", {
                     detail: {
                         title: "Dynamic Title",
                         description: "This is a dynamic description that should be populated correctly.",
@@ -235,7 +239,7 @@ test.describe("Toast", () => {
         });
         await page.waitForTimeout(100);
 
-        const toast = page.locator('.toast[data-category="success"]');
+        const toast = page.locator('.toast[data-category="top-right"]');
         await expect(toast.locator(".toast-title")).toHaveText("Dynamic Title");
         await expect(toast.locator(".toast-description")).toHaveText("This is a dynamic description that should be populated correctly.");
     });
