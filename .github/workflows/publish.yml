@@ -1,0 +1,109 @@
+name: Publish
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["Release"] # name of the release.yml workflow
+    types: [completed]
+    branches:
+      - "release/**"
+concurrency:
+  group: publish-${{ github.event.workflow_run.head_sha || github.sha }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build-wasm:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    uses: ./.github/workflows/build-wasm.yml
+
+  ci:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    needs: [ci, build-wasm]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      tarball: ${{ steps.pack.outputs.tarball }}
+      version: ${{ steps.pkg.outputs.version }}
+      prerelease: ${{ steps.pkg.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          # Build from the same commit as the Release workflow when triggered by workflow_run
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+          persist-credentials: false
+
+      - name: Setup Node.js and pnpm
+        uses: ./.github/actions/setup-node-pnpm
+
+      - name: Setup wasm-bindgen
+        uses: ./.github/actions/setup-wasm-bindgen
+
+      - name: Read package version
+        id: pkg
+        shell: bash
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if [[ "$VERSION" == *-* ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Pack
+        id: pack
+        run: |
+          TARBALL=$(npm pack)
+          echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: tarball
+          path: ${{ steps.pack.outputs.tarball }}
+
+  publish:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    needs:
+      - ci
+      - build
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    env:
+      TARBALL: ${{ needs.build.outputs.tarball }}
+    steps:
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        with:
+          name: tarball
+
+      - name: Setup Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          # Align to Node 22 (same as setup-node-pnpm default) to avoid build/publish drift
+          node-version: 22
+          registry-url: "https://registry.npmjs.org/"
+          package-manager-cache: false
+
+      # Publish prerelease versions with 'next' tag
+      - name: Publish prerelease to npm
+        if: needs.build.outputs.prerelease == 'true'
+        run: npm publish --provenance --access public --tag next $TARBALL
+        env:
+          TARBALL: ${{ needs.build.outputs.tarball }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # Publish stable versions to 'latest' tag (default)
+      - name: Publish stable to npm
+        if: needs.build.outputs.prerelease != 'true'
+        run: npm publish --provenance --access public $TARBALL
+        env:
+          TARBALL: ${{ needs.build.outputs.tarball }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
