@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import test from "node:test";
+import { test } from "node:test";
 
 import { handleAddCommand } from "./add.js";
 
@@ -41,9 +41,9 @@ test("add: installs component files from local basecoat to componentsDir", async
         const componentsDir = path.join(tmp, "src/components");
         await fsp.mkdir(componentsDir, { recursive: true });
 
-        // Mock process.cwd to tmp
-        const originalCwd = process.cwd;
-        process.cwd = () => tmp;
+        // Change to tmp directory for the test
+        const originalCwd = process.cwd();
+        process.chdir(tmp);
 
         try {
             const success = await handleAddCommand("test-component", { cwd: tmp, componentsDir: "src/components" });
@@ -58,7 +58,7 @@ test("add: installs component files from local basecoat to componentsDir", async
             assert.equal(installedClient, 'console.log("client");');
             assert.equal(installedCss, ".test { color: red; }");
         } finally {
-            process.cwd = originalCwd;
+            process.chdir(originalCwd);
         }
     });
 });
@@ -69,15 +69,15 @@ test("add: returns false when component not found", async () => {
         const componentsDir = path.join(tmp, "src/components");
         await fsp.mkdir(componentsDir, { recursive: true });
 
-        // Mock process.cwd to tmp
-        const originalCwd = process.cwd;
-        process.cwd = () => tmp;
+        // Change to tmp directory for the test
+        const originalCwd = process.cwd();
+        process.chdir(tmp);
 
         try {
             const success = await handleAddCommand("nonexistent", { cwd: tmp, componentsDir: "src/components" });
             assert.equal(success, false);
         } finally {
-            process.cwd = originalCwd;
+            process.chdir(originalCwd);
         }
     });
 });
@@ -91,9 +91,9 @@ test("add: creates componentsDir if it doesn't exist", async () => {
         // componentsDir doesn't exist yet
         const componentsDir = path.join(tmp, "src/components");
 
-        // Mock process.cwd to tmp
-        const originalCwd = process.cwd;
-        process.cwd = () => tmp;
+        // Change to tmp directory for the test
+        const originalCwd = process.cwd();
+        process.chdir(tmp);
 
         try {
             const success = await handleAddCommand("test-component", { cwd: tmp, componentsDir: "src/components" });
@@ -103,7 +103,7 @@ test("add: creates componentsDir if it doesn't exist", async () => {
             const installedJsx = await fsp.readFile(path.join(componentsDir, "test-component.jsx"), "utf8");
             assert.equal(installedJsx, "export function TestComponent() {}");
         } finally {
-            process.cwd = originalCwd;
+            process.chdir(originalCwd);
         }
     });
 });
