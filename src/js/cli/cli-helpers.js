@@ -157,8 +157,8 @@ export function prepareFlags(command, rawFlags) {
     const argv = process.argv.slice(2);
     /** @type {Record<string,string[]>} */
     const commandFlagMap = {
-        dev: ["open", "minify", "sourcemap", "verbose", "color", "port", "pages-dir", "out-dir", "public-path", "client-dir"],
-        build: ["open", "minify", "sourcemap", "verbose", "color", "port", "pages-dir", "out-dir", "public-path", "client-dir"],
+        dev: ["open", "verbose", "color", "port", "pages-dir", "out-dir", "public-path", "client-dir", "loaders"],
+        build: ["open", "verbose", "color", "port", "pages-dir", "out-dir", "public-path", "client-dir", "loaders"],
         start: ["open", "verbose", "color", "port", "pages-dir", "out-dir", "public-path", "client-dir"],
         clean: ["verbose", "color", "port", "pages-dir", "out-dir"],
         add: ["verbose", "color", "components-dir"],

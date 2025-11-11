@@ -8,23 +8,34 @@ import { esbuildJsxPlugin } from "./esbuild-jsx.plugin.js";
 import { esbuildMetafilePlugin } from "./esbuild-metafile.plugin.js";
 
 try {
-    const config = entryPointsConfig();
+    const routes = entryPointsConfig();
 
     await mkdir(OUTPUT_DIR_CLIENT, { recursive: true });
     await mkdir(OUTPUT_DIR_SERVER, { recursive: true });
 
-    const manifestFiles = config.map((f) => ({ ...f, filename: f.filename }));
+    const manifestFiles = routes.map((f) => ({ ...f, filename: f.filename }));
     await writeFile(ROUTES_FILE, JSON.stringify(manifestFiles, null, 2));
 
     const isDev = process.env.DEV === "true";
-    const minify = process.env.MINIFY ? process.env.MINIFY === "true" : true;
-    const sourcemap = process.env.SOURCEMAP ? (process.env.SOURCEMAP === "true" ? "inline" : false) : isDev ? "inline" : false;
-    let loaders = {};
+
+    let buildConfig = {};
+    if (process.env.BUILD) {
+        try {
+            const parsed = JSON.parse(process.env.BUILD);
+            if (parsed && typeof parsed === "object") {
+                buildConfig = parsed;
+            }
+        } catch (err) {
+            console.error("Invalid JSON in BUILD:", err);
+        }
+    }
+
+    let serverLoaders = {};
     if (process.env.LOADERS) {
         try {
             const parsed = JSON.parse(process.env.LOADERS);
             if (parsed && typeof parsed === "object") {
-                loaders = parsed;
+                serverLoaders = parsed;
             }
         } catch (err) {
             console.error("Invalid JSON in LOADERS:", err);
@@ -47,7 +58,11 @@ try {
         return entries;
     })();
 
-    const serverEntryPoints = [...config.map((f) => f.jsx), ...specialServerEntries]; // SSR modules only (no client exposure)
+    const serverEntryPoints = [...routes.map((f) => f.jsx), ...specialServerEntries]; // SSR modules only (no client exposure)
+
+    // Deduplicate client entry points (each route includes global.css, esbuild deduplicates during bundling)
+    const clientEntryPoints = Array.from(new Set(routes.flatMap((f) => f.entryPoints)));
+
     await Promise.all([
         // Client (public) build
         esbuild.build({
@@ -55,20 +70,22 @@ try {
             platform: "browser",
             format: "esm",
             outdir: OUTPUT_DIR_CLIENT,
-            entryPoints: [...config.flatMap((f) => f.entryPoints)],
+            entryPoints: clientEntryPoints,
             entryNames: process.env.DEV === "true" ? "[dir]/[name]" : "[dir]/[name].[hash]",
             chunkNames: "chunks/[name].[hash]",
             assetNames: "[dir]/[name].[hash]",
-            minify: minify,
-            sourcemap: sourcemap,
+            minify: true,
+            sourcemap: isDev ? "inline" : false,
+            legalComments: "none",
+            splitting: true,
             publicPath: process.env.PUBLIC_PATH ?? "/",
-            metafile: true,
-            loader: loaders,
             alias: {
                 "@components": path.join(SRC_DIR, "components"),
                 "@pages": PAGES_DIR,
                 "@utils": path.join(SRC_DIR, "utils"),
             },
+            ...buildConfig,
+            metafile: true,
             plugins: [esbuildMetafilePlugin()],
         }),
         // Server (private SSR) build
@@ -81,9 +98,10 @@ try {
             entryPoints: serverEntryPoints,
             entryNames: "[dir]/[name]",
             chunkNames: "chunks/[name].[hash]",
-            minify: false,
+            minify: true,
             sourcemap: false,
-            loader: loaders,
+            legalComments: "none",
+            loader: serverLoaders,
             alias: {
                 "@components": path.join(SRC_DIR, "components"),
                 "@pages": PAGES_DIR,

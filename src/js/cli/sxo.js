@@ -79,10 +79,6 @@ registerCommonOptions(
         prebuildSpinner.start();
 
         cfg.env.DEV = "true";
-        const __loaderEnvDev = parseLoaderOptions(_flags.loaders);
-        if (__loaderEnvDev) {
-            cfg.env.LOADERS = __loaderEnvDev;
-        }
 
         const prebuildRes = await runNode(ESBUILD_CONFIG_FILE, {
             cwd: root,
@@ -160,10 +156,9 @@ registerCommonOptions(
         s.start();
 
         log.info("Running build...");
-        const __loaderEnvBuild = parseLoaderOptions(_flags.loaders);
         const res = await runNode(ESBUILD_CONFIG_FILE, {
             cwd: root,
-            env: __loaderEnvBuild ? { ...cfg.env, LOADERS: __loaderEnvBuild } : cfg.env,
+            env: cfg.env,
             stdio: "inherit",
         });
 
@@ -259,45 +254,6 @@ registerCommonOptions(cli.command("clean", "Remove the output directory"))
             process.exitCode = 1;
         }
     });
-
-/* ------------------------------- parse ------------------------------- */
-
-/**
- * Parse --loaders flags into a JSON string for LOADERS env var.
- * Accepts:
- *  - --loaders ".svg=file" (repeatable)
- *  - --loaders "svg=file,ts=tsx" (comma-separated)
- * Returns a stable JSON string or empty string if no valid mappings.
- */
-function parseLoaderOptions(raw) {
-    const add = (obj, token) => {
-        const t = String(token).trim();
-        if (!t) return;
-        const parts = t.split(",");
-        for (const p of parts) {
-            const [extRaw, loaderRaw] = String(p).split("=");
-            if (!extRaw || !loaderRaw) continue;
-            let ext = String(extRaw).trim();
-            const loader = String(loaderRaw).trim();
-            if (!ext || !loader) continue;
-            if (!ext.startsWith(".")) ext = `.${ext}`;
-            obj[ext] = loader;
-        }
-    };
-    if (raw == null) return "";
-    const out = {};
-    if (Array.isArray(raw)) {
-        for (const item of raw) add(out, item);
-    } else {
-        add(out, raw);
-    }
-    const keys = Object.keys(out);
-    if (!keys.length) return "";
-    // Deterministic order for env var stability
-    const ordered = {};
-    for (const k of keys.sort()) ordered[k] = out[k];
-    return JSON.stringify(ordered);
-}
 
 /* generate */
 registerCommonOptions(cli.command("generate", "Generate static HTML into dist from built routes")).action(async (_flags) => {

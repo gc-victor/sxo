@@ -34,10 +34,10 @@ import dotenv from "dotenv";
  * @property {boolean} open
  * @property {boolean} verbose
  * @property {boolean} color
- * @property {boolean} minify
- * @property {boolean} sourcemap
  * @property {string} publicPath
  * @property {string} componentsDir // normalized POSIX-style relative path (e.g., "src/components")
+ * @property {Record<string,any>} [build] // custom esbuild client config to merge
+ * @property {Record<string,string>} [loaders] // custom esbuild loaders for server build
  * @property {Record<string,string>} env   // environment variables to pass to child processes
  * @property {string|null} configFilePath
  */
@@ -90,11 +90,11 @@ export async function resolveConfig(opts = {}) {
         open: normalized.open,
         verbose: normalized.verbose,
         color: normalized.color,
-        minify: normalized.minify,
-        sourcemap: normalized.sourcemap,
         publicPath: normalized.publicPath,
         clientDir: normalized.clientDir,
         componentsDir: normalized.componentsDir,
+        build: normalized.build,
+        loaders: normalized.loaders,
         env: spawnEnv,
         configFilePath: configFilePath,
     };
@@ -105,18 +105,18 @@ export async function resolveRuntimeConfig(opts = {}) {
     if (json) {
         try {
             const fromParent = JSON.parse(json);
+            const build = fromParent.build;
             const loaders = fromParent.loaders;
             return {
                 command: fromParent.command,
                 port: fromParent.port,
                 pagesDir: fromParent.pagesDir,
                 outDir: fromParent.outDir,
-                minify: fromParent.minify,
-                sourcemap: fromParent.sourcemap,
                 publicPath: fromParent.publicPath,
-                loaders,
                 clientDir: fromParent.clientDir,
                 componentsDir: fromParent.componentsDir,
+                build,
+                loaders,
             };
         } catch {
             // fall through to recompute
@@ -127,8 +127,6 @@ export async function resolveRuntimeConfig(opts = {}) {
         port: process.env.PORT,
         pagesDir: process.env.PAGES_DIR,
         outDir: process.env.OUTPUT_DIR,
-        minify: process.env.MINIFY,
-        sourcemap: process.env.SOURCEMAP,
         publicPath: process.env.PUBLIC_PATH,
         clientDir: process.env.CLIENT_DIR,
         componentsDir: process.env.COMPONENTS_DIR,
@@ -240,12 +238,11 @@ function readEnvConfig(env) {
         open: env.OPEN,
         verbose: env.VERBOSE,
         noColor: env.NO_COLOR,
-        minify: env.MINIFY,
-        sourcemap: env.SOURCEMAP,
         publicPath: env.PUBLIC_PATH,
-        loaders: env.LOADERS,
         clientDir: env.CLIENT_DIR,
         componentsDir: env.COMPONENTS_DIR,
+        build: env.BUILD,
+        loaders: env.LOADERS,
     };
 }
 
@@ -256,8 +253,6 @@ function readEnvConfig(env) {
  */
 function defaultConfigForCommand(command, cwd) {
     const openDefault = command === "dev" || command === "preview";
-    // For "dev": esbuild config already uses inline sourcemaps; we keep boolean here for higher-level flags
-    const sourcemapDefault = command === "dev";
     return {
         port: 3000,
         pagesDir: "src/pages",
@@ -265,8 +260,6 @@ function defaultConfigForCommand(command, cwd) {
         open: openDefault,
         verbose: false,
         color: true,
-        minify: true,
-        sourcemap: sourcemapDefault,
         publicPath: "/", // default; can be ""
         clientDir: "client",
         componentsDir: "src/components",
@@ -317,12 +310,6 @@ function normalizeConfig({ defaults, env, file, flags, flagsExplicit, cwd, comma
         if (color !== undefined) norm.color = toBool(color);
         if (noColor !== undefined) norm.color = !toBool(noColor);
 
-        const minify = get("minify");
-        if (minify !== undefined) norm.minify = toBool(minify);
-
-        const sourcemap = get("sourcemap");
-        if (sourcemap !== undefined) norm.sourcemap = toBool(sourcemap);
-
         // Preserve empty string if explicitly provided
         const publicPath = get("publicPath", "public-path");
         if (publicPath !== undefined) norm.publicPath = String(publicPath);
@@ -330,16 +317,72 @@ function normalizeConfig({ defaults, env, file, flags, flagsExplicit, cwd, comma
         const cfgPath = get("config");
         if (cfgPath !== undefined) norm.config = String(cfgPath);
 
-        const loaders = get("loaders", "loader");
-        if (loaders !== undefined) {
-            norm.loaders = normalizeLoaders(loaders);
-        }
-
         const clientDir = get("clientDir", "client-dir");
         if (clientDir !== undefined) norm.clientDir = String(clientDir);
 
         const componentsDir = get("componentsDir", "components-dir");
         if (componentsDir !== undefined) norm.componentsDir = toPosixRelativePath(String(componentsDir), cwd);
+
+        const build = get("build");
+        if (build !== undefined && typeof build === "object" && build !== null) {
+            norm.build = build;
+        }
+
+        const loaders = get("loaders", "loader"); // support both singular and plural
+        if (loaders !== undefined) {
+            if (typeof loaders === "object" && !Array.isArray(loaders) && loaders !== null) {
+                // Already an object map, normalize keys (add dot prefix if missing)
+                const normalized = {};
+                for (const [k, v] of Object.entries(loaders)) {
+                    let key = String(k).trim();
+                    if (!key.startsWith(".")) key = `.${key}`;
+                    normalized[key] = String(v);
+                }
+                if (Object.keys(normalized).length > 0) {
+                    norm.loaders = normalized;
+                }
+            } else if (Array.isArray(loaders)) {
+                // Array of strings (repeatable flag), merge them all
+                const merged = {};
+                for (const item of loaders) {
+                    const parsed = parseLoadersString(String(item));
+                    Object.assign(merged, parsed);
+                }
+                if (Object.keys(merged).length > 0) {
+                    norm.loaders = merged;
+                }
+            } else if (typeof loaders === "string") {
+                // Single string value; may be JSON object or key=value format
+                const s = String(loaders).trim();
+                let result = {};
+
+                // Try JSON parse first (for env var LOADERS="{...}")
+                if (s.startsWith("{")) {
+                    try {
+                        const parsed = JSON.parse(s);
+                        if (typeof parsed === "object" && !Array.isArray(parsed)) {
+                            // Normalize keys
+                            for (const [k, v] of Object.entries(parsed)) {
+                                let key = String(k).trim();
+                                if (!key.startsWith(".")) key = `.${key}`;
+                                result[key] = String(v);
+                            }
+                        }
+                    } catch {
+                        // Fall through to string parsing
+                    }
+                }
+
+                // If JSON parse failed or wasn't JSON, try key=value format
+                if (Object.keys(result).length === 0) {
+                    result = parseLoadersString(s);
+                }
+
+                if (Object.keys(result).length > 0) {
+                    norm.loaders = result;
+                }
+            }
+        }
 
         return norm;
     };
@@ -371,12 +414,11 @@ function normalizeConfig({ defaults, env, file, flags, flagsExplicit, cwd, comma
         open: pickDefined(g.open, f.open, e.open, d.open),
         verbose: pickDefined(g.verbose, f.verbose, e.verbose, d.verbose),
         color: pickDefined(g.color, f.color, e.color, d.color),
-        minify: pickDefined(g.minify, f.minify, e.minify, d.minify),
-        sourcemap: pickDefined(g.sourcemap, f.sourcemap, e.sourcemap, d.sourcemap),
         publicPath: pickDefined(g.publicPath, f.publicPath, e.publicPath, d.publicPath),
-        loaders: pickDefined(g.loaders, f.loaders, e.loaders, d.loaders),
         clientDir: pickDefined(g.clientDir, f.clientDir, e.clientDir, d.clientDir),
         componentsDir: pickDefined(g.componentsDir, f.componentsDir, e.componentsDir, d.componentsDir),
+        build: pickDefined(g.build, f.build, e.build, d.build),
+        loaders: pickDefined(g.loaders, f.loaders, e.loaders, d.loaders),
     };
 
     // Step 3: final normalization adjustments
@@ -443,21 +485,17 @@ function toSpawnEnv(cfg, command) {
         port: cfg.port,
         pagesDir: cfg.pagesDir,
         outDir: cfg.outDir,
-        minify: cfg.minify,
-        sourcemap: cfg.sourcemap,
         publicPath: cfg.publicPath,
-        loaders: cfg.loaders,
         clientDir: cfg.clientDir,
         componentsDir: cfg.componentsDir,
+        build: cfg.build,
+        loaders: cfg.loaders,
     });
 
     // Build-only controls that esbuild.config.js honors via env
     if (command === "build" || command === "dev") {
-        if (typeof cfg.minify === "boolean") {
-            env.MINIFY = cfg.minify ? "true" : "false";
-        }
-        if (typeof cfg.sourcemap === "boolean") {
-            env.SOURCEMAP = cfg.sourcemap ? "true" : "false";
+        if (cfg.build && typeof cfg.build === "object" && Object.keys(cfg.build).length) {
+            env.BUILD = JSON.stringify(cfg.build);
         }
         if (cfg.loaders && typeof cfg.loaders === "object" && Object.keys(cfg.loaders).length) {
             env.LOADERS = JSON.stringify(cfg.loaders);
@@ -466,12 +504,41 @@ function toSpawnEnv(cfg, command) {
     }
 
     if (command !== "build" && command !== "dev") {
+        delete env.BUILD;
         delete env.LOADERS;
     }
     return env;
 }
 
 /* ------------------------- helpers ------------------------- */
+
+/**
+ * Parse a loaders string into an object map.
+ * Accepts:
+ *  - ".svg=file" → {".svg":"file"}
+ *  - "svg=file,ts=tsx" → {".svg":"file",".ts":"tsx"}
+ *  - ".svg=file,.ts=tsx" → {".svg":"file",".ts":"tsx"}
+ * Returns a stable object map (sorted by key).
+ * @param {string} raw
+ * @returns {Record<string,string>}
+ */
+function parseLoadersString(raw) {
+    const parts = String(raw).split(",");
+    const out = {};
+    for (const p of parts) {
+        const [extRaw, loaderRaw] = String(p).split("=");
+        if (!extRaw || !loaderRaw) continue;
+        let ext = String(extRaw).trim();
+        const loader = String(loaderRaw).trim();
+        if (!ext || !loader) continue;
+        if (!ext.startsWith(".")) ext = `.${ext}`;
+        out[ext] = loader;
+    }
+    // Deterministic order
+    const ordered = {};
+    for (const k of Object.keys(out).sort()) ordered[k] = out[k];
+    return ordered;
+}
 
 function pickDefined(...values) {
     for (const v of values) {
@@ -529,53 +596,4 @@ function toAbsolutePath(p, cwd) {
     if (!p) return path.resolve(cwd, "dist");
     const abs = path.isAbsolute(p) ? p : path.resolve(cwd, p);
     return path.normalize(abs);
-}
-
-/**
- * Normalize "loaders" into a canonical map of ".ext" -> "loader".
- *
- * Accepts:
- * - Object: { ".svg": "file", "ts": "tsx" } (leading dot optional on keys)
- * - JSON string: '{" .svg":"file"," .ts":"tsx"}'
- * - Comma/equals string: "svg=file,ts=tsx"
- *
- * Returns a plain object with trimmed, dot-prefixed extensions, or undefined if nothing valid
- * was provided.
- *
- * Trims keys/values, ignores null/undefined entries, and drops empty tokens.
- *
- * @param {Record<string, string>|string|any} val
- * @returns {Record<string, string>|undefined}
- */
-function normalizeLoaders(val) {
-    if (val == null) return undefined;
-    if (typeof val === "object" && !Array.isArray(val)) {
-        const out = {};
-        for (const [k, v] of Object.entries(val)) {
-            if (v === undefined || v === null) continue;
-            let ext = String(k).trim();
-            const loader = String(v).trim();
-            if (!ext || !loader) continue;
-            if (!ext.startsWith(".")) ext = `.${ext}`;
-            out[ext] = loader;
-        }
-        return Object.keys(out).length ? out : undefined;
-    }
-    const s = String(val).trim();
-    if (!s) return undefined;
-    try {
-        const obj = JSON.parse(s);
-        return normalizeLoaders(obj);
-    } catch {}
-    const out = {};
-    for (const token of s.split(",")) {
-        const [rawExt, rawLoader] = token.split("=");
-        if (!rawExt || !rawLoader) continue;
-        let ext = String(rawExt).trim();
-        const loader = String(rawLoader).trim();
-        if (!ext || !loader) continue;
-        if (!ext.startsWith(".")) ext = `.${ext}`;
-        out[ext] = loader;
-    }
-    return Object.keys(out).length ? out : undefined;
 }
