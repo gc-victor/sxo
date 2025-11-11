@@ -54,7 +54,7 @@ A **fast**, minimal architecture convention and CLI for building websites with s
 - **Production server**: minimal core (bring your own policy via middleware).
 - **Dual build outputs**: client assets use hashed filenames; separate server bundles (never exposed publicly).
 - **Rust-powered JSX transformer**: fast + small runtime helpers.
-- **Configurable esbuild loaders**: assign loaders per file extension via config, env, or flags.
+- **Configurable esbuild loaders** for server build: assign loaders per file extension via config, env, or CLI flags (e.g., `--loaders ".svg=file" --loaders ".ts=tsx"`).
 - **Configurable public base path** for assets: set via flag (`--public-path`), env (`PUBLIC_PATH`), or config; empty string "" allowed for relative URLs.
 
 ## Architecture Overview
@@ -166,6 +166,25 @@ Point to a different pages directory:
 ```shell
 sxo build --pages-dir examples/basic/src/pages
 sxo start --pages-dir examples/basic/src/pages --port 4011
+```
+
+Configure custom esbuild loaders for the server build:
+
+```shell
+# Via CLI flags (repeatable or comma-separated)
+sxo dev --loaders ".svg=file" --loaders ".ts=tsx"
+sxo build --loaders "svg=file,ts=tsx"
+
+# Via environment variable (JSON format)
+LOADERS='{"svg":"file",".ts":"tsx"}' sxo dev
+
+# Via config file (sxo.config.json or sxo.config.js)
+{
+  "loaders": {
+    ".svg": "file",
+    ".ts": "tsx"
+  }
+}
 ```
 
 ## Routing Guide
@@ -380,11 +399,10 @@ CLI Flags > sxo.config.* > .env / .env.local > defaults
 
 Command defaults:
 
-- dev: `open=true`, `sourcemap=true`
-- build: `open=false`, `sourcemap=false`
+- dev: `open=true`
+- build: `open=false`
 - start: `open=false`
 - clean: (removal only)
-  All: `minify=true` unless disabled; dev minify flag still honored.
 
 Example `sxo.config.json`:
 
@@ -394,12 +412,17 @@ Example `sxo.config.json`:
   "pagesDir": "src/pages",
   "outDir": "dist",
   "open": false,
-  "minify": true,
-  "sourcemap": false
+  "build": {
+    "minify": false,
+    "sourcemap": "inline"
+  },
+  "loaders": { ".svg": "file" }
 }
 ```
 
-Loaders can also be configured in `sxo.config.*` using a `loaders` object map, for example: `{"loaders":{".svg":"file",".ts":"tsx"}}`.
+The `build` property accepts any esbuild client configuration options for the client build only. Defaults applied by SXO for the client build are: `minify: true`, `sourcemap: isDev ? "inline" : false`.
+
+> Note: The server build uses its own hardcoded defaults: `minify: true`, `sourcemap: false`. These are not affected by the `build` property.
 
 Explicit Flag Detection:
 Flags only override file/env/default if _explicitly_ passed (e.g. `--open`, `--no-open`, `--open=false`). Inferred / defaulted flags are filtered out (see `prepareFlags()`).
@@ -411,11 +434,9 @@ Key flags:
 --pages-dir                       # Path to the pages directory (default: src/pages)
 --out-dir                         # Output directory for build artifacts (default: dist)
 --open / --no-open                # Auto-open the browser when the dev server is ready (toggle)
---minify / --no-minify            # Enable or disable production minification of bundles
---sourcemap / --no-sourcemap      # Generate sourcemaps for builds (enabled by default in dev)
---public-path <path>               # Public base URL for emitted asset URLs (default: "/"); empty string "" allowed for relative paths
+--public-path <path>              # Public base URL for emitted asset URLs (default: "/"); empty string "" allowed for relative paths
 --client-dir <name>               # Subdirectory name for per-route client entry (default: client)
---loaders <ext=loader>            # Loader mapping (.ext=loader). Repeat or comma-separated (e.g., --loaders ".svg=file" --loaders "ts=tsx")
+--loaders <ext=loader>            # esbuild server loaders (dev/build only; repeatable or comma-separated). Example: --loaders ".svg=file" --loaders ".ts=tsx"
 --verbose                         # Enable verbose logging for debugging and diagnostics
 --no-color                        # Disable ANSI/colorized log output (useful for CI)
 --config <file>                   # Load an alternate config file (e.g., sxo.config.json or .js)
@@ -432,11 +453,9 @@ Recognized:
 | PAGES_DIR | Pages directory | src/pages |
 | OUTPUT_DIR | Base output directory | dist |
 | OPEN | Auto-open dev browser | true (dev) |
-| MINIFY | Minify bundles | true |
-| SOURCEMAP | Generate sourcemaps | dev:true |
 | PUBLIC_PATH | Public base URL for asset URLs (esbuild publicPath). Empty string "" allowed and preserved. | "/" |
-| LOADERS | Loader mapping passed to esbuild (JSON string or comma list; dev/build only) | (unset) |
 | CLIENT_DIR | Per-route client entry subdirectory name | client |
+| LOADERS | esbuild server loaders as JSON map (e.g., `{"svg":"file"}` or `{".ts":"tsx"}`) | (unset) |
 | VERBOSE | Verbose logging | false |
 | NO_COLOR | Disable colorized output | (unset) |
 | HEADER_TIMEOUT_MS | Node headers timeout in ms (server.headersTimeout). Set a non-negative integer to override; unset to use Node default. | (unset) |
@@ -450,7 +469,8 @@ Derived / injected:
 | SXO_RESOLVED_CONFIG | JSON blob of resolved config |
 | DEV | `"true"` in dev command, else `"false"` |
 | SXO_COMMAND | Current command (`dev|build|start|clean`) |
-| LOADERS | Loader mapping propagated to child build process (only in dev/build) |
+| BUILD | Custom esbuild client config object propagated to child build process (only in dev/build) |
+| LOADERS | esbuild server loaders map propagated to child build process (only in dev/build) |
 | PUBLIC_PATH | Public base URL for assets propagated to the build (defaults to "/" when unset; empty string preserved) |
 | CLIENT_DIR | Configured per-route client entry subdirectory name |
 
@@ -493,7 +513,7 @@ Runtime helpers:
 Run all tests:
 
 ```shell
-node --test
+pnpm test
 ```
 
 Focused suites:
@@ -668,7 +688,7 @@ Serve behind a reverse proxy (optional). Add your own middleware for:
 
 1. Fork & clone.
 2. Install deps: `pnpm i`
-3. Run tests: `node --test`
+3. Run tests: `pnpm test`
 4. Keep PRs focused & small (< ~100 LOC unless discussed).
 5. Use Conventional Commit messages (`feat:`, `fix:`, etc.).
 6. Update docs (`README.md` / `AGENTS.md`) when altering behavior (manifest shape, routing semantics, middleware contract).
