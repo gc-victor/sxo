@@ -38,9 +38,9 @@
         "check": "biome check src/js components/e2e components/src",
         "check:fix": "biome check --write --unsafe src/js components/e2e components/src",
         "components:dev": "pnpm run --filter ./components dev",
-        "components:build": "pnpm run --filter ./components build",
-        "components:start": "pnpm run --filter ./components start",
-        "components:clean": "pnpm run --filter ./components clean",
+        "components:build": "pnpm run --filter ./components sxo:build",
+        "components:start": "pnpm run --filter ./components sxo:start",
+        "components:clean": "pnpm run --filter ./components sxo:clean",
         "components:install": "pnpm run --filter ./components install --frozen-lockfile",
         "components:playwright:install": "pnpm run --filter ./components playwright:install",
         "test": "NODE_ENV=test node --test src/js/**/*.test.js",
@@ -48,13 +48,12 @@
     },
     "devDependencies": {
         "@biomejs/biome": "^2.3.4",
-        "@qery/reactive-component": "^0.8.0",
         "@types/node": "^24.10.0"
     },
     "dependencies": {
         "cac": "^6.7.14",
         "dotenv": "^17.2.3",
-        "esbuild": "^0.25.12",
+        "esbuild": "^0.27.0",
         "pino": "^10.1.0",
         "pino-http": "^11.0.0",
         "pino-pretty": "^13.1.2"
