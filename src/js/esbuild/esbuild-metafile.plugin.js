@@ -92,8 +92,6 @@ export function esbuildMetafilePlugin(options = {}) {
 
                     const { entryToOutput, entryToCssBundle } = buildAssetMaps(result.metafile, outputDirClientAbs);
 
-                    // Asset manifest removed: assets are now persisted per-route in routes.json (route.assets).
-
                     // Compute per-route assets and persist into routes.json (no HTML generation here)
                     for (const route of Array.isArray(routes) ? routes : []) {
                         if (!route || typeof route !== "object") continue;
