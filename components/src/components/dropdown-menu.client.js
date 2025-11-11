@@ -74,9 +74,7 @@ define("el-dropdown-menu", function DropdownMenu({ $element, $on, $effect }) {
 
         const focusFirstMenuItem = () => {
             const items = queryMenuItems().filter(
-                (el) =>
-                    el.getAttribute("aria-disabled") !== "true" &&
-                    !(el instanceof HTMLButtonElement && el.disabled),
+                (el) => el.getAttribute("aria-disabled") !== "true" && !(el instanceof HTMLButtonElement && el.disabled),
             );
             if (items.length) {
                 items[0].focus({ preventScroll: true });
