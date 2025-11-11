@@ -69,6 +69,13 @@ before(() => {
     writeFileRecursive(path.join(fixturesRoot, "no-dynamic", "[slug]", "index.tsx"), "// nested dynamic tsx");
     writeFileRecursive(path.join(fixturesRoot, "no-dynamic", "[slug]", "client", "index.js"), "// nested dynamic client js");
 
+    // Multiple client entries (index.* and *.index.*)
+    writeFileRecursive(path.join(fixturesRoot, "multi-client", "index.tsx"), "// multi-client tsx");
+    writeFileRecursive(path.join(fixturesRoot, "multi-client", "client", "index.js"), "// index.js");
+    writeFileRecursive(path.join(fixturesRoot, "multi-client", "client", "index.ts"), "// index.ts");
+    writeFileRecursive(path.join(fixturesRoot, "multi-client", "client", "form.index.tsx"), "// form.index.tsx");
+    writeFileRecursive(path.join(fixturesRoot, "multi-client", "client", "modal.index.js"), "// modal.index.js");
+
     // global.css used by tests as a shared stylesheet entry
     writeFileRecursive(path.join(__dirname, "fixtures", "pages", "global.css"), "body{}");
 });
@@ -87,20 +94,29 @@ before(async () => {
     files = mod.entryPointsConfig();
 });
 const byFilename = (filename) => files.find((f) => f.filename === filename);
+const globalCssPath = "src/js/esbuild/fixtures/pages/global.css";
 
 test("root index.html route", () => {
     const f = byFilename("index.html");
     assert.ok(f, "root index.html exists");
     assert.equal(f.jsx, path.join(relPagesDir, "index.tsx"));
-    assert.deepEqual(f.entryPoints, [path.join(relPagesDir, "client", "index.js"), "src/js/esbuild/fixtures/pages/global.css"]);
+    assert.deepEqual(f.entryPoints, [path.join(relPagesDir, "client", "index.js"), globalCssPath]);
     assert.ok(!f.path, "root should not have path field");
+});
+
+test("global.css is included in each route's entryPoints", () => {
+    const routes = files;
+    // Each route should include global.css in its entryPoints
+    for (const route of routes) {
+        assert.ok(route.entryPoints.includes(globalCssPath), `route ${route.filename} should include global.css`);
+    }
 });
 
 test("about/index.tsx route", () => {
     const f = byFilename(path.join("about", "index.html"));
     assert.ok(f, "about/index.html exists");
     assert.equal(f.jsx, path.join(relPagesDir, "about", "index.tsx"));
-    assert.deepEqual(f.entryPoints, [path.join(relPagesDir, "about", "client", "index.js"), "src/js/esbuild/fixtures/pages/global.css"]);
+    assert.deepEqual(f.entryPoints, [path.join(relPagesDir, "about", "client", "index.js"), globalCssPath]);
     assert.equal(f.path, "about");
 });
 
@@ -108,10 +124,7 @@ test("blog/[slug]/index.tsx dynamic route", () => {
     const f = byFilename(path.join("blog", "[slug]", "index.html"));
     assert.ok(f, "blog/[slug]/index.html exists");
     assert.equal(f.jsx, path.join(relPagesDir, "blog", "[slug]", "index.tsx"));
-    assert.deepEqual(f.entryPoints, [
-        path.join(relPagesDir, "blog", "[slug]", "client", "index.js"),
-        "src/js/esbuild/fixtures/pages/global.css",
-    ]);
+    assert.deepEqual(f.entryPoints, [path.join(relPagesDir, "blog", "[slug]", "client", "index.js"), globalCssPath]);
     assert.equal(f.path, "blog/[slug]");
 });
 
@@ -119,10 +132,7 @@ test("no-dynamic/no-dynamic/index.tsx nested static route", () => {
     const f = byFilename(path.join("no-dynamic", "no-dynamic", "index.html"));
     assert.ok(f, "no-dynamic/no-dynamic/index.html exists");
     assert.equal(f.jsx, path.join(relPagesDir, "no-dynamic", "no-dynamic", "index.tsx"));
-    assert.deepEqual(f.entryPoints, [
-        path.join(relPagesDir, "no-dynamic", "no-dynamic", "client", "index.js"),
-        "src/js/esbuild/fixtures/pages/global.css",
-    ]);
+    assert.deepEqual(f.entryPoints, [path.join(relPagesDir, "no-dynamic", "no-dynamic", "client", "index.js"), globalCssPath]);
     assert.equal(f.path, "no-dynamic/no-dynamic");
 });
 
@@ -130,9 +140,29 @@ test("no-dynamic/[slug]/index.tsx nested dynamic route", () => {
     const f = byFilename(path.join("no-dynamic", "[slug]", "index.html"));
     assert.ok(f, "no-dynamic/[slug]/index.html exists");
     assert.equal(f.jsx, path.join(relPagesDir, "no-dynamic", "[slug]", "index.tsx"));
-    assert.deepEqual(f.entryPoints, [
-        path.join(relPagesDir, "no-dynamic", "[slug]", "client", "index.js"),
-        "src/js/esbuild/fixtures/pages/global.css",
-    ]);
+    assert.deepEqual(f.entryPoints, [path.join(relPagesDir, "no-dynamic", "[slug]", "client", "index.js"), globalCssPath]);
     assert.equal(f.path, "no-dynamic/[slug]");
+});
+
+test("multi-client route collects all client/index.* and client/*.index.* entries", () => {
+    const f = byFilename(path.join("multi-client", "index.html"));
+    assert.ok(f, "multi-client/index.html exists");
+    assert.equal(f.jsx, path.join(relPagesDir, "multi-client", "index.tsx"));
+
+    // All client entries should be present (plus global.css)
+    const expectedEntries = [
+        path.join(relPagesDir, "multi-client", "client", "index.js"),
+        path.join(relPagesDir, "multi-client", "client", "index.ts"),
+        path.join(relPagesDir, "multi-client", "client", "form.index.tsx"),
+        path.join(relPagesDir, "multi-client", "client", "modal.index.js"),
+        globalCssPath,
+    ];
+    assert.equal(f.entryPoints.length, expectedEntries.length, "should have 5 entryPoints (4 client + global.css)");
+    for (const expectedEntry of expectedEntries) {
+        assert.ok(
+            f.entryPoints.includes(expectedEntry),
+            `entryPoints should include ${expectedEntry}, got: ${JSON.stringify(f.entryPoints)}`,
+        );
+    }
+    assert.equal(f.path, "multi-client");
 });
