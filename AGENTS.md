@@ -4,8 +4,8 @@
 
 **Commands:**
 
-- `node --test` - run all tests
-- `node --test src/js/path/to/file.test.js` - run single test file
+- `pnpm test` - run all tests
+- `pnpm test src/js/path/to/file.test.js` - run single test file
 - `npm run check` - lint with Biome
 - `npm run format` - format code
 - `./bin/sxo.js dev|build|start|clean|generate`
@@ -17,6 +17,8 @@
 **Constraints:** Only modify [`src/js/**`](src/js) unless directed. Never edit [`jsx-transformer/jsx_transformer.js`](jsx-transformer/jsx_transformer.js), [`dist/**`](dist), or generated artifacts. No mega-refactors (>300 LOC / >3 files) without confirmation. Preserve `AIDEV-*` anchors.
 
 **Key Files:** [`src/js/esbuild/`](src/js/esbuild) (build pipeline), [`src/js/server/`](src/js/server) (dev/prod servers), [`src/js/config.js`](src/js/config.js) (resolution), [`src/js/cli/`](src/js/cli) (commands). Read full sections below for details.
+
+**Loaders:** Custom esbuild server loaders can be configured via CLI flags (`--loaders ".svg=file"`), env (`LOADERS='{"svg":"file"}'`), or config file (`{"loaders":{".svg":"file"}}`). Format supports both `.svg` and `svg` notation (dot auto-added). Repeatable flags merge together; comma-separated values supported. Only propagated to dev/build commands. Follow standard config precedence: flags > file > env > defaults.
 
 ---
 
@@ -43,7 +45,7 @@ This project supports root-level 404 and 500 pages that render as full HTML docu
 ## Info
 
 - **Project**: sxo
-- **Last Update**: 2025-09-25
+- **Last Update**: 2025-11-11
 - **Rules**: [`.rules/`](.rules)
 
 ## Purpose
@@ -63,6 +65,7 @@ Authoritative onboarding & guard-rails for AI + human contributors. Read fully b
 - Hot reload: SSE endpoint `/hot-replace?href=<path>` with partial body replacement.
 - Public asset base path configurable via `--public-path`, `PUBLIC_PATH`, or config; empty string "" preserved; consumed by esbuild `publicPath`; normalized at runtime for injection (empty string preserved → no leading slash; non‑empty ensures trailing slash).
 - Per‑route client entry subdirectory configurable via `clientDir` (config), `CLIENT_DIR` (env), or `--client-dir` (flag). Default: "client".
+- Custom esbuild server loaders configurable via `--loaders` (flag), `LOADERS` (env), or config; follows precedence: flags > file > env > defaults; only propagated to dev/build commands.
 - Static generation support: `sxo generate` pre-renders non-dynamic routes, writes HTML into [`dist/client`](dist/client), and marks routes with `generated: true` in the manifest.
 - Prod server respects `generated` flag: if `generated: true`, serves built HTML as-is (skips SSR) with `Cache-Control: public, max-age=300`; otherwise SSR per request with `Cache-Control: public, max-age=0, must-revalidate`.
 - Prod timeouts: `REQUEST_TIMEOUT_MS` (default 120000) sets `server.requestTimeout`; `HEADER_TIMEOUT_MS` (if set to a non-negative integer) overrides `server.headersTimeout`.
@@ -113,7 +116,7 @@ node src/js/cli/sxo.js build
 node src/js/cli/sxo.js start
 node src/js/cli/sxo.js clean
 node src/js/cli/sxo.js generate
-node --test
+pnpm test
 ```
 
 Dev auto-open uses readiness probe (HEAD then GET, status < 500 = ready).
@@ -331,8 +334,8 @@ If expanding to multi-param or advanced patterns: update sections (README + here
   - per‑route client entry directory: sourced from resolved `clientDir` (default: "client")
   - After the client build finishes, the metafile plugin augments [`dist/server/routes.json`](dist/server/routes.json) with per‑route assets (`route.assets = { css: string[], js: string[] }`). It does not write any HTML files. The `sxo generate` step consumes `route.assets` to inject `<link rel="stylesheet">` and `<script type="module">` tags into generated HTML with PUBLIC_PATH normalization (empty string preserved; non‑empty values end with a trailing slash). At runtime, the dev and prod servers also inject `route.assets` for non‑generated routes using the same normalization rules.
 - Server:
-  - SSR bundles for route `jsx` modules plus special 404/500 modules (no minify, no sourcemap).
-- Loader mapping: if `LOADERS` is set (from config/env/flags), esbuild's `loader` option is applied to both client and server builds (dev/build only).
+  - SSR bundles for route `jsx` modules plus special 404/500 modules (minify: true, no sourcemap).
+- Build config: if `BUILD` is set (from config/env/flags), all properties in the build object are merged into the client esbuild config via spread operator (dev/build only). Defaults applied: `minify: true`, `sourcemap: isDev ? "inline" : false`.
 - JSX transformer & runtime helpers:
   - Backed by a streaming JSX parser with error recovery (old precompiler removed; the [`jsx_precompile.rs`](jsx-transformer/jsx_precompile.rs) file was deleted).
   - Emits template literals and relies on runtime helpers:
@@ -361,7 +364,7 @@ Derived env injected:
 - `OUTPUT_DIR_CLIENT`, `OUTPUT_DIR_SERVER`
 - `SXO_RESOLVED_CONFIG` (JSON)
 - `DEV`, `SXO_COMMAND`
-- `LOADERS` (JSON mapping of extension -> loader; only set in dev/build; also embedded in `SXO_RESOLVED_CONFIG`)
+- `BUILD` (JSON custom esbuild client config object; only set in dev/build; also embedded in `SXO_RESOLVED_CONFIG`)
 - `PUBLIC_PATH` (string public base URL for assets; defaults to "/" when unset; empty string "" preserved)
 - `CLIENT_DIR` (per‑route client entry subdirectory; defaults to "client")
   Flag explicitness tests in [`src/js/config.test.js`](src/js/config.test.js); maintain those if adding new flags.
