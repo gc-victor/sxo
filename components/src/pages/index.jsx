@@ -39,6 +39,7 @@ import SvgSymbols, {
     SymbolTriangleWarning,
     SymbolX,
 } from "@components/svg-symbols.jsx";
+import ThemeSelector from "@pages/components/theme-selector.jsx";
 /* Import all component sections */
 import { SectionAccordion } from "@pages/sections/section-accordion.jsx";
 import { SectionAlert } from "@pages/sections/section-alert.jsx";
@@ -67,7 +68,6 @@ import { SectionTabs } from "@pages/sections/section-tabs.jsx";
 import { SectionTextarea } from "@pages/sections/section-textarea.jsx";
 import { SectionToast } from "@pages/sections/section-toast.jsx";
 import { SectionTooltip } from "@pages/sections/section-tooltip.jsx";
-import ThemeSelector from "@/pages/components/theme-selector.jsx";
 import ThemeToggle from "@/pages/components/theme-toggle.jsx";
 import CopyButton from "./components/copy-button";
 import InstallTabs from "./components/install-tabs";
@@ -292,41 +292,74 @@ export default () => (
                                     Installation
                                 </h2>
                                 <div>
-                                    <h3 class="text-lg font-semibold">Dependencies</h3>
+                                    <h3 class="text-xl font-semibold">Dependencies</h3>
+
+                                    <p class="mt-6">
+                                        Install the core dependencies for SXO and Reactive Component. SXO provides the JSX transformation
+                                        and server-side rendering capabilities, while Reactive Component enables client-side interactivity
+                                        through the islands architecture pattern.
+                                    </p>
+
                                     <InstallTabs
                                         componentName="install-dependencies"
                                         commands={{
-                                            pnpm: `pnpm add @query/reactive-component sxo`,
-                                            npm: `npm install @query/reactive-component sxo`,
-                                            yarn: `yarn add @query/reactive-component sxo`,
-                                            bun: `bun add @query/reactive-component sxo`,
+                                            pnpm: `pnpm add sxo @qery/reactive-component`,
+                                            npm: `npm install sxo @qery/reactive-component`,
+                                            yarn: `yarn add sxo @qery/reactive-component`,
+                                            bun: `bun add sxo @qery/reactive-component`,
                                         }}
                                     />
                                 </div>
                                 <div>
-                                    <h3 class="text-lg font-semibold">Dev Dependencies</h3>
+                                    <h3 class="text-xl font-semibold">DevDependencies</h3>
+
+                                    <p class="mt-6">
+                                        Install Tailwind CSS and its CLI as development dependencies. The CLI is used to process your
+                                        stylesheets and generate the final CSS output with all the utility classes used in your components.
+                                    </p>
+
                                     <InstallTabs
                                         componentName="install-dev-dependencies"
                                         commands={{
-                                            pnpm: `pnpm add -D @tailwindcss/cli basecoat-css@0.3.2 tailwindcss`,
-                                            npm: `npm install -D @tailwindcss/cli basecoat-css@0.3.2 tailwindcss`,
-                                            yarn: `yarn add -D @tailwindcss/cli basecoat-css@0.3.2 tailwindcss`,
-                                            bun: `bun add -D @tailwindcss/cli basecoat-css@0.3.2 tailwindcss`,
+                                            pnpm: `pnpm add -D tailwindcss @tailwindcss/cli basecoat-css@0.3.3`,
+                                            npm: `npm install -D tailwindcss @tailwindcss/cli basecoat-css@0.3.3`,
+                                            yarn: `yarn add -D tailwindcss @tailwindcss/cli basecoat-css@0.3.3`,
+                                            bun: `bun add -D tailwindcss @tailwindcss/cli basecoat-css@0.3.3`,
                                         }}
                                     />
 
-                                    <p class="mt-4">Import tailwind and basecoat in your CSS:</p>
+                                    <p class="mt-4">
+                                        After installing the dependencies, import Tailwind and Basecoat CSS into your main stylesheet:
+                                    </p>
 
                                     <div className="relative">
                                         <pre class="css-highlight mt-4">
                                             <code
-                                                id="install-import-css"
+                                                id="import-css"
                                                 class="language-css"
                                             >{`<span class="css-keyword">@import</span> <span class="css-string">"tailwindcss"</span>;\n<span class="css-keyword">@import</span> <span class="css-string">"basecoat-css"</span>;`}</code>
                                         </pre>
 
-                                        <CopyButton for="install-import-css" />
+                                        <CopyButton for="import-css" />
                                     </div>
+                                </div>
+                                <div>
+                                    <h3 class="text-xl font-semibold">Components</h3>
+
+                                    <p class="mt-6">
+                                        Run the following command from your project root to install a component and its associated assets
+                                        (styles, JSX components, and the client script).
+                                    </p>
+
+                                    <InstallTabs
+                                        componentName="install-component"
+                                        commands={{
+                                            pnpm: `pnpx sxo add &lt;component&gt;`,
+                                            npm: `npx sxo add &lt;component&gt;`,
+                                            yarn: `yarn sxo add &lt;component&gt;`,
+                                            bun: `bunx sxo add &lt;component&gt;`,
+                                        }}
+                                    />
                                 </div>
                             </section>
 
