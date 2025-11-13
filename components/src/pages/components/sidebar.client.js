@@ -21,14 +21,12 @@
 import { define } from "@qery/reactive-component";
 
 define("el-sidebar", ({ $element, $state, $effect }) => {
-    const initialOpen = $element.dataset.initialOpen !== "false";
-    const initialMobileOpen = $element.dataset.initialMobileOpen === "true";
-    const breakpoint = parseInt($element.dataset.breakpoint || "768", 10) || 768;
+    const breakpoint = 768;
 
-    $state.open = breakpoint > 0 ? (window.innerWidth >= breakpoint ? initialOpen : initialMobileOpen) : initialOpen;
+    $state.open = window.getComputedStyle($element, null).display !== "none";
 
     $effect(() => {
-        $element.classList.remove("md:block");
+        $element.classList.toggle("block!", $state.open);
         $element.classList.toggle("hidden", !$state.open);
         $element.classList.toggle("sidebar", $state.open);
 
