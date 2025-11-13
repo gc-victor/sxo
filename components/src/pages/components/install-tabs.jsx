@@ -23,7 +23,7 @@
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@components/tabs.jsx";
 import { cn } from "@utils/cn.js";
-import CopyButton from "@/pages/components/copy-button.jsx";
+import CopyButton from "./copy-button.jsx";
 
 /**
  * Props accepted by `<InstallTabs />`.

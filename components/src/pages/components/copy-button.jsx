@@ -21,9 +21,9 @@
  * @since 1.0.0
  */
 
+import Button from "@components/button.jsx";
+import { IconCheckmark, IconCopy } from "@components/icon.jsx";
 import cn from "@utils/cn.js";
-import Button from "../../components/button.jsx";
-import { IconCheckmark, IconCopy } from "../../components/icon.jsx";
 
 /**
  * Button component that copies text content from an associated <code> element.
