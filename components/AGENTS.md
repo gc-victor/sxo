@@ -649,7 +649,7 @@ export default function Page() {
 | **Hot Reload**               | SSE-based partial page replacement in dev mode (faster than full page refresh).         |
 | **Route Manifest**           | `dist/server/routes.json` containing route metadata and asset mappings.                 |
 | **`cn()` Utility**           | Class name utility (like `clsx`) for merging Tailwind/basecoat classes.                 |
-| **`highlightJsx()` Utility** | Server-side JSX syntax highlighter for code display in documentation.                   |
+| **`highlightJsx()`**         | Server-side JSX syntax highlighter for code display in documentation.                   |
 | **`define()` API**           | Reactive-component function for creating custom elements with signals.                  |
 | **`$state` Proxy**           | Property-based API for reactive state in `define()` components.                         |
 | **`$bind` Object**           | Container for methods callable from HTML event handlers.                                |
