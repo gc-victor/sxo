@@ -25,7 +25,7 @@
  * @version 1.0.0
  */
 
-import { escapeHtml } from "./escape-html.js";
+import { escapeHtml } from "@utils/escape-html.js";
 
 /**
  * Highlight JSX syntax by wrapping tokens in HTML spans with CSS classes.

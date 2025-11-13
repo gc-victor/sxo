@@ -6,8 +6,8 @@ import Breadcrumb, {
     BreadcrumbSeparator,
 } from "@components/breadcrumb.jsx";
 import Tabs, { TabsContent, TabsList, TabsTrigger } from "@components/tabs.jsx";
-import highlightJsx from "@utils/highlight-jsx.js";
-import CopyButton from "../components/copy-button.jsx";
+import CopyButton from "@pages/components/copy-button.jsx";
+import highlightJsx from "@pages/components/highlight-jsx.js";
 import { Section, SectionDescription, SectionHeading } from "./section.jsx";
 
 /**
