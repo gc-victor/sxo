@@ -79,6 +79,11 @@ try {
             legalComments: "none",
             splitting: true,
             publicPath: process.env.PUBLIC_PATH ?? "/",
+            define: {
+                "process.env.NODE_ENV": JSON.stringify(
+                    process.env.DEV === "true" || process.env.NODE_ENV === "test" ? "development" : "production",
+                ),
+            },
             alias: {
                 "@components": path.join(SRC_DIR, "components"),
                 "@pages": PAGES_DIR,
