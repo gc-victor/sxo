@@ -8,12 +8,12 @@ export default defineConfig({
     workers: process.env.CI ? 1 : undefined,
     reporter: "line",
     webServer: {
-      command: 'pnpm run server',
-      url: 'http://localhost:3001',
+      command: 'pnpm run test:e2e:server',
+      url: 'http://localhost:3002',
       timeout: 60_000,
     },
     use: {
-        baseURL: "http://localhost:3001",
+        baseURL: "http://localhost:3002",
         trace: "on-first-retry",
     },
     projects: [
