@@ -49,14 +49,7 @@ export default function Sidebar({
     ...rest
 }) {
     return (
-        <el-sidebar
-            class={cn("sidebar", "hidden md:block", className || klass)}
-            data-sidebar-initialized
-            data-initial-open={initialOpen}
-            data-initial-mobile-open={initialMobileOpen}
-            data-breakpoint={breakpoint}
-            {...rest}
-        >
+        <el-sidebar class={cn("sidebar", className || klass)} {...rest}>
             <aside>
                 <nav data-sidebar-initialized>
                     <header class="p-0! flex items-center justify-between">
