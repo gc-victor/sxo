@@ -49,6 +49,7 @@ import { cn } from "@utils/cn.js";
  *   sizes?: string,
  *   name?: string,
  *   initials?: string,
+ *   loading?: "lazy"|"eager"|"auto",
  *   size?: "xs"|"sm"|"md"|"lg"|"xl"|string,
  *   shape?: "circle"|"rounded"|"square",
  *   grayscale?: boolean
@@ -73,6 +74,7 @@ export default function Avatar(props) {
         sizes,
         name,
         initials,
+        loading,
         size = "md",
         shape = "circle",
         grayscale = false,
@@ -106,6 +108,7 @@ export default function Avatar(props) {
                     srcset={srcset || src}
                     sizes={sizes}
                     alt={alt || name || initialsText}
+                    {...(loading ? { loading } : {})}
                 />
             ) : (
                 <span class={cn("text-xs", "font-medium", "select-none", "leading-none", "text-foreground")}>{initialsText}</span>
