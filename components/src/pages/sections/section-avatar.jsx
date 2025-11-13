@@ -1,7 +1,7 @@
 import Avatar, { AvatarGroup } from "@components/avatar.jsx";
 import Tabs, { TabsContent, TabsList, TabsTrigger } from "@components/tabs.jsx";
-import highlightJsx from "@utils/highlight-jsx.js";
-import CopyButton from "../components/copy-button.jsx";
+import CopyButton from "@pages/components/copy-button.jsx";
+import highlightJsx from "@pages/components/highlight-jsx.js";
 import { Section, SectionDescription, SectionHeading } from "./section.jsx";
 
 export function SectionAvatar() {
@@ -22,16 +22,40 @@ export function SectionAvatar() {
                 <TabsContent name="preview" class="pt-4" active>
                     <div class="flex items-center gap-3">
                         {/* Case 1: Avatar with image */}
-                        <Avatar src="https://github.com/hunvreus.png" srcset="https://github.com/hunvreus.png" alt="C Newton" size="lg" />
+                        <Avatar
+                            loading="lazy"
+                            src="https://github.com/hunvreus.png"
+                            srcset="https://github.com/hunvreus.png"
+                            alt="C Newton"
+                            size="lg"
+                        />
                         {/* Case 2: Avatar with name fallback */}
                         <Avatar name="Ada Lovelace" />
                         {/* Case 3: Avatar with initials and shape */}
                         <Avatar initials="CN" shape="rounded" />
                         {/* Case 4: AvatarGroup with hover spread */}
                         <AvatarGroup hoverSpread={true}>
-                            <Avatar src="https://github.com/hunvreus.png" srcset="https://github.com/hunvreus.png" alt="A" size="sm" />
-                            <Avatar src="https://github.com/shadcn.png" srcset="https://github.com/shadcn.png" alt="B" size="sm" />
-                            <Avatar src="https://github.com/adamwathan.png" srcset="https://github.com/adamwathan.png" alt="C" size="sm" />
+                            <Avatar
+                                loading="lazy"
+                                src="https://github.com/hunvreus.png"
+                                srcset="https://github.com/hunvreus.png"
+                                alt="A"
+                                size="sm"
+                            />
+                            <Avatar
+                                loading="lazy"
+                                src="https://github.com/shadcn.png"
+                                srcset="https://github.com/shadcn.png"
+                                alt="B"
+                                size="sm"
+                            />
+                            <Avatar
+                                loading="lazy"
+                                src="https://github.com/adamwathan.png"
+                                srcset="https://github.com/adamwathan.png"
+                                alt="C"
+                                size="sm"
+                            />
                             <Avatar initials="XY" size="sm" />
                         </AvatarGroup>
                     </div>
