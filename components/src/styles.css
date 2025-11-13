@@ -1,32 +1,19 @@
-@import "tailwindcss";
+@layer properties;
+@layer theme, base, components, utilities;
 
-/* Basecoat CSS (components, tokens, themes) */
+@import "tailwindcss";
 @import "basecoat-css";
 
-/* Tooltip component */
-@import "./components/tooltip.css";
+@custom-variant dark (&:is(.dark *));
 
-/* Select Menu component */
-@import "./components/select-menu.css";
+/* Defaults */
 
-/* JSX syntax highlighting */
-@import "./utils/highlight.css";
-
-/* Missing Tailwind utilities */
-.hover\:text-muted-foreground {
-    &:hover {
-        @media (hover: hover) {
-            color: var(--color-muted-foreground);
-        }
-    }
-}
-
-/* Minor defaults */
 :root {
     color-scheme: light dark;
 }
 
 /* Custom scrollbar styling */
+
 *::-webkit-scrollbar {
     scrollbar-width: thin;
     scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
@@ -48,7 +35,23 @@
     background: var(--scrollbar-thumb-hover);
 }
 
-/* Themes */
+/* Components */
+
+@layer components {
+    @import "./components/select-menu.css";
+    @import "./components/tooltip.css";
+    @import "./pages/components/highlight.css";
+    @import "./pages/components/sidebar.css";
+}
+
+/* Missing Tailwind utilities */
+.hover\:text-muted-foreground {
+    &:hover {
+        @media (hover: hover) {
+            color: var(--color-muted-foreground);
+        }
+    }
+}
 
 .theme-claude {
     &:root {

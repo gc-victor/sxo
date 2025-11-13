@@ -6,6 +6,9 @@
             "recommended": true,
             "correctness": {
                 "useJsxKeyInIterable": "off"
+            },
+            "suspicious": {
+                "noUnknownAtRules": "off"
             }
         }
     },
