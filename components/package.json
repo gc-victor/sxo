@@ -12,7 +12,7 @@
         "server": "pnpm run sxo:build && pnpm run sxo:start",
         "sxo:help": "node ../bin/sxo.js --help",
         "sxo:dev": "node ../bin/sxo.js dev",
-        "sxo:build": "node ../bin/sxo.js build",
+        "sxo:build": "node ../bin/sxo.js build && pnpm run tailwind",
         "sxo:generate": "node ../bin/sxo.js generate",
         "sxo:start": "node ../bin/sxo.js start --port 3001",
         "sxo:clean": "node ../bin/sxo.js clean",
@@ -21,7 +21,8 @@
         "test:e2e:ui": "playwright test --ui",
         "test:e2e:headed": "playwright test --headed",
         "test:e2e:debug": "playwright test --debug",
-        "tailwind": "tailwindcss -i src/styles.css -o src/pages/global.css",
+        "test:e2e:server": "node ../bin/sxo.js clean --yes && NODE_ENV=test node ../bin/sxo.js build && node ../bin/sxo.js start --port 3002",
+        "tailwind": "tailwindcss -i src/styles.css -o src/pages/global.css --minify",
         "tailwind:watch": "pnpm tailwind -w"
     },
     "dependencies": {
