@@ -89,6 +89,7 @@ export function TabsTrigger({ class: klass, className, children, name, active = 
             tabindex={active ? "0" : "-1"}
             $onclick="tabChange"
             class={cn("tabs-trigger", klass, className)}
+            aria-label={typeof children === "string" ? children : undefined}
             {...rest}
         >
             {children ?? ""}

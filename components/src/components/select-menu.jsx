@@ -106,9 +106,12 @@ export function SelectMenu({ class: klass, className, children, name, value, ...
  *
  * Label precedence: children > `label`.
  *
+ * Accessibility: Optionally provide `ariaLabel` for additional labeling if display text is insufficient.
+ *
  * @typedef {HTMLButtonAttributes & ComponentProps & {
  *   label?: string|JSX.Element,
  *   ariaExpanded?: "true"|"false",
+ *   ariaLabel?: string,
  * }} SelectMenuTriggerProps
  * @function SelectMenuTrigger
  * @param {SelectMenuTriggerProps} props
@@ -127,17 +130,19 @@ export function SelectMenu({ class: klass, className, children, name, value, ...
  * @since 1.0.0
  */
 export function SelectMenuTrigger(props) {
-    const { class: klass, className, children, label, ariaExpanded = "false", ...rest } = props || {};
+    const { class: klass, className, children, label, ariaExpanded = "false", ariaLabel, ...rest } = props || {};
+    const displayText = children != null ? children : label != null ? label : "";
     return (
         <button
             type="button"
             class={cn("btn-outline justify-between font-normal w-[180px]", className || klass)}
             aria-haspopup="listbox"
             aria-expanded={ariaExpanded}
+            {...(ariaLabel ? { ariaLabel } : {})}
             $onclick="toggleSelect"
             {...rest}
         >
-            <span class="select-label">{children != null ? children : label != null ? label : ""}</span>
+            <span class="select-label">{displayText}</span>
             <IconChevronsVertical aria-hidden="true" class="opacity-50 shrink-0" width="24" height="24" />
         </button>
     );
@@ -169,7 +174,7 @@ export function SelectMenuTrigger(props) {
 export function SelectMenuPopover(props) {
     const { class: klass, className, children, hidden = true, ...rest } = props || {};
     return (
-        <div class={cn("select-menu-popover", className || klass)} data-popover aria-hidden={hidden ? "true" : "false"} {...rest}>
+        <div class={cn("select-menu-popover", className || klass)} data-popover {...(hidden ? { ariaHidden: "true" } : {})} {...rest}>
             {children}
         </div>
     );

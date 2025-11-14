@@ -171,9 +171,8 @@ function PageItem({ page, current, class: klass, className, ...rest }) {
             <button
                 type="button"
                 class={cn(isCurrent ? "btn-outline size-9 is-current" : "btn-ghost size-9", className || klass)}
-                aria-current={isCurrent ? "page" : null}
+                {...(isCurrent ? { ariaCurrent: "page" } : {})}
                 aria-label={`Page ${page}${isCurrent ? ", current page" : ""}`}
-                data-action={null /* removed */}
                 {...rest}
             >
                 {String(page)}
@@ -188,7 +187,7 @@ function PageItem({ page, current, class: klass, className, ...rest }) {
 function EllipsisItem() {
     return (
         <li>
-            <button type="button" class="btn-icon-ghost is-disabled" disabled="" aria-disabled="true" aria-hidden="true" tabIndex="-1">
+            <button type="button" class="btn-icon-ghost is-disabled" disabled="" aria-disabled="true" aria-label="More pages" tabindex="-1">
                 <IconEllipsis class="size-4" />
             </button>
         </li>
@@ -212,11 +211,8 @@ function ControlButton({ targetPage, disabled = false, variant, label, icon, cla
             <button
                 type="button"
                 class={cn("btn-ghost", disabled ? "is-disabled" : "", className || klass)}
-                disabled={disabled ? "" : null}
-                aria-disabled={disabled ? "true" : null}
+                {...(disabled ? { disabled: "", ariaDisabled: "true" } : {})}
                 aria-label={label}
-                data-action={null /* removed */}
-                data-page={null /* removed */}
                 {...rest}
             >
                 {icon === "left" ? <IconChevronLeft class="mr-1 size-4" aria-hidden="true" /> : ""}

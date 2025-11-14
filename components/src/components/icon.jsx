@@ -167,7 +167,7 @@ export function Icon(props = {}) {
             stroke-width="2"
             stroke-linecap="round"
             stroke-linejoin="round"
-            aria-hidden={title ? null : "true"}
+            {...(title ? {} : { "aria-hidden": "true" })}
             class={mergedClass}
             {...rest}
         >

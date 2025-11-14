@@ -112,9 +112,8 @@ export default function Button(props) {
             target,
             rel,
             class: mergedClass,
-            ariaBusy: loading ? "true" : null,
-            ariaDisabled: isDisabled ? "true" : null,
-            tabindex: isDisabled ? "-1" : null,
+            ...(loading ? { ariaBusy: "true" } : {}),
+            ...(isDisabled ? { ariaDisabled: "true", tabindex: "-1" } : {}),
             ...rest,
         };
         return <a {...anchorAttrs}>{content}</a>;
@@ -123,8 +122,8 @@ export default function Button(props) {
     const buttonAttrs = {
         type,
         class: mergedClass,
-        disabled: isDisabled ? "" : null,
-        ariaBusy: loading ? "true" : null,
+        ...(isDisabled ? { disabled: "" } : {}),
+        ...(loading ? { ariaBusy: "true" } : {}),
         ...rest,
     };
 
