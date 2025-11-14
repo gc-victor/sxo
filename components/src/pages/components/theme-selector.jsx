@@ -45,7 +45,10 @@ import Select, { SelectOption } from "@components/select.jsx";
 export default function ThemeSelector({ className = "", ...rest }) {
     return (
         <el-theme-selector>
-            <Select className={className} $bind-value="selectedTheme" {...rest}>
+            <label for="theme-selector" class="sr-only">
+                Theme
+            </label>
+            <Select id="theme-selector" className={className} $bind-value="selectedTheme" {...rest}>
                 <SelectOption value="">Default</SelectOption>
                 <SelectOption value="claude">Claude</SelectOption>
                 <SelectOption value="doom-64">Doom 64</SelectOption>

@@ -91,7 +91,7 @@ export function SectionButton(props) {
                                 Learn more
                                 <IconArrowRight />
                             </Button>
-                            <Button loadingText="Loading…" variant="outline">
+                            <Button aria-label="Loading" loadingText="Loading…" variant="outline">
                                 <IconSpinner class="animate-spin" />
                             </Button>
                             <Button aria-label="More options" variant="ghost">
@@ -112,7 +112,7 @@ export function SectionButton(props) {
                                 Learn more
                                 <IconArrowRight />
                             </Button>
-                            <Button size="sm" loadingText="Loading…" variant="outline">
+                            <Button size="sm" aria-label="Loading" loadingText="Loading…" variant="outline">
                                 <IconSpinner class="animate-spin" />
                             </Button>
                             <Button size="sm" aria-label="More options" variant="ghost">

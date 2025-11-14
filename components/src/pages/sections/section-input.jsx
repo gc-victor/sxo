@@ -51,27 +51,27 @@ export function SectionInput(props) {
 
                 <TabsContent name="preview" class="pt-4" active>
                     <div class="grid gap-4 sm:grid-cols-2">
-                        <Label variant="stacked">
+                        <Label variant="stacked" htmlFor="input-text">
                             <span class="text-sm font-medium leading-none">Text</span>
-                            <Input placeholder="Type here…" />
+                            <Input id="input-text" placeholder="Type here…" />
                         </Label>
-                        <Label variant="stacked">
+                        <Label variant="stacked" htmlFor="input-email">
                             <span class="text-sm font-medium leading-none">Email</span>
                             <Input id="input-email" type="email" placeholder="you@example.com" />
                         </Label>
-                        <Label variant="stacked">
+                        <Label variant="stacked" htmlFor="input-password">
                             <span class="text-sm font-medium leading-none">Password</span>
                             <Input id="input-password" type="password" placeholder="••••••••" />
                         </Label>
-                        <Label variant="stacked">
+                        <Label variant="stacked" htmlFor="input-search">
                             <span class="text-sm font-medium leading-none">Search</span>
                             <Input id="input-search" type="search" placeholder="Search…" />
                         </Label>
-                        <Label variant="stacked">
+                        <Label variant="stacked" htmlFor="input-number">
                             <span class="text-sm font-medium leading-none">Number</span>
                             <Input id="input-number" type="number" placeholder="0" />
                         </Label>
-                        <Label variant="stacked">
+                        <Label variant="stacked" htmlFor="input-date">
                             <span class="text-sm font-medium leading-none">Date</span>
                             <Input id="input-date" type="date" />
                         </Label>
@@ -82,27 +82,27 @@ export function SectionInput(props) {
                     <pre class="jsx-highlight">
                         <code id="input-code" class="language-jsx">
                             {highlightJsx(`<div class="grid gap-4 sm:grid-cols-2">
-    <Label variant="stacked">
+    <Label variant="stacked" htmlFor="input-text">
         <span class="text-sm font-medium leading-none">Text</span>
-        <Input placeholder="Type here…" />
+        <Input id="input-text" placeholder="Type here…" />
     </Label>
-    <Label variant="stacked">
+    <Label variant="stacked" htmlFor="input-email">
         <span class="text-sm font-medium leading-none">Email</span>
         <Input id="input-email" type="email" placeholder="you@example.com" />
     </Label>
-    <Label variant="stacked">
+    <Label variant="stacked" htmlFor="input-password">
         <span class="text-sm font-medium leading-none">Password</span>
         <Input id="input-password" type="password" placeholder="••••••••" />
     </Label>
-    <Label variant="stacked">
+    <Label variant="stacked" htmlFor="input-search">
         <span class="text-sm font-medium leading-none">Search</span>
         <Input id="input-search" type="search" placeholder="Search…" />
     </Label>
-    <Label variant="stacked">
+    <Label variant="stacked" htmlFor="input-number">
         <span class="text-sm font-medium leading-none">Number</span>
         <Input id="input-number" type="number" placeholder="0" />
     </Label>
-    <Label variant="stacked">
+    <Label variant="stacked" htmlFor="input-date">
         <span class="text-sm font-medium leading-none">Date</span>
         <Input id="input-date" type="date" />
     </Label>
