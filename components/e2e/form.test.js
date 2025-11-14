@@ -45,9 +45,9 @@ test.describe("Form", () => {
         const labels = formSection.locator("label");
         await expect(labels).toHaveCount(9); // Various form labels
 
-        // Check descriptions
-        const descriptions = formSection.locator(".text-muted-foreground");
-        await expect(descriptions).toHaveCount(8); // Description texts
+        // Check descriptions (FormDescription renders as <p class="form-description ...">)
+        const descriptions = formSection.locator("p.form-description");
+        await expect(descriptions).toHaveCount(6); // Description texts in preview section
 
         // Check fieldset and legend
         await expect(formSection.locator("fieldset")).toBeVisible();
