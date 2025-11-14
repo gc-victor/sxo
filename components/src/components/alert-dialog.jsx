@@ -76,16 +76,16 @@ export function AlertDialogTrigger({ variant = "primary", class: klass, classNam
  * @param {AlertDialogWindowProps} props
  */
 export function AlertDialogWindow({ label, class: klass, className, dialogClass, dialogProps = {}, articleClass, children, ...rest }) {
-    const aria = {
-        role: "alertdialog",
-        ariaModal: "true",
-        ariaLabel: label || null,
-    };
-
     const dlgClass = cn("dialog", "text-foreground", dialogClass, dialogProps.class || dialogProps.className, className || klass);
 
+    const ariaAttrs = {
+        role: "alertdialog",
+        ariaModal: "true",
+        ...(label ? { ariaLabel: label } : {}),
+    };
+
     return (
-        <dialog class={dlgClass} {...aria} {...dialogProps} {...rest}>
+        <dialog class={dlgClass} {...ariaAttrs} {...dialogProps} {...rest}>
             <article class={cn("flex flex-col gap-4", articleClass)}>{children}</article>
         </dialog>
     );
