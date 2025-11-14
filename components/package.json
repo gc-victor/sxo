@@ -6,13 +6,13 @@
     "description": "A complete set of ready-to-use UI components built for SXO.",
     "license": "MIT",
     "scripts": {
-        "check": "biome check src/",
+        "check": "biome check src/ e2e/",
         "check:fix": "biome check --write --unsafe src/ e2e/",
-        "dev": "pnpm run sxo:dev & pnpm run tailwind:watch",
-        "server": "pnpm run sxo:build && pnpm run sxo:start",
+        "dev": "pnpm run \"/^(tailwind:watch|sxo:dev)$/\"",
+        "server": "pnpm run sxo:clean -y && pnpm run sxo:build && pnpm run sxo:start",
         "sxo:help": "node ../bin/sxo.js --help",
         "sxo:dev": "node ../bin/sxo.js dev",
-        "sxo:build": "node ../bin/sxo.js build && pnpm run tailwind",
+        "sxo:build": "pnpm run tailwind && node ../bin/sxo.js build",
         "sxo:generate": "node ../bin/sxo.js generate",
         "sxo:start": "node ../bin/sxo.js start --port 3001",
         "sxo:clean": "node ../bin/sxo.js clean",
@@ -23,7 +23,7 @@
         "test:e2e:debug": "playwright test --debug",
         "test:e2e:server": "node ../bin/sxo.js clean --yes && NODE_ENV=test node ../bin/sxo.js build && node ../bin/sxo.js start --port 3002",
         "tailwind": "tailwindcss -i src/styles.css -o src/pages/global.css --minify",
-        "tailwind:watch": "pnpm tailwind -w"
+        "tailwind:watch": "pnpm run tailwind --watch"
     },
     "dependencies": {
         "@qery/reactive-component": "^0.8.0"
