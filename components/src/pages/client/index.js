@@ -56,6 +56,7 @@ if (process.env.NODE_ENV === "development") {
     });
 } else {
     window.addEventListener("load", () => {
+        import("../components/theme-toggle.client.js");
         import("../components/sidebar.client.js");
         import("@components/toast.client.js");
     });
@@ -74,7 +75,6 @@ if (process.env.NODE_ENV === "development") {
         "el-select-menu": () => import("@components/select-menu.client.js"),
         "el-slider": () => import("@components/slider.client.js"),
         "el-tabs": () => import("@components/tabs.client.js"),
-        "el-theme-selector": () => import("../components/theme-selector.client.js"),
-        "el-theme-toggle": () => import("../components/theme-toggle.client.js"),
+        "el-theme-selector": () => import("../components/theme-selector.client.js")
     });
 }
