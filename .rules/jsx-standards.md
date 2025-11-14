@@ -201,6 +201,41 @@ Refactoring sentinel patterns:
 - Avoid `id` unless ARIA relationships demand it; justify when used.
 - Advanced behaviors (focus trap, keyboard roving) omitted by default → mark with `// LIMITATION:`.
 
+### 7.1 Accessible Names (WCAG 2.1 Criterion 1.3.1)
+
+All interactive elements MUST have an accessible name available to screen readers:
+
+**Buttons with visible text:**
+
+```jsx
+<Button>Save Document</Button>
+```
+
+**Icon-only buttons MUST have `aria-label`:**
+
+```jsx
+<Button aria-label="Save document">
+  <IconSave />
+</Button>
+```
+
+**Buttons with icon + text (icon should be hidden from screen readers):**
+
+```jsx
+<Button>
+  <IconSend aria-hidden="true" />
+  Send Message
+</Button>
+```
+
+**Modal close buttons:**
+
+```jsx
+<DialogClose aria-label="Close dialog" />
+```
+
+**Rule:** If a button contains only icon(s) with no visible text, add `aria-label` or `aria-labelledby` to provide the accessible name.
+
 ---
 
 ## 8. Version & Tag Semantics
@@ -291,7 +326,7 @@ Input:
  * Styled single-line text input control.
  * Forwards all native input attributes.
  *
- * @typedef {HTMLInputAttributes ComponentProps & {
+ * @typedef {HTMLInputAttributes & ComponentProps & {
  *   size?: "sm"|"md"|"lg",
  * }} InputProps
  * @function Input
