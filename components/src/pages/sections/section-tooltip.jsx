@@ -64,7 +64,7 @@ export function SectionTooltip({ class: klass, className, ...rest }) {
                 <TabsContent name="preview" class="pt-4 space-x-2" active>
                     {/* Case 1: Left placement */}
                     <Tooltip placement="left">
-                        <TooltipTrigger as="button" class="btn-outline">
+                        <TooltipTrigger as="button" class="btn-outline" aria-label="Tooltip on the left">
                             Left
                         </TooltipTrigger>
                         <TooltipContent>Left</TooltipContent>
@@ -72,7 +72,7 @@ export function SectionTooltip({ class: klass, className, ...rest }) {
 
                     {/* Case 2: Top placement */}
                     <Tooltip placement="top">
-                        <TooltipTrigger as="button" class="btn-outline">
+                        <TooltipTrigger as="button" class="btn-outline" aria-label="Tooltip on the top">
                             Top
                         </TooltipTrigger>
                         <TooltipContent>Top</TooltipContent>
@@ -80,7 +80,7 @@ export function SectionTooltip({ class: klass, className, ...rest }) {
 
                     {/* Case 3: Bottom placement */}
                     <Tooltip placement="bottom">
-                        <TooltipTrigger as="button" class="btn-outline">
+                        <TooltipTrigger as="button" class="btn-outline" aria-label="Tooltip on the bottom">
                             Bottom
                         </TooltipTrigger>
                         <TooltipContent>Bottom</TooltipContent>
@@ -88,7 +88,7 @@ export function SectionTooltip({ class: klass, className, ...rest }) {
 
                     {/* Case 4: Right placement */}
                     <Tooltip placement="right">
-                        <TooltipTrigger as="button" class="btn-outline">
+                        <TooltipTrigger as="button" class="btn-outline" aria-label="Tooltip on the right">
                             Right
                         </TooltipTrigger>
                         <TooltipContent>Right</TooltipContent>

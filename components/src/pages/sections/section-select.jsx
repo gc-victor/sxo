@@ -35,22 +35,32 @@ export function SectionSelect(props) {
                 </TabsList>
 
                 <TabsContent name="preview" class="pt-4" active>
-                    <div class="flex space-x-4">
-                        <Select name="fruit">
-                            <SelectPlaceholder>Fruits</SelectPlaceholder>
-                            <SelectOption value="apple">Apple</SelectOption>
-                            <SelectOption value="banana">Banana</SelectOption>
-                            <SelectOption value="blueberry">Blueberry</SelectOption>
-                            <SelectOption value="grapes">Grapes</SelectOption>
-                            <SelectOption value="pineapple">Pineapple</SelectOption>
-                        </Select>
-                        <Select name="chart" value="line">
-                            <SelectGroup label="Charts">
-                                <SelectOption value="bar">Bar</SelectOption>
-                                <SelectOption value="line">Line</SelectOption>
-                                <SelectOption value="pie">Pie</SelectOption>
-                            </SelectGroup>
-                        </Select>
+                    <div class="flex gap-4 items-end">
+                        <div class="flex flex-col gap-2">
+                            <label for="select-fruit" class="text-sm font-medium">
+                                Fruit
+                            </label>
+                            <Select id="select-fruit" name="fruit">
+                                <SelectPlaceholder>Fruits</SelectPlaceholder>
+                                <SelectOption value="apple">Apple</SelectOption>
+                                <SelectOption value="banana">Banana</SelectOption>
+                                <SelectOption value="blueberry">Blueberry</SelectOption>
+                                <SelectOption value="grapes">Grapes</SelectOption>
+                                <SelectOption value="pineapple">Pineapple</SelectOption>
+                            </Select>
+                        </div>
+                        <div class="flex flex-col gap-2">
+                            <label for="select-chart" class="text-sm font-medium">
+                                Chart
+                            </label>
+                            <Select id="select-chart" name="chart" value="line">
+                                <SelectGroup label="Charts">
+                                    <SelectOption value="bar">Bar</SelectOption>
+                                    <SelectOption value="line">Line</SelectOption>
+                                    <SelectOption value="pie">Pie</SelectOption>
+                                </SelectGroup>
+                            </Select>
+                        </div>
                     </div>
                 </TabsContent>
 

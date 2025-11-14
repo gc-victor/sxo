@@ -35,7 +35,10 @@ export function SectionSlider(props) {
 
                 <TabsContent name="preview" class="pt-4" active>
                     <div class="max-w-md">
-                        <Slider min={0} max={100} step={1} value="35" />
+                        <label for="slider-demo" class="block mb-2 font-medium">
+                            Value
+                        </label>
+                        <Slider id="slider-demo" min={0} max={100} step={1} value="35" />
                     </div>
                 </TabsContent>
 
