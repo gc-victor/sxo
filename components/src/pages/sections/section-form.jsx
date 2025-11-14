@@ -56,7 +56,7 @@ export function SectionForm({ class: klass, className, ...rest }) {
                         <div class="grid gap-2">
                             <FormLabel for="demo-form-text">Username</FormLabel>
                             <FormInput type="text" id="demo-form-text" placeholder="hunvreus" />
-                            <FormDescription class="text-muted-foreground text-sm">This is your public display name.</FormDescription>
+                            <FormDescription class="text-foreground/70 text-sm">This is your public display name.</FormDescription>
                         </div>
 
                         {/* Case 2: Email field */}
@@ -68,7 +68,7 @@ export function SectionForm({ class: klass, className, ...rest }) {
                                 <option value="m@google.com">m@google.com</option>
                                 <option value="m@support.com">m@support.com</option>
                             </select>
-                            <FormDescription class="text-muted-foreground text-sm">
+                            <FormDescription class="text-foreground/70 text-sm">
                                 You can manage email addresses in your email settings.
                             </FormDescription>
                         </div>
@@ -78,7 +78,7 @@ export function SectionForm({ class: klass, className, ...rest }) {
                             <FormLabel for="demo-form-textarea">Bio</FormLabel>
                             {/* TODO: Use FormTextarea */}
                             <textarea id="demo-form-textarea" placeholder="I like to..." rows="3" class="textarea"></textarea>
-                            <FormDescription class="text-muted-foreground text-sm">
+                            <FormDescription class="text-foreground/70 text-sm">
                                 You can @mention other users and organizations.
                             </FormDescription>
                         </div>
@@ -86,7 +86,7 @@ export function SectionForm({ class: klass, className, ...rest }) {
                         <div class="grid gap-2">
                             <FormLabel for="demo-form-date">Date of birth</FormLabel>
                             <FormInput type="date" id="demo-form-date" />
-                            <FormDescription class="text-muted-foreground text-sm">
+                            <FormDescription class="text-foreground/70 text-sm">
                                 Your date of birth is used to calculate your age.
                             </FormDescription>
                         </div>
@@ -116,7 +116,7 @@ export function SectionForm({ class: klass, className, ...rest }) {
                                     <FormLabel for="demo-form-switch" class="leading-normal">
                                         Marketing emails
                                     </FormLabel>
-                                    <FormDescription class="text-muted-foreground text-sm">
+                                    <FormDescription class="text-foreground/70 text-sm">
                                         Receive emails about new products, features, and more.
                                     </FormDescription>
                                 </div>
@@ -127,7 +127,7 @@ export function SectionForm({ class: klass, className, ...rest }) {
                                     <FormLabel for="demo-form-switch-disabled" class="leading-normal">
                                         Security emails
                                     </FormLabel>
-                                    <FormDescription class="text-muted-foreground text-sm">
+                                    <FormDescription class="text-foreground text-sm">
                                         Receive emails about your account security.
                                     </FormDescription>
                                 </div>

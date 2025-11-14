@@ -84,7 +84,7 @@ function InstallTabs({ componentName = "sxo", commands = {}, className, ...rest 
     return (
         <div class={cn("mt-6", className)} {...rest}>
             <Tabs variant="none" class="rounded bg-muted dark:bg-muted/75">
-                <TabsList class="text-muted-foreground border-b rounded-t-lg p-0">
+                <TabsList class="border-b rounded-t-lg p-0">
                     <div class="flex gap-2 h-8 px-4 items-center">
                         <div className="h-4 w-4 mr-4 flex items-center justify-center rounded-xs bg-accent-foreground/80 text-accent">
                             <svg
@@ -108,7 +108,7 @@ function InstallTabs({ componentName = "sxo", commands = {}, className, ...rest 
                             <TabsTrigger
                                 name={manager}
                                 active={index === 0}
-                                class="rounded-md py-px px-1 text-sm font-sm outline-0 aria-selected:bg-accent-foreground/10 aria-selected:text-foreground"
+                                class="rounded-md py-px px-1 text-sm font-sm outline-0 text-foreground/75 aria-selected:bg-accent-foreground/10 aria-selected:text-foreground"
                             >
                                 {manager}
                             </TabsTrigger>

@@ -50,14 +50,14 @@ export function SectionAlert() {
                             <IconCircleCheck />
                             <AlertTitle level={3}>Success! Your changes have been saved</AlertTitle>
                             <AlertDescription>
-                                <p class="text-green-700/70 dark:text-green-50/70">This is an alert with icon, title and description.</p>
+                                <p class="text-green-900 dark:text-green-50">This is an alert with icon, title and description.</p>
                             </AlertDescription>
                         </Alert>
 
                         <Alert className="bg-red-50 border-red-500 text-red-700 dark:bg-red-900 dark:border-red-700 dark:text-red-50">
                             <IconCircleExclamation />
                             <AlertTitle level={3}>Something went wrong!</AlertTitle>
-                            <AlertDescription class="text-red-700/70 dark:text-red-50/70">
+                            <AlertDescription class="text-red-900 dark:text-red-50">
                                 <p>Please verify your billing information and try again.</p>
                                 <ul class="list-disc list-inside">
                                     <li>Check your card details</li>
@@ -71,7 +71,7 @@ export function SectionAlert() {
                             <IconShieldExclamation />
                             <AlertTitle level={3}>Plot Twist: This Alert is Actually Amber!</AlertTitle>
                             <AlertDescription>
-                                <p class="text-amber-700/70 dark:text-amber-50/70">This one has custom colors for light and dark mode.</p>
+                                <p class="text-amber-900 dark:text-amber-50">This one has custom colors for light and dark mode.</p>
                             </AlertDescription>
                         </Alert>
                     </div>
@@ -115,7 +115,7 @@ export function SectionAlert() {
         <IconCircleCheck />
         <AlertTitle level={3}>Success! Your changes have been saved</AlertTitle>
         <AlertDescription>
-            <p class="text-green-700/70 dark:text-green-50/70">This is an alert with icon, title and description.</p>
+            <p class="text-green-900 dark:text-green-50">This is an alert with icon, title and description.</p>
         </AlertDescription>
     </Alert>
 
@@ -123,7 +123,7 @@ export function SectionAlert() {
     <Alert className="bg-red-50 border-red-500 text-red-700 dark:bg-red-900 dark:border-red-700 dark:text-red-50">
         <IconCircleExclamation />
         <AlertTitle level={3}>Something went wrong!</AlertTitle>
-        <AlertDescription class="text-red-700/70 dark:text-red-50/70">
+        <AlertDescription class="text-red-900 dark:text-red-50">
             <p>Please verify your billing information and try again.</p>
             <ul class="list-disc list-inside">
                 <li>Check your card details</li>
@@ -138,7 +138,7 @@ export function SectionAlert() {
         <IconShieldExclamation />
         <AlertTitle level={3}>Plot Twist: This Alert is Actually Amber!</AlertTitle>
         <AlertDescription>
-            <p class="text-amber-700/70 dark:text-amber-50/70">This one has custom colors for light and dark mode.</p>
+            <p class="text-amber-900 dark:text-amber-50">This one has custom colors for light and dark mode.</p>
         </AlertDescription>
     </Alert>
 </div>`)}

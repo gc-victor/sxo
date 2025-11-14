@@ -61,7 +61,7 @@ export function SectionCheckbox(props) {
                         <Checkbox name="terms-stacked" />
                         <span class="grid gap-2">
                             <span class="block text-sm font-medium leading-none">Accept terms and conditions</span>
-                            <span class="block text-muted-foreground text-sm">
+                            <span class="block text-foreground text-sm opacity-70">
                                 By clicking this checkbox, you agree to the terms and conditions.
                             </span>
                         </span>
@@ -85,7 +85,7 @@ export function SectionCheckbox(props) {
                         />
                         <span class="grid gap-2">
                             <span class="block text-sm font-medium leading-none">Marketing emails</span>
-                            <span class="block text-muted-foreground text-sm">Receive emails about new products, features, and more.</span>
+                            <span class="block text-foreground text-sm opacity-70">Receive emails about new products, features, and more.</span>
                         </span>
                     </Label>
                 </TabsContent>
@@ -104,7 +104,7 @@ export function SectionCheckbox(props) {
     <Checkbox name="terms-stacked" />
     <span class="grid gap-2">
         <span class="block text-sm font-medium leading-none">Accept terms and conditions</span>
-        <span class="block text-muted-foreground text-sm">
+        <span class="block text-foreground text-sm opacity-70">
             By clicking this checkbox, you agree to the terms and conditions.
         </span>
     </span>
@@ -128,7 +128,7 @@ export function SectionCheckbox(props) {
     />
     <span class="grid gap-2">
         <span class="block text-sm font-medium leading-none">Marketing emails</span>
-        <span class="block text-muted-foreground text-sm">Receive emails about new products, features, and more.</span>
+        <span class="block text-foreground text-sm opacity-70">Receive emails about new products, features, and more.</span>
     </span>
 </Label>`)}
                         </code>
