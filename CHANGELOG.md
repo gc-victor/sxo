@@ -1,3 +1,126 @@
+## [0.7.0] - 2025-11-14
+
+### 🚀 Features
+
+- *(build)* Use esbuild metafile to populate per-route assets
+- *(server)* Add runtime asset injection and integrate with dev/prod servers
+- *(generator)* Integrate asset injection into HTML generation
+- *(examples)* Add fragment demo page
+- *(utils)* Add special page resolvers and SSR module loader
+- *(esbuild)* Include special 404/500 server entries
+- *(server)* Implement custom 404/500 handling with centralized SSR loading
+- *(examples)* Add example 404 and 500 pages
+- *(jsx)* Add JSX-aware scanner; integrate with transformer
+- *(cli)* Add 'sxo add <component>' command to install basecoat components
+- *(config)* Add componentsDir support with env/flags and validation
+- *(transformer)* Improve whitespace trimming and attribute handling
+- *(components)* Add collection of components
+- *(components,a11y)* Improve dropdown focus management using details 'toggle'
+- *(entries)* Collect multiple client entries; include global.css per route
+- *(build)* [**breaking**] Support custom client config + server loaders
+- *(performance)* Implement lazy loading for client components
+- *(highlight)* Introduce new jsx syntax highlighter
+- *(components)* Add loading prop to avatar
+- *(components)* Simplify sidebar component
+- *(components)* Update installation instructions
+- *(components)* Update import paths to use aliases
+- *(components)* Remove localStorage persistence from theme-selector
+- *(a11y)* Enhance accessibility across core components
+- *(a11y)* Improve accessibility in example pages
+- *(components)* Adjust client component loading
+
+### 🐛 Bug Fixes
+
+- *(hot-replace)* Drop data-hr tagging and heuristic script cleanup
+- *(esbuild)* Await renames in onEnd using Promise.all
+- *(cli)* Validate URL protocol; prevent injection in open command
+- *(dev)* Spawn esbuild with process.execPath for portability
+- *(statics)* Validate raw path; decode safely in static asset handler
+- Comment typo
+- *(jsx)* Ignore JSX block comment-only expressions
+- *(hot-reload)* Cache-bust stylesheet reloads with timestamp query
+- *(cli)* Suppress logs under NODE_ENV=test to stabilize add tests
+- *(cli)* Drop unsupported .script.js from addComponent extensions
+
+### 💼 Other
+
+- *(makefile)* Use pnpm tests in release gates; remove wasm-build target
+- *(web)* Split build script and ensure public dir exists
+- *(deps)* Update dependencies and scripts
+- *(esbuild)* Update esbuild configuration
+- *(components)* Refine components package scripts
+
+### 🚜 Refactor
+
+- [**breaking**] Remove head injection path and legacy asset extraction
+- [**breaking**] Require full-document pages; remove shared index.html; update examples
+- *(utils)* Inline exports in utils index file
+- *(cli)* Simplify protocol validation in buildUrl
+- *(generate)* Use centralized SSR module loader
+- *(styling)* Refactor styling to a theme-based system
+
+### 📚 Documentation
+
+- Document full-document pages, fragments, and metafile-based asset injection
+- *(agents)* Reference .rules/; add testing guidelines in AGENTS.md
+- *(rules)* Add testing guidelines under .rules/testing.instructions.md
+- *(rules)* Remove redundant BDD-style assertions section
+- *(agents)* Document special 404/500 error pages
+- *(readme)* Document custom 404/500 error pages
+- *(agents)* Revamp AGENTS.md
+- *(rules)* Add JSDoc reference and JSX examples standards
+- *(agents)* Document build config + server loaders
+- *(readme)* Document build config + server loaders; update tests
+- *(agents)* Update AGENTS.md to reflect highlighter changes
+- *(rules)* Add accessible names guidelines to JSX standards
+
+### 🎨 Styling
+
+- *(components)* Condense filter predicate formatting
+- *(a11y)* Improve color contrast in example pages
+
+### 🧪 Testing
+
+- *(esbuild)* Add coverage for JSX plugin and metafile plugin
+- *(generator)* Add unit test for generator behavior in full-HTML mode
+- *(server)* Add runtime test for inject-assets
+- *(jsx)* Adjust transformer/parser tests for JSX and array heuristics
+- *(generator)* Adjust fragment behavior expectations in CLI tests
+- *(statics)* Add tests for ETag, compression, range, caching headers
+- *(hot-replace)* Validate SSE payload contract; PUBLIC_PATH normalization
+- *(prod)* Add production server tests for generated, SSR routes
+- *(statics)* Add If-Modified-Since conditional GET coverage
+- *(server)* Add tests for module loader and error page HEAD requests
+- *(jsx)* Add scanner tests; update transformer tests
+- *(esbuild)* Add WASM transformer/scanner tests
+- *(transformer)* Add/expand tests for helpers and transformer
+- *(e2e)* Migrate toast tests to position-based categories
+- *(e2e)* Adjust badge test
+- *(e2e)* Adjust dropdown test
+- *(cli)* Stabilize add.test.js environment and imports
+- *(e2e)* Update playwright configuration for e2e tests
+
+### ⚙️ Miscellaneous Tasks
+
+- *(cli)* Adjust CLI helpers for metafile/asset injection flow
+- *(config)* Align config with PUBLIC_PATH/clientDir behavior for asset injection
+- *(deploy)* Add Cloudflare Workers web scaffold
+- *(tooling)* Adjust Biome config and small build tweaks
+- Remove legacy prompt.txt
+- *(actions)* Add composite actions for Node+pnpm, Playwright, and wasm-bindgen
+- *(workflows)* Add validation workflows
+- *(deploy)* Add web deploy workflow
+- *(release)* Add automated release workflow
+- *(publish)* Add npm publish workflow
+- *(components)* Configure Playwright webServer; simplify e2e scripts; update lockfile
+- *(npm)* Add components helper scripts; set NODE_ENV for tests
+- *(publish)* Remove build-wasm job
+- *(web)* Remove build-wasm job
+- *(web)* Change Cloudflare Wrangler action to v3 tag
+- *(web)* Remove wrangler action
+- *(build)* Bump esbuild; align components scripts; remove unused dev dependency
+- *(build)* Remove stale comment in metafile plugin
+
 ## [0.6.1] - 2025-09-16
 
 ### 🐛 Bug Fixes
