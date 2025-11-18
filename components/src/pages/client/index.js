@@ -75,6 +75,6 @@ if (process.env.NODE_ENV === "development") {
         "el-select-menu": () => import("@components/select-menu.client.js"),
         "el-slider": () => import("@components/slider.client.js"),
         "el-tabs": () => import("@components/tabs.client.js"),
-        "el-theme-selector": () => import("../components/theme-selector.client.js")
+        "el-theme-selector": () => import("../components/theme-selector.client.js"),
     });
 }
