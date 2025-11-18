@@ -32,6 +32,7 @@ import {
     toPosixPath,
     validatePagesFolder,
 } from "./cli-helpers.js";
+import { handleCreateCommand } from "./create.js";
 import { openWhenReady } from "./open.js";
 import { runNode, spawnNode } from "./spawn.js";
 import { createSpinner, log, printBanner } from "./ui.js";
@@ -288,6 +289,22 @@ registerCommonOptions(cli.command("generate", "Generate static HTML into dist fr
     } catch (e) {
         const msg = e && typeof e === "object" && "message" in e ? e.message : String(e);
         log.error(`generate failed: ${msg}`);
+        process.exitCode = 1;
+    }
+});
+
+/* create */
+cli.command("create <project-name>", "Create a new SXO project").action(async (projectName, _flags) => {
+    const root = path.resolve(process.cwd());
+
+    try {
+        const success = await handleCreateCommand(projectName, { cwd: root });
+        if (!success) {
+            process.exitCode = 1;
+        }
+    } catch (e) {
+        const msg = e && typeof e === "object" && "message" in e ? e.message : String(e);
+        log.error(`create failed: ${msg}`);
         process.exitCode = 1;
     }
 });
