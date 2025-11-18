@@ -72,20 +72,14 @@ export default function Card({ class: klass, className, children, ...rest }) {
 /**
  * Props accepted by `<CardHeader />`.
  *
- * Optional header region. If `children` is supplied it is rendered directly (caller controls
- * structure). Otherwise, `title` and `description` props (if present) render using
- * `<CardHeaderTitle>` / `<CardHeaderDescription>`. Returns an empty string when no content
- * would be produced (prevents empty <header> markup).
+ * Optional header region. Renders children directly (caller controls structure).
+ * Returns an empty string when no content would be produced (prevents empty <header> markup).
  *
  * @typedef {HTMLDivAttributes & ComponentProps & {
- *   title?: string|JSX.Element,
- *   description?: string|JSX.Element
  * }} CardHeaderProps
  * @function CardHeader
  * @param {CardHeaderProps} props
  * @returns {JSX.Element} Rendered markup.
- * @example
- * <CardHeader title="Usage" description="Recent activity and allocations." />
  * @example
  * <CardHeader>
  *   <CardHeaderTitle level={3}>Custom Layout</CardHeaderTitle>
@@ -94,19 +88,11 @@ export default function Card({ class: klass, className, children, ...rest }) {
  * @public
  * @since 1.0.0
  */
-export function CardHeader({ title, description, children, class: klass, className, ...rest }) {
-    if (children) {
-        return (
-            <header class={cn(klass, className)} {...rest}>
-                {children}
-            </header>
-        );
-    }
-    if (!title && !description) return "";
+export function CardHeader({ children, class: klass, className, ...rest }) {
+    if (!children) return "";
     return (
         <header class={cn(klass, className)} {...rest}>
-            {title ? <CardHeaderTitle>{title}</CardHeaderTitle> : ""}
-            {description ? <CardHeaderDescription>{description}</CardHeaderDescription> : ""}
+            {children}
         </header>
     );
 }
