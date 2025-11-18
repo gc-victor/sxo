@@ -85,7 +85,9 @@ export function SectionCheckbox(props) {
                         />
                         <span class="grid gap-2">
                             <span class="block text-sm font-medium leading-none">Marketing emails</span>
-                            <span class="block text-foreground text-sm opacity-70">Receive emails about new products, features, and more.</span>
+                            <span class="block text-foreground text-sm opacity-70">
+                                Receive emails about new products, features, and more.
+                            </span>
                         </span>
                     </Label>
                 </TabsContent>
