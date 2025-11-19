@@ -8,7 +8,7 @@
 - `pnpm test src/js/path/to/file.test.js` - run single test file
 - `npm run check` - lint with Biome
 - `npm run format` - format code
-- `./bin/sxo.js dev|build|start|clean|generate`
+- `./bin/sxo.js create|add|dev|build|start|clean|generate`
 
 **Architecture:** ESM-only Node 20+ SSR framework. Dual esbuild outputs ([`dist/client`](dist/client) public, [`dist/server`](dist/server) SSR bundles). Route discovery from `pages/` dir, manifest at [`dist/server/routes.json`](dist/server/routes.json). JSX via Rust/WASM transformer. Middleware in [`src/middleware.js`](src/middleware.js).
 
@@ -111,6 +111,8 @@ Reference (unchanged in code):
 
 ```
 node src/js/cli/sxo.js --help
+node src/js/cli/sxo.js create <project>
+node src/js/cli/sxo.js add <component>
 node src/js/cli/sxo.js dev
 node src/js/cli/sxo.js build
 node src/js/cli/sxo.js start
@@ -118,6 +120,21 @@ node src/js/cli/sxo.js clean
 node src/js/cli/sxo.js generate
 pnpm test
 ```
+
+**Create command** (`sxo create <project>`):
+- Scaffolds a new SXO project by fetching templates from GitHub.
+- `project`: optional project name (defaults to current directory name if omitted or ".").
+- If directory exists, prompts user to confirm overwrite.
+- Downloads all template files concurrently (batch size: 5) with placeholder substitution (`project_name` replaced with actual name).
+- Next steps printed after successful creation: install dependencies and run dev server.
+
+**Add command** (`sxo add <component>`):
+- Installs a component from the SXO basecoat library to the project's `src/components/` directory.
+- Fetches component files (.jsx, .client.js, .css) from GitHub (https://raw.githubusercontent.com/gc-victor/sxo/main/components/src/components/).
+- Falls back to local `components/src/components/` directory if GitHub is unavailable (e.g., offline, network error).
+- Supports components with multiple file types: JSX (markup), client-side JS, and CSS styles.
+- Logs which files were installed and their source (GitHub or local basecoat).
+- Returns success only if at least one file was installed; reports "not found" if component doesn't exist in either source.
 
 Dev auto-open uses readiness probe (HEAD then GET, status < 500 = ready).
 
