@@ -2,7 +2,7 @@ import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import { DIV_APP_REGEX, renderErrorHtml } from "../index.js";
 
-// AIDEV-NOTE: Tests for HTML utility helpers split out from original aggregated utils test.
+// Tests for HTML utility helpers split out from original aggregated utils test.
 // Focus: DIV_APP_REGEX, renderErrorHtml, injectPageContent (and new alias injectPageContent)
 
 test('DIV_APP_REGEX matches <div id="page"> with simple content', () => {

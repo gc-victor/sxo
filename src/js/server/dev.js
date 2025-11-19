@@ -4,7 +4,7 @@ import http from "node:http";
 import path from "node:path";
 
 import { DANGER_OUTPUT_DIR, ESBUILD_CONFIG_FILE, PAGES_DIR, PORT, ROUTES_FILE, ROUTES_RELATIVE_PATH } from "../constants.js";
-import { loadUserDefinedMiddlewares, runMiddleware } from "./middleware.js"; // AIDEV-NOTE: middleware runner integration
+import { loadUserDefinedMiddlewares, runMiddleware } from "./middleware.js"; // middleware runner integration
 import {
     httpLogger,
     injectCss,
@@ -37,7 +37,7 @@ let sseClients = [];
 let userMiddlewares = [];
 
 /**
- * AIDEV-NOTE: Centralized middleware loader now imported from ./middleware.js
+ * Centralized middleware loader now imported from ./middleware.js
  * We call it here with busting in dev to always pick up changes.
  */
 userMiddlewares = await loadUserDefinedMiddlewares();
@@ -223,7 +223,7 @@ const server = http.createServer(async (req, res) => {
             return;
         }
 
-        // AIDEV-NOTE: Execute user-defined middleware chain before static/route handling
+        // Execute user-defined middleware chain before static/route handling
         if (userMiddlewares.length) {
             try {
                 const handledByMw = await runMiddleware(req, res, userMiddlewares);

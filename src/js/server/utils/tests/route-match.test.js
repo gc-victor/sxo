@@ -2,7 +2,7 @@ import { deepStrictEqual, strictEqual } from "node:assert";
 import { test } from "node:test";
 import { routeMatch } from "../index.js";
 
-// AIDEV-NOTE: This file isolates routeMatch-focused tests split out from the original aggregated utils test.
+// This file isolates routeMatch-focused tests split out from the original aggregated utils test.
 
 // --- Fixtures ---
 const filesFixture = [

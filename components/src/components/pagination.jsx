@@ -31,8 +31,7 @@
  * Breaking Changes (since 1.0.0):
  * - Removed automatic `id` generation and all `data-*` attributes (previous selectors must migrate).
  *
- * AIDEV-NOTE:
- * - This refactor intentionally avoids exposing additional runtime hooks. If future script-driven
+ * This refactor intentionally avoids exposing additional runtime hooks. If future script-driven
  *   behaviors are required, consider purely semantic/ARIA-based approaches before reintroducing
  *   custom attributes.
  *

@@ -43,8 +43,7 @@ import { ICON_SYMBOL_MAP } from "./svg-symbols.jsx";
  */
 export const ICON_NAMES = Object.keys(ICON_SYMBOL_MAP);
 
-/* AIDEV-NOTE:
- * The positional destructuring below maps stable indices to named constants so wrapper
+/* The positional destructuring below maps stable indices to named constants so wrapper
  * components avoid hardcoded string literals. If ICON_SYMBOL_MAP insertion order changes
  * (e.g., icons inserted mid-list), update this block accordingly.
  *

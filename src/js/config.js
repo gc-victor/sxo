@@ -392,7 +392,7 @@ function normalizeConfig({ defaults, env, file, flags, flagsExplicit, cwd, comma
     const f = normalizeLayer(file);
     const gRaw = normalizeLayer(flags);
 
-    // AIDEV-NOTE: If explicitness was provided, only allow explicitly-passed flags to override
+    // If explicitness was provided, only allow explicitly-passed flags to override
     const g = { ...gRaw };
     if (flagsExplicit && typeof flagsExplicit === "object") {
         for (const k of Object.keys(g)) {

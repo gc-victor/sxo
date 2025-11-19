@@ -55,7 +55,7 @@ import Input from "./input.jsx";
  */
 export function RadioGroup({ class: klass, className, direction = "column", children, ...rest }) {
     const rootClass = cn("radio-group", direction === "row" ? "flex flex-row gap-3" : "grid gap-3", klass, className);
-    // AIDEV-NOTE: No proxy props (e.g., ariaLabel, name); pass native attributes like `aria-label` directly via rest.
+    // No proxy props (e.g., ariaLabel, name); pass native attributes like `aria-label` directly via rest.
     return (
         <div role="radiogroup" class={rootClass} {...rest}>
             {children}

@@ -11,7 +11,7 @@
  * - If a middleware returns a truthy value the runner treats the request as handled and returns `true`.
  * - If all middleware run and none handled the request, the runner returns `false`.
  *
- * AIDEV-NOTE: Lightweight, explicit runner used to sequence existing helpers like `cors()` and `statics()`.
+ * Lightweight, explicit runner used to sequence existing helpers like `cors()` and `statics()`.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -45,7 +45,7 @@ export async function runMiddleware(req, res, middlewares = []) {
  *   - default export: function or array
  *   - named export: middlewares / middleware / mw
  * Returns an array of middleware functions. Errors are logged (if logger provided) and result in [].
- * AIDEV-NOTE: Centralized loader used by dev and prod servers to avoid duplication.
+ * Centralized loader used by dev and prod servers to avoid duplication.
  *
  * @returns {Promise<Function[]>}
  */
