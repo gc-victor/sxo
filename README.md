@@ -154,11 +154,41 @@ export default () => (
 Commands:
 
 ```shell
-sxo dev       # Start the development server with hot replace
-sxo build     # Build the project for production (client and server bundles)
-sxo start     # Start the production server to serve built output
-sxo clean     # Remove the output directory (clean build artifacts)
-sxo generate  # Pre-render static routes to HTML after a successful build
+sxo create <project>  # Create a new SXO project from templates (name defaults to current directory)
+sxo add <component>     # Add a component from the basecoat library to src/components
+sxo dev                 # Start the development server with hot replace
+sxo build               # Build the project for production (client and server bundles)
+sxo start               # Start the production server to serve built output
+sxo clean               # Remove the output directory (clean build artifacts)
+sxo generate            # Pre-render static routes to HTML after a successful build
+```
+
+Create a new project:
+
+```shell
+# Create in a new directory
+sxo create my-app
+cd my-app
+pnpm install
+pnpm run dev
+
+# Or create in the current directory
+sxo create .
+pnpm install
+pnpm run dev
+```
+
+Add a component from basecoat:
+
+```shell
+# Add a button component
+sxo add button
+
+# Add a modal component
+sxo add modal
+
+# Components are installed to src/components/
+# Available components: button, card, modal, badge, input, and more
 ```
 
 Point to a different pages directory:
