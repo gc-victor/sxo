@@ -1,5 +1,5 @@
 // Barrel exports for server utils.
-// AIDEV-NOTE: Modular barrel referencing the fully split utility modules.
+// Modular barrel referencing the fully split utility modules.
 // Legacy monolith (../utils.js) is no longer imported; all symbols now come
 // from dedicated files. Compatibility aliases (injectAppContent, jsxSrcToDist,
 // extractLinkTag) are preserved for existing callers & tests.

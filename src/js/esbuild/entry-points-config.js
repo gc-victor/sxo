@@ -137,7 +137,7 @@ function assembleRoutes(metaMap, { globalCss, cwd }) {
             entryPoints,
             jsx: normalizePath(path.relative(cwd, pageIndex)),
             scriptLoading: "module",
-            hash: process.env.DEV === "true", // AIDEV-NOTE: boolean flag (true in dev) enabling htmlPlugin cache-busting hash
+            hash: process.env.DEV === "true", // boolean flag (true in dev) enabling htmlPlugin cache-busting hash
         };
         if (!isRoot) {
             route.path = relDir;

@@ -178,7 +178,7 @@ export function DialogFooter({ class: klass, className, children, ...rest }) {
 /**
  * Close button (no built-in logic; supply enhancement & accessible label).
  *
- * AIDEV-NOTE: Requires an aria-label or text content for accessibility. When using the default
+ * Requires an aria-label or text content for accessibility. When using the default
  * icon-only rendering (no children), pass `aria-label="Close dialog"` or similar via rest props.
  *
  * @typedef {HTMLButtonAttributes & ComponentProps & { }} DialogCloseProps
@@ -186,7 +186,7 @@ export function DialogFooter({ class: klass, className, children, ...rest }) {
  */
 export function DialogClose({ class: klass, className, children, ariaLabel = "Close", ...rest }) {
     const content = children != null ? children : <IconX width="20" height="20" aria-hidden="true" />;
-    // AIDEV-NOTE: ariaLabel prop converted to native aria-label HTML attribute for proper accessibility
+    // ariaLabel prop converted to native aria-label HTML attribute for proper accessibility
     return (
         <button
             type="button"

@@ -18,7 +18,7 @@
  * - It does not attempt to sanitize URLs or CSS. For attributes/URLs, use
  *   dedicated validators/sanitizers upstream.
  *
- * AIDEV-NOTE: Intended for code display panels. Keep escaping minimal to avoid altering code samples.
+ * Intended for code display panels. Keep escaping minimal to avoid altering code samples.
  *
  * @author Victor García
  * @license MIT

@@ -4,7 +4,7 @@ import { test } from "node:test";
 import { OUTPUT_DIR_SERVER, PAGES_DIR, PAGES_RELATIVE_DIR } from "../../../constants.js";
 import { jsxBundlePath } from "../index.js";
 
-// AIDEV-NOTE: Tests for jsxBundlePath split out from original aggregated utils test (original-utils.test.js)
+// Tests for jsxBundlePath split out from original aggregated utils test (original-utils.test.js)
 
 /**
  * Helper to build expected path under OUTPUT_DIR_SERVER from a relative

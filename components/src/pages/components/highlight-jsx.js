@@ -18,7 +18,7 @@
  * - Uses escape-html utility for XSS-safe HTML entity escaping.
  * - Lightweight implementation without external dependencies.
  *
- * AIDEV-NOTE: Intended for code display in server-rendered pages. Classes are prefixed with 'jsx-' for easy styling.
+ * Intended for code display in server-rendered pages. Classes are prefixed with 'jsx-' for easy styling.
  *
  * @author Victor García
  * @license MIT

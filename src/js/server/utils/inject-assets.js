@@ -18,7 +18,6 @@
  *
  * Node >= 20, ESM
  *
- * AIDEV-NOTE:
  * Keep this module minimal and side‑effect free. It is imported by both servers and the generator.
  * If behavior changes (injection points, tag shapes), update tests accordingly.
  */

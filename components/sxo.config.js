@@ -2,7 +2,7 @@
  * SXO config for the collection of components.
  * ESM default export is required by SXO's config resolution.
  *
- * AIDEV-NOTE: Kept intentionally minimal and aligned with project conventions:
+ * Kept intentionally minimal and aligned with project conventions:
  * - clientDir: "client" to discover per-route client entries under <route>/client/index.*
  * - publicPath: "/" to serve public assets from the site root (SXO normalizes this at runtime)
  * - open: false to avoid auto-opening a browser in multi-example repos

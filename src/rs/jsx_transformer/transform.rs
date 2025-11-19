@@ -235,7 +235,7 @@ impl JSXVisitor for TemplateTransformer {
             return;
         }
 
-        // AIDEV-NOTE: Skip indentation-only whitespace text nodes that contain at least one
+        // Skip indentation-only whitespace text nodes that contain at least one
         // newline (typical pretty-print / indentation artifacts) except when inside a
         // &lt;pre&gt; or &lt;textarea&gt; element where whitespace is significant.
         // This prevents extra spaces between adjacent component insertions like:
