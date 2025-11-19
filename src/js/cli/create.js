@@ -24,6 +24,13 @@ const RAW_GITHUB_BASE = "https://raw.githubusercontent.com/gc-victor/sxo/main/";
 /**
  * Fetches the list of files in the templates directory from the GitHub repository.
  *
+ * Uses the GitHub API with a recursive tree lookup. Unauthenticated requests have a
+ * rate limit of 60 requests per hour per IP; for frequent CLI usage in CI/CD, consider
+ * adding a GITHUB_TOKEN environment variable to increase the limit to 5000 requests/hour.
+ *
+ * Potential future optimization—cache the template list locally with a TTL
+ * to avoid repeated API calls during development. Could store in ~/.sxo or similar.
+ *
  * @returns {Promise<string[]>} List of file paths relative to the templates directory
  */
 async function fetchTemplateFileList() {
@@ -57,9 +64,22 @@ async function fetchTemplateFileList() {
 /**
  * Fetches a file from GitHub and returns it as text (with interpolation) or buffer.
  *
+ * Binary files (detected by presence of null bytes) are returned as Buffer without interpolation.
+ * Text files are decoded as UTF-8 and have the "project_name" placeholder replaced with the
+ * actual project name. The null-byte heuristic is simple but effective for most template files.
+ *
  * @param {string} filePath - Path in the repo (e.g. "templates/package.json")
  * @param {string} projectName - Project name to replace in text files
- * @returns {Promise<string|Buffer>} File content
+ * @returns {Promise<string|Buffer>} File content (string for text, Buffer for binary)
+ *
+ * @example
+ * // Text file with placeholder
+ * const content = await fetchTemplateFile('templates/package.json', 'my-app');
+ * // => '{ "name": "my-app" }'
+ *
+ * // Binary file (image, archive, etc.)
+ * const buffer = await fetchTemplateFile('templates/logo.png', 'my-app');
+ * // => Buffer(...)  [no interpolation applied]
  */
 async function fetchTemplateFile(filePath, projectName) {
     const url = `${RAW_GITHUB_BASE}${filePath}`;
@@ -77,10 +97,9 @@ async function fetchTemplateFile(filePath, projectName) {
             throw new Error(`GitHub responded with ${response.status}: ${response.statusText}`);
         }
 
-        // Check for binary content using content-type or null bytes
-        // GitHub raw usually returns text/plain for text, but checking buffer is safer
-        // However, to support interpolation, we prefer text.
-        // Simplified strategy: Read as buffer. If it has null bytes, treat as binary.
+        // Read as buffer first; we'll check for binary content using null bytes.
+        // Binary detection: if the buffer contains a null byte (0x00), treat as binary.
+        // This heuristic is simple and works well for common template types.
         const arrayBuffer = await response.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
 
@@ -106,18 +125,34 @@ async function fetchTemplateFile(filePath, projectName) {
 /**
  * Checks if a directory exists and prompts user for overwrite decision.
  *
+ * If the directory already exists, prompts the user to confirm overwriting.
+ * When the project name is ".", uses the actual directory name in the prompt.
+ *
  * @function checkDirectoryExists
  * @param {string} projectPath - Absolute path to project directory
+ * @param {string} [projectName] - Original project name argument (used for context in messaging)
  * @returns {Promise<{exists: boolean, shouldProceed: boolean}>} Decision object
+ *
+ * @example
+ * // Non-existent directory: returns immediately
+ * await checkDirectoryExists('/tmp/new-app', 'new-app')
+ * // => { exists: false, shouldProceed: true }
+ *
+ * // Existing directory with TTY: prompts user
+ * await checkDirectoryExists('/tmp/existing', 'existing')
+ * // => prompts: "Create SXO template in 'existing'? (This will overwrite existing files.) (y/N)"
+ * // => { exists: true, shouldProceed: true } if user answers "yes"
  */
-export async function checkDirectoryExists(projectPath) {
+export async function checkDirectoryExists(projectPath, _projectName) {
     const exists = await pathExists(projectPath);
 
     if (!exists) {
         return { exists: false, shouldProceed: true };
     }
 
-    const shouldOverwrite = await askYesNo(`Directory "${path.basename(projectPath)}" already exists. Overwrite?`);
+    const dirName = path.basename(projectPath);
+    const message = `Create SXO template in "${dirName}"? (This will overwrite existing files.)`;
+    const shouldOverwrite = await askYesNo(message);
 
     return { exists: true, shouldProceed: shouldOverwrite };
 }
@@ -130,8 +165,11 @@ export async function checkDirectoryExists(projectPath) {
  * 2. Fetch template list from GitHub
  * 3. Download and write all files
  *
+ * When `projectName` is ".", creates the project in the current directory
+ * (effectively using the current directory name as the project name).
+ *
  * @function handleCreateCommand
- * @param {string} projectName - Name of the project to create
+ * @param {string} projectName - Name of the project to create (or "." for current directory)
  * @param {object} cfg - Resolved SXO configuration object
  * @param {string} cfg.cwd - Current working directory
  * @returns {Promise<boolean>} True if project created successfully
@@ -140,7 +178,7 @@ export async function handleCreateCommand(projectName, cfg) {
     const effectiveProjectName = !projectName || projectName === "." ? path.basename(cfg.cwd) : projectName;
 
     const projectPath = projectName === "." ? cfg.cwd : path.join(cfg.cwd, effectiveProjectName);
-    const { exists, shouldProceed } = await checkDirectoryExists(projectPath);
+    const { exists, shouldProceed } = await checkDirectoryExists(projectPath, projectName);
 
     if (exists && !shouldProceed) {
         log.info("Project creation cancelled");
@@ -159,7 +197,11 @@ export async function handleCreateCommand(projectName, cfg) {
 
         log.info(`Found ${files.length} files. Downloading templates...`);
 
-        // Download files in parallel with concurrency limit for better performance
+        // Downloads are batched with a concurrency limit of 5 to balance:
+        // - GitHub rate limits (avoid overwhelming the API)
+        // - Performance (5 parallel requests is a good practical sweet-spot)
+        // - Memory usage (large repos don't spike memory consumption)
+        // Each batch is awaited fully before proceeding to the next batch.
         const CONCURRENCY_LIMIT = 5;
 
         const downloadFile = async (file) => {
@@ -170,7 +212,9 @@ export async function handleCreateCommand(projectName, cfg) {
             process.stdout.write(".");
         };
 
-        // Simple concurrency control: divide files into batches and process sequentially
+        // Simple concurrency control: divide files into batches and process sequentially.
+        // Batch i contains files[i * CONCURRENCY_LIMIT] through files[(i + 1) * CONCURRENCY_LIMIT - 1].
+        // All files in a batch are downloaded in parallel via Promise.all.
         for (let i = 0; i < files.length; i += CONCURRENCY_LIMIT) {
             const batch = files.slice(i, i + CONCURRENCY_LIMIT);
             await Promise.all(batch.map(downloadFile));
@@ -181,7 +225,9 @@ export async function handleCreateCommand(projectName, cfg) {
         log.success("Project created successfully!");
         log.info("");
         log.info("Next steps:");
-        log.info(`  cd ${effectiveProjectName}`);
+        if (projectName !== ".") {
+            log.info(`  cd ${effectiveProjectName}`);
+        }
         log.info("  pnpm install");
         log.info("  pnpm run dev");
     } catch (error) {
