@@ -1,3 +1,27 @@
+## [0.8.0] - 2025-11-20
+
+### 🚀 Features
+
+- *(cli)* Add create command to scaffold new SXO projects
+- *(templates)* Add starter project templates
+- *(components/card)* [**breaking**] Simplify CardHeader to child-only API
+- *(cli)* Improve create command prompts and next steps
+- Remove aidev scaffolding comments
+
+### 📚 Documentation
+
+- Add create command to README quick start section
+- Document create command in AGENTS.md quick start
+
+### 🎨 Styling
+
+- *(client)* Add trailing comma in lazy component map
+- *(checkbox)* Wrap long helper text across lines
+
+### 🧪 Testing
+
+- *(cli)* Cover create command directory handling and messaging
+
 ## [0.7.0] - 2025-11-14
 
 ### 🚀 Features
