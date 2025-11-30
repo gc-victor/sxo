@@ -1,3 +1,9 @@
+## [0.8.1] - 2025-11-30
+
+### 🐛 Bug Fixes
+
+- *(hmr)* Properly remove old stylesheets during hot-reload
+
 ## [0.8.0] - 2025-11-20
 
 ### 🚀 Features
