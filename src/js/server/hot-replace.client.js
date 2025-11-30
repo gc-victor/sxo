@@ -115,26 +115,50 @@ function styles(data) {
     const publicPath = data.publicPath || "";
 
     paths.forEach((path) => {
-        const href = publicPath + path;
+        const cleanHref = publicPath + path; // The logical ID of the file
+
         const newLink = document.createElement("link");
         newLink.rel = "stylesheet";
-        newLink.href = `${href}?${Date.now()}`;
+        newLink.href = `${cleanHref}?hmr=${Date.now()}`; // Add timestamp
 
-        newLink.addEventListener("load", () => {
-            console.log(`${logTimer()}::[hot-replace] - style loaded:`, href);
-        });
-        newLink.addEventListener("error", (err) => {
-            console.error(`${logTimer()}::[hot-replace] - style failed:`, href, err);
-        });
+        // Tag the element so we can find it later
+        newLink.dataset.hmr = "true";
+        newLink.dataset.hmrId = cleanHref;
 
-        const oldLink = document.querySelector(`link[href="${href}"]`);
+        // Wait for load event before removing the old one (Prevents FOUC)
+        const handleLoad = () => {
+            console.log(`${logTimer()}::[hot-replace] - style loaded:`, cleanHref);
+
+            // Find and remove all old versions of this stylesheet
+            const allStylesheets = document.head.querySelectorAll('link[rel="stylesheet"]');
+
+            allStylesheets.forEach((link) => {
+                if (link === newLink) return; // Keep the new one
+
+                const linkHref = link.getAttribute("href") || "";
+                const linkHmrId = link.dataset.hmrId;
+
+                // Match by data-hmr-id (for HMR-managed links)
+                // OR by href pattern (for server-rendered links)
+                const isOldVersion = linkHmrId === cleanHref || linkHref === cleanHref || linkHref.startsWith(`${cleanHref}?`);
+
+                if (isOldVersion) {
+                    link.remove();
+                }
+            });
+        };
+
+        const handleError = (err) => {
+            console.error(`${logTimer()}::[hot-replace] - style failed:`, cleanHref, err);
+            // Clean up the broken link so it doesn't hang around
+            newLink.remove();
+        };
+
+        // Attach event listeners with { once: true } for automatic cleanup
+        newLink.addEventListener("load", handleLoad, { once: true });
+        newLink.addEventListener("error", handleError, { once: true });
+
         document.head.appendChild(newLink);
-
-        if (oldLink) {
-            setTimeout(() => {
-                oldLink.remove();
-            }, 250);
-        }
     });
 }
 
