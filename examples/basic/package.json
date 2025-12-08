@@ -14,6 +14,6 @@
     },
     "license": "MIT",
     "dependencies": {
-        "@qery/reactive-component": "^0.4.0"
+        "@qery/reactive-component": "^0.8.0"
     }
 }
