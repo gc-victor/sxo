@@ -5,7 +5,7 @@ export function Counter({ count }) {
                 <button
                     className="p-2 rounded-full hover:bg-slate-200 transition-colors"
                     type="button"
-                    onclick="decrement"
+                    $onclick="decrement"
                     aria-label="Decrease counter"
                 >
                     <svg
@@ -30,7 +30,7 @@ export function Counter({ count }) {
                 <button
                     className="p-2 rounded-full hover:bg-slate-200 transition-colors"
                     type="button"
-                    onclick="increment"
+                    $onclick="increment"
                     aria-label="Increase counter"
                 >
                     <svg
@@ -80,7 +80,7 @@ export function Counter({ count }) {
                     mr-2
                 "
                     type="button"
-                    onclick="reset"
+                    $onclick="reset"
                 >
                     Reset
                 </button>

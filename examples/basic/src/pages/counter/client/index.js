@@ -1,27 +1,19 @@
-import { ReactiveComponent } from "@qery/reactive-component";
+import { define } from "@qery/reactive-component";
 
-export class RcCounter extends ReactiveComponent {
-    count = 0;
+define("rc-counter", ({ $state, $on }) => {
+    // Initialize state
+    $state.count = 0;
 
-    connectedCallback() {
-        super.connectedCallback();
-    }
+    // Bind methods for $on* event handlers
+    $on.increment = () => {
+        $state.count++;
+    };
 
-    disconnectedCallback() {
-        super.disconnectedCallback();
-    }
+    $on.decrement = () => {
+        $state.count--;
+    };
 
-    increment() {
-        this.count++;
-    }
-
-    decrement() {
-        this.count--;
-    }
-
-    reset() {
-        this.count = 0;
-    }
-}
-
-customElements.define("rc-counter", RcCounter);
+    $on.reset = () => {
+        $state.count = 0;
+    };
+});
