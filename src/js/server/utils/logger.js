@@ -69,3 +69,88 @@ export const httpLogger = pinoHttp({
         },
     },
 });
+
+/**
+ * Creates a logger for Bun/Deno Web Standard Request/Response.
+ * Call at request start, returns a function to call when response is ready.
+ *
+ * @param {Request} request - Web Standard Request object
+ * @param {{ remoteAddress?: string }} [options] - Additional options
+ * @returns {{ finish: (response: Response) => void, startTime: number }}
+ */
+function createWebLogger(request, options = {}) {
+    const startTime = Date.now();
+    const url = new URL(request.url);
+    const pathname = url.pathname + url.search;
+
+    // Skip logging for well-known paths
+    if (pathname.startsWith("/.well-known/")) {
+        return {
+            startTime,
+            finish: () => {},
+        };
+    }
+
+    return {
+        startTime,
+        /**
+         * Call when response is ready to log the completed request
+         * @param {Response} response - Web Standard Response object
+         */
+        finish(response) {
+            const responseTime = Date.now() - startTime;
+            const statusCode = response.status;
+
+            const level = statusCode >= 500 ? "error" : statusCode >= 400 ? "warn" : "info";
+
+            logger[level](
+                {
+                    req: {
+                        method: request.method,
+                        url: pathname,
+                        remoteAddress: options.remoteAddress,
+                    },
+                    res: {
+                        statusCode,
+                    },
+                    responseTime,
+                },
+                `[${request.method} ${pathname}] (${responseTime}ms)`,
+            );
+        },
+    };
+}
+
+/**
+ * HTTP logger for Bun runtime using Web Standard Request/Response.
+ *
+ * @param {Request} request - Web Standard Request object
+ * @param {import("bun").Server} [server] - Bun server instance for remote address
+ * @returns {{ finish: (response: Response) => void, startTime: number }}
+ * @example
+ * const log = httpBunLogger(request, server);
+ * const response = await handleRequest(request);
+ * log.finish(response);
+ * return response;
+ */
+export function httpBunLogger(request, server) {
+    const remoteAddress = server?.requestIP?.(request)?.address;
+    return createWebLogger(request, { remoteAddress });
+}
+
+/**
+ * HTTP logger for Deno runtime using Web Standard Request/Response.
+ *
+ * @param {Request} request - Web Standard Request object
+ * @param {Deno.ServeHandlerInfo} [info] - Deno serve handler info for remote address
+ * @returns {{ finish: (response: Response) => void, startTime: number }}
+ * @example
+ * const log = httpDenoLogger(request, info);
+ * const response = await handleRequest(request);
+ * log.finish(response);
+ * return response;
+ */
+export function httpDenoLogger(request, info) {
+    const remoteAddress = info?.remoteAddr?.hostname;
+    return createWebLogger(request, { remoteAddress });
+}
