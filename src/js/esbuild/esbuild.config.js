@@ -7,6 +7,58 @@ import { entryPointsConfig } from "./entry-points-config.js";
 import { esbuildJsxPlugin } from "./esbuild-jsx.plugin.js";
 import { esbuildMetafilePlugin } from "./esbuild-metafile.plugin.js";
 
+/**
+ * Generate modules.js with static imports for all SSR page modules.
+ *
+ * This file is required by adapters to load SSR modules without dynamic imports,
+ * which is especially important for bundled environments like Cloudflare Workers.
+ *
+ * @param {Array<{jsx: string}>} routes - Route manifest entries
+ * @returns {Promise<void>}
+ */
+async function generateModulesFile(routes) {
+    const imports = [];
+    const moduleMapEntries = [];
+
+    // Get the relative pages directory from env (e.g., "src/pages")
+    const pagesDirRelative = process.env.PAGES_DIR || "src/pages";
+
+    routes.forEach((route, index) => {
+        const varName = `_${index}`;
+
+        // Convert jsx path to server build path
+        // esbuild strips the common base directory (PAGES_DIR) from entry points
+        // e.g., "src/pages/about/index.jsx" -> "./about/index.js"
+        //       "src/pages/index.jsx" -> "./index.js"
+        let serverPath = route.jsx.replace(/\.(jsx|tsx)$/i, ".js");
+
+        // Strip PAGES_DIR prefix (e.g., "src/pages/")
+        if (serverPath.startsWith(`${pagesDirRelative}/`)) {
+            serverPath = serverPath.slice(pagesDirRelative.length + 1); // +1 for trailing slash
+        } else if (serverPath === pagesDirRelative) {
+            serverPath = "index.js"; // Edge case: if jsx is exactly pagesDirRelative
+        }
+
+        imports.push(`import * as ${varName} from "./${serverPath}";`);
+        moduleMapEntries.push(`    "${route.jsx}": ${varName}`);
+    });
+
+    const modulesContent = `/**
+ * Auto-generated SSR modules file.
+ * DO NOT EDIT - regenerated on each build.
+ */
+
+${imports.join("\n")}
+
+export default {
+${moduleMapEntries.join(",\n")}
+};
+`;
+
+    const modulesPath = path.join(OUTPUT_DIR_SERVER, "modules.js");
+    await writeFile(modulesPath, modulesContent);
+}
+
 try {
     const routes = entryPointsConfig();
 
@@ -115,6 +167,9 @@ try {
             plugins: [esbuildJsxPlugin()],
         }),
     ]);
+
+    // Generate modules.js after server build completes
+    await generateModulesFile(routes);
 } catch (_) {
     // console.error("Build failed:", error);
     process.exit(1);
