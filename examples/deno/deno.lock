@@ -1,0 +1,34 @@
+{
+  "version": "5",
+  "specifiers": {
+    "npm:@qery/reactive-component@0.8": "0.8.0",
+    "npm:@types/node@*": "24.2.0"
+  },
+  "npm": {
+    "@qery/reactive-component@0.8.0": {
+      "integrity": "sha512-PMNmubPmQCJ316KRmmykxln+GH+2aIQFIqq9FYn/K15rY7O6L8EpCtn1XgosVGYlWy/XXLmQ6o7fOA1/IBhhAw==",
+      "dependencies": [
+        "alien-signals"
+      ]
+    },
+    "@types/node@24.2.0": {
+      "integrity": "sha512-3xyG3pMCq3oYCNg7/ZP+E1ooTaGB4cG8JWRsqqOYQdbWNY4zbaV0Ennrd7stjiJEFZCaybcIgpTjJWHRfBSIDw==",
+      "dependencies": [
+        "undici-types"
+      ]
+    },
+    "alien-signals@3.1.1": {
+      "integrity": "sha512-ogkIWbVrLwKtHY6oOAXaYkAxP+cTH7V5FZ5+Tm4NZFd8VDZ6uNMDrfzqctTZ42eTMCSR3ne3otpcxmqSnFfPYA=="
+    },
+    "undici-types@7.10.0": {
+      "integrity": "sha512-t5Fy/nfn+14LuOc2KNYg75vZqClpAiqscVvMygNnlsHBFpSXdJaYtXMcdNLpl/Qvc3P2cB3s6lOV51nqsFq4ag=="
+    }
+  },
+  "workspace": {
+    "packageJson": {
+      "dependencies": [
+        "npm:@qery/reactive-component@0.8"
+      ]
+    }
+  }
+}

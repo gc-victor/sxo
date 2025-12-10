@@ -1,0 +1,14 @@
+{
+    "name": "sxo-deno-example",
+    "type": "module",
+    "private": true,
+    "scripts": {
+        "dev": "deno run -A npm:sxo dev",
+        "build": "deno run -A npm:sxo build",
+        "start": "deno run -A npm:sxo start"
+    },
+    "dependencies": {
+        "@qery/reactive-component": "^0.8.0",
+        "sxo": "file:../.."
+    }
+}
