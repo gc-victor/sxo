@@ -1,16 +1,16 @@
 import { define } from "@qery/reactive-component";
 
 define("rc-counter", ({ $state, $on }) => {
-    // Initialize state - will be set from HTML $state attribute
+    // Initialize state
     $state.count = 0;
 
     // Bind methods for $on* event handlers
     $on.increment = () => {
-        $state.count = $state.count + 1;
+        $state.count++;
     };
 
     $on.decrement = () => {
-        $state.count = $state.count - 1;
+        $state.count--;
     };
 
     $on.reset = () => {

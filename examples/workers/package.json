@@ -1,23 +1,18 @@
 {
-    "name": "workers",
-    "version": "0.0.0",
-    "private": true,
+    "name": "sxo-workers-example",
     "type": "module",
+    "private": true,
     "scripts": {
-        "build": "node ../../bin/sxo.js build",
-        "postbuild": "node scripts/generate-imports.js",
-        "help": "node ../../bin/sxo.js --help",
-        "dev": "node ../../bin/sxo.js dev",
-        "generate": "node ../../bin/sxo.js generate",
-        "clean": "node ../../bin/sxo.js clean",
+        "dev": "sxo dev",
+        "build": "sxo build",
         "start": "wrangler dev",
         "deploy": "wrangler deploy"
     },
-    "devDependencies": {
-        "wrangler": "^4.53.0"
-    },
     "dependencies": {
         "@qery/reactive-component": "^0.8.0",
-        "sxo": "^0.8.1"
+        "sxo": "file:../.."
+    },
+    "devDependencies": {
+        "wrangler": "^4.53.0"
     }
 }

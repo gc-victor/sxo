@@ -1,4 +1,4 @@
 export default {
-    open: false,
-    port: 3000,
-}
+    pagesDir: "src/pages",
+    outDir: "dist",
+};
