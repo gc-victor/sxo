@@ -1,0 +1,28 @@
+{
+    "name": "project_name",
+    "version": "0.1.0",
+    "description": "An SXO project (Deno)",
+    "type": "module",
+    "scripts": {
+        "dev": "deno task tailwind:watch & deno task sxo:dev",
+        "server": "deno task sxo:build && deno task sxo:start",
+        "build": "deno task sxo:clean -y && deno task tailwind && deno task sxo:build",
+        "sxo:help": "deno run -A npm:sxo --help",
+        "sxo:dev": "deno run -A npm:sxo dev",
+        "sxo:generate": "deno run -A npm:sxo generate",
+        "sxo:start": "deno run -A npm:sxo start",
+        "sxo:clean": "deno run -A npm:sxo clean",
+        "tailwind": "deno run -A npm:tailwindcss -i src/styles.css -o src/pages/global.css --minify",
+        "tailwind:watch": "deno run -A npm:tailwindcss -i src/styles.css -o src/pages/global.css --watch"
+    },
+    "dependencies": {
+        "@qery/reactive-component": "0.8.0",
+        "sxo": "0.9.0"
+    },
+    "devDependencies": {
+        "@tailwindcss/cli": "4.1.17",
+        "@types/node": "24.10.2",
+        "basecoat-css": "0.3.7",
+        "tailwindcss": "4.1.17"
+    }
+}
