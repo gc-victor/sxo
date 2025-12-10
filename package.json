@@ -17,6 +17,14 @@
     "author": "Víctor García",
     "license": "MIT",
     "type": "module",
+    "exports": {
+        ".": "./bin/sxo.js",
+        "./runtime": "./src/js/runtime/handler.js",
+        "./cloudflare": "./src/js/server/prod/cloudflare.js",
+        "./dev-node": "./src/js/server/dev/node.js",
+        "./dev-bun": "./src/js/server/dev/bun.js",
+        "./dev-deno": "./src/js/server/dev/deno.js"
+    },
     "repository": {
         "type": "git",
         "url": "git+https://github.com/gc-victor/sxo.git"
@@ -51,6 +59,7 @@
         "@types/node": "^24.10.0"
     },
     "dependencies": {
+        "@qery/reactive-component": "^0.8.0",
         "cac": "^6.7.14",
         "dotenv": "^17.2.3",
         "esbuild": "^0.27.0",
