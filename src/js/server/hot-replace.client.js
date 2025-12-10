@@ -12,6 +12,26 @@ let evSource;
 const HRC_STATE_GLOBAL_KEY = "___hrcStates"; // window.___hrcStates = Map<hrcId, stateObj>
 
 /**
+ * Decode a base64 string with Unicode support.
+ *
+ * Standard atob() only handles Latin1 (ISO-8859-1) encoded base64 and produces
+ * incorrect results for Unicode strings. This function properly decodes by:
+ * 1. Decoding the base64 to a binary string with atob()
+ * 2. Converting the binary string to UTF-8 bytes
+ * 3. Decoding bytes to a UTF-8 string using TextDecoder
+ *
+ * @param {string} base64 - Base64-encoded string
+ * @returns {string} Decoded Unicode string
+ * @example
+ * base64DecodeUnicode('encoded-string-with-unicode'); // Correctly decodes Unicode
+ */
+function base64DecodeUnicode(base64) {
+    const binString = atob(base64);
+    const bytes = Uint8Array.from(binString, (m) => m.codePointAt(0));
+    return new TextDecoder().decode(bytes);
+}
+
+/**
  * Initialize hot reload connection
  * @param {string} href
  */
@@ -48,11 +68,13 @@ export function hotReplace(href) {
 function onHotMessage(e) {
     let data;
     try {
-        data = JSON.parse(e.data);
+        data = JSON.parse(base64DecodeUnicode(e.data));
     } catch (err) {
         console.error(`${logTimer()}::[hot-replace] - invalid payload`, err);
         return;
     }
+
+    console.log(`${logTimer()}::[hot-replace] - received message`, JSON.stringify(data));
 
     // Capture scroll + reactive state BEFORE mutation.
     const scrollInfo = captureScrollPositions();
