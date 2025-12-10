@@ -425,17 +425,7 @@ Add new test file when adding a discrete subsystem; keep responsibilities narrow
 
 ---
 
-## 17. Security Considerations
-
-- No implicit CORS or security headers; require middleware.
-- Escapes head inline code.
-- Validates slug values; treat `{invalid:true}` distinct from 404.
-- Static server denies traversal and unknown extensions.
-- Avoid logging secrets; logger redacts selected headers.
-
----
-
-## 18. When Updating This Doc
+## 17. When Updating This Doc
 
 Trigger an update if you:
 
@@ -447,7 +437,7 @@ Trigger an update if you:
 
 ---
 
-## 19. Non-Editable Artifacts
+## 18. Non-Editable Artifacts
 
 Do NOT modify:
 
@@ -458,7 +448,7 @@ Do NOT modify:
 
 ---
 
-## 20. Quick Reference (Cheat Sheet)
+## 19. Quick Reference (Cheat Sheet)
 
 | Concern                    | File                                 |
 | -------------------------- | ------------------------------------ |
@@ -466,7 +456,11 @@ Do NOT modify:
 | Metafile & Asset Mapping   | [`esbuild/esbuild-metafile.plugin.js`](src/js/esbuild/esbuild-metafile.plugin.js) |
 | Build Orchestrator         | [`esbuild/esbuild.config.js`](src/js/esbuild/esbuild.config.js)          |
 | JSX Plugin                 | [`esbuild/esbuild-jsx.plugin.js`](src/js/esbuild/esbuild-jsx.plugin.js)      |
-| Dev Server                 | [`server/dev.js`](src/js/server/dev.js)                      |
+| Dev Server (entry point)   | [`server/dev.js`](src/js/server/dev.js)                      |
+| Dev Server (Node.js)       | [`server/dev/node.js`](src/js/server/dev/node.js)            |
+| Dev Server (Bun)           | [`server/dev/bun.js`](src/js/server/dev/bun.js)              |
+| Dev Server (Deno)          | [`server/dev/deno.js`](src/js/server/dev/deno.js)            |
+| Dev Server (Core Utils)    | [`server/dev/core.js`](src/js/server/dev/core.js)            |
 | Prod Server                | [`server/prod.js`](src/js/server/prod.js)                     |
 | Middleware Loader          | [`server/middleware.js`](src/js/server/middleware.js)               |
 
@@ -478,10 +472,246 @@ Do NOT modify:
 | Config Resolution | [`config.js`](src/js/config.js) |
 | Readiness Probe | [`cli/open.js`](src/js/cli/open.js) |
 | Static Generation | [`generate/generate.js`](src/js/generate/generate.js) |
+| Core Runtime (Web Standard) | [`runtime/handler.js`](src/js/runtime/handler.js) |
+| Node.js Adapter | [`server/prod/node.js`](src/js/server/prod/node.js) |
+| Cloudflare Workers Adapter | [`server/prod/cloudflare.js`](src/js/server/prod/cloudflare.js) |
+| Bun Adapter | [`server/prod/bun.js`](src/js/server/prod/bun.js) |
+| Deno Adapter | [`server/prod/deno.js`](src/js/server/prod/deno.js) |
+| Adapter Shared Utilities | [`server/prod/utils/`](src/js/server/prod/utils) |
 
 ---
 
-## 21. AI Contribution Workflow (Reaffirmed)
+## 19.1. Platform Adapters
+
+SXO supports multiple deployment platforms via platform-specific adapters. Production adapters follow the **immediate-execution pattern** (same as dev adapters) for runtime-specific platforms, and a **factory pattern** for Cloudflare Workers.
+
+### Architecture
+
+```
+src/js/server/
+├── prod.js              # Universal entry point (auto-detects runtime)
+└── prod/
+    ├── node.js          # Node.js adapter (http.createServer)
+    ├── bun.js           # Bun adapter (Bun.serve)
+    ├── deno.js          # Deno adapter (Deno.serve)
+    ├── cloudflare.js    # Cloudflare Workers adapter (factory pattern)
+    └── utils/           # Shared utilities
+        ├── mime-types.js
+        ├── path.js
+        ├── routes.js
+        └── cache.js
+```
+
+All adapters share utilities from `src/js/server/prod/utils/`:
+- `mime-types.js` - MIME type detection, compressibility checks, default paths
+- `path.js` - Safe path resolution, extension detection, hashed asset detection
+- `routes.js` - Generated route lookup
+- `cache.js` - Cache-Control headers, ETag generation
+
+### Package Exports
+
+```json
+{
+  "exports": {
+    ".": "./bin/sxo.js",
+    "./runtime": "./src/js/runtime/handler.js",
+    "./cloudflare": "./src/js/server/prod/cloudflare.js",
+    "./dev-core": "./src/js/server/dev/core.js",
+    "./dev-node": "./src/js/server/dev/node.js",
+    "./dev-bun": "./src/js/server/dev/bun.js",
+    "./dev-deno": "./src/js/server/dev/deno.js"
+  }
+}
+```
+
+Note: `./node`, `./bun`, and `./deno` exports removed (CLI-only usage via `sxo start`).
+
+### How It Works
+
+**Runtime-Specific Adapters (Node.js, Bun, Deno):**
+
+1. User runs `sxo start` (same command for all runtimes)
+2. CLI spawns `server/prod.js` using the current runtime
+3. `prod.js` detects runtime via `globalThis.Bun` / `globalThis.Deno` checks
+4. Dynamic import loads `./prod/${runtime}.js`
+5. Platform-specific adapter starts the prod server immediately (no exports)
+
+**Pattern:**
+```javascript
+// src/js/server/prod.js (universal entry point)
+function detectRuntime() {
+  if (typeof globalThis.Bun !== "undefined") return "bun";
+  if (typeof globalThis.Deno !== "undefined") return "deno";
+  return "node";
+}
+
+const runtime = detectRuntime();
+await import(`./prod/${runtime}.js`);
+```
+
+Each adapter (`node.js`, `bun.js`, `deno.js`):
+- Loads routes, modules, and middleware at startup
+- Starts server immediately (immediate execution, no exports)
+- Provides custom 404/500 error pages
+- Serves static files with precompression (.br, .gz)
+- Handles SSR for dynamic routes
+- Serves pre-generated HTML for static routes
+
+### Usage
+
+**Node.js / Bun / Deno (CLI Only):**
+```bash
+# Simply use the CLI (auto-detects runtime)
+sxo start
+```
+
+No custom server file needed. The CLI automatically:
+- Detects your JavaScript runtime
+- Loads the appropriate adapter
+- Starts the production server
+
+**Cloudflare Workers (Factory Pattern):**
+
+Cloudflare Workers requires a custom entry point due to its environment constraints.
+
+Configure `wrangler.jsonc` with aliases for virtual imports:
+```jsonc
+{
+  "alias": {
+    "sxo:routes": "./dist/server/routes.json",
+    "sxo:modules": "./dist/server/modules.js"
+  }
+}
+```
+
+Then create `src/index.js`:
+```javascript
+import { createHandler } from "sxo/cloudflare";
+
+// Routes and modules auto-resolved via wrangler.jsonc aliases
+export default await createHandler({
+  publicPath: "/",
+});
+```
+
+### Platform-Specific APIs
+
+| Feature | Node.js | Bun | Deno | Cloudflare |
+|---------|---------|-----|------|------------|
+| HTTP Server | `http.createServer()` | `Bun.serve()` | `Deno.serve()` | `export default` |
+| File Reading | `fs.readFile()` | `Bun.file()` | `Deno.readTextFile()` | `env.ASSETS` |
+| File Stats | `fs.stat()` | `Bun.file().size` | `Deno.stat()` | N/A |
+| Startup | Immediate execution | Immediate execution | Immediate execution | Factory pattern |
+
+### Middleware
+
+**All Runtimes (Web Standard):**
+
+All production adapters (Node.js, Bun, Deno, Cloudflare Workers) use the Web Standard Request/Response pattern:
+
+```javascript
+// src/middleware.js
+export default function middleware(request, env) {
+  if (new URL(request.url).pathname === '/health') {
+    return new Response('OK', { status: 200 });
+  }
+  // Return nothing to continue to next middleware/handler
+}
+```
+
+Middleware signature: `(request: Request, env?: object) => Response | void`
+- Return a `Response` to short-circuit and handle the request
+- Return `void`/`undefined` to continue to the next middleware or route handler
+- The `env` parameter is optional and provides environment context (e.g., Cloudflare Workers bindings)
+
+Note: The Node.js adapter converts between Node.js HTTP primitives and Web Standard Request/Response internally using `toWebRequest()` and `fromWebResponse()` adapters.
+
+### Examples
+
+- [`examples/node/`](examples/node) - Node.js CLI-only example
+- [`examples/bun/`](examples/bun) - Bun CLI-only example
+- [`examples/deno/`](examples/deno) - Deno CLI-only example
+- [`examples/workers/`](examples/workers) - Cloudflare Workers factory pattern example
+
+---
+
+## 19.2. Dev Server Adapters
+
+The development server supports multiple JavaScript runtimes through platform-specific adapters. The `sxo dev` command automatically detects the runtime and loads the appropriate adapter.
+
+### Architecture
+
+```
+src/js/server/
+├── dev.js              # Universal entry point (auto-detects runtime)
+└── dev/
+    ├── core.js         # Shared utilities (debounce, error rendering)
+    ├── node.js         # Node.js adapter (http, fs.watch, child_process)
+    ├── bun.js          # Bun adapter (Bun.serve, Bun.spawn)
+    └── deno.js         # Deno adapter (Deno.serve, Deno.Command, Deno.watchFs)
+```
+
+### How It Works
+
+1. User runs `sxo dev` (same command for all runtimes)
+2. CLI spawns `server/dev.js` using the current runtime
+3. `dev.js` detects runtime via `globalThis.Bun` / `globalThis.Deno` checks
+4. Dynamic import loads `./dev/${runtime}.js`
+5. Platform-specific adapter starts the dev server
+
+### Features (All Adapters)
+
+- **Hot Reload via SSE**: Pushes body updates to connected clients
+- **File Watching**: Monitors `src/` directory for changes
+- **esbuild Integration**: Rebuilds on file changes
+- **Middleware Reloading**: Reloads `middleware.js` dynamically
+- **Static File Serving**: Serves from `dist/client/`
+- **Error Overlay**: Displays build errors in browser
+
+### Platform-Specific APIs
+
+| Feature | Node.js | Bun | Deno |
+|---------|---------|-----|------|
+| HTTP Server | `http.createServer()` | `Bun.serve()` | `Deno.serve()` |
+| File Watching | `fs.watch()` | `fs.watch()` | `Deno.watchFs()` |
+| Process Spawn | `child_process.spawn()` | `Bun.spawn()` | `Deno.Command()` |
+| File Reading | `fs.readFile()` | `Bun.file()` | `Deno.readTextFile()` |
+| SSE Streaming | Response write | `ReadableStream` | `ReadableStream` |
+
+### Usage
+
+For most projects, simply use the CLI:
+
+```bash
+# Works on Node.js, Bun, or Deno
+sxo dev
+```
+
+For advanced use cases, adapters can be imported directly:
+
+```javascript
+// Node.js
+import "sxo/dev-node";
+
+// Bun
+import "sxo/dev-bun";
+
+// Deno
+import "sxo/dev-deno";
+```
+
+### Immediate-Execution Pattern
+
+Dev adapters use the **immediate-execution pattern**: importing the module starts the server immediately. This matches the original `dev.js` behavior and simplifies CLI integration.
+
+```javascript
+// This starts the dev server immediately (no factory function needed)
+await import("./dev/node.js");
+```
+
+---
+
+## 20. AI Contribution Workflow (Reaffirmed)
 
 1. Clarify ambiguities.
 2. Propose plan for multi-file or structural changes.
@@ -493,7 +723,7 @@ Do NOT modify:
 
 ---
 
-## 22. Prompt Refinement Template
+## 21. Prompt Refinement Template
 
 Mandatory: Every incoming user prompt (coding / architectural task) must be refined using this template before execution (unless the prompt explicitly instructs to skip refinement). This guarantees consistent structure, explicit constraints, and actionable acceptance criteria.
 

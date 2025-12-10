@@ -8,13 +8,18 @@
 
 A **fast**, minimal architecture convention and CLI for building websites with server‑side JSX. **No React, no client framework**, just composable **JSX optimized for the server**, a clean **directory-based router**, **hot replacement**, and powered by esbuild plus a Rust JSX transformer.
 
+**Multi-Platform Library**: SXO runs seamlessly across **Node.js**, **Bun**, **Deno**, and **Cloudflare Workers**. The CLI automatically detects your runtime and loads the optimized adapter, while providing a consistent development and production experience across all platforms.
+
 ## Table of Contents
 
 - [Why SXO](#why-sxo)
 - [Key Features](#key-features)
+- [Multi-Runtime Support](#multi-runtime-support)
 - [Architecture Overview](#architecture-overview)
 - [Quick Start](#quick-start)
+- [SXOUI Component Library](#sxoui-component-library)
 - [Examples](#examples)
+- [Platform Adapters](#platform-adapters)
 - [Routing Guide](#routing-guide)
 - [Page Module API](#page-module-api)
 - [Middleware](#middleware)
@@ -27,7 +32,7 @@ A **fast**, minimal architecture convention and CLI for building websites with s
 - [Environment Variables](#environment-variables)
 - [JSX Transformer & Runtime Helpers](#jsx-transformer--runtime-helpers)
 - [Performance and DX](#performance-and-dx)
-- [Security Considerations](#security-considerations)
+- [Security](#security)
 - [Testing](#testing)
 - [Deployment](#deployment)
 - [Acknowledgements](#acknowledgements)
@@ -43,6 +48,7 @@ A **fast**, minimal architecture convention and CLI for building websites with s
 - **Blazing-fast builds** via esbuild and a Rust/WASM JSX transform step.
 - **Single CLI** covering dev, build, start & clean.
 - **Predictable output**: public client bundle + private server bundle + manifest.
+- **Multi-Runtime Support**: Deploy to Node.js, Bun, Deno, or Cloudflare Workers.
 
 ## Key Features
 
@@ -54,8 +60,34 @@ A **fast**, minimal architecture convention and CLI for building websites with s
 - **Production server**: minimal core (bring your own policy via middleware).
 - **Dual build outputs**: client assets use hashed filenames; separate server bundles (never exposed publicly).
 - **Rust-powered JSX transformer**: fast + small runtime helpers.
+- **Platform Adapters**: First-class support for **Node.js**, **Bun**, **Deno**, and **Cloudflare Workers**.
 - **Configurable esbuild loaders** for server build: assign loaders per file extension via config, env, or CLI flags (e.g., `--loaders ".svg=file" --loaders ".ts=tsx"`).
 - **Configurable public base path** for assets: set via flag (`--public-path`), env (`PUBLIC_PATH`), or config; empty string "" allowed for relative URLs.
+
+## Multi-Runtime Support
+
+SXO is designed as a **truly multi-runtime library** that runs seamlessly across different JavaScript runtimes:
+
+- **Node.js**: Full-featured production server with HTTP/2 support, timeouts, and graceful shutdown
+- **Bun**: High-performance runtime with native file I/O optimizations
+- **Deno**: Secure-by-default runtime with native TypeScript support
+- **Cloudflare Workers**: Edge computing with distributed deployment
+
+### How It Works
+
+The SXO CLI automatically detects your JavaScript runtime and loads the appropriate platform adapter:
+
+```shell
+# Same command works everywhere
+npx sxo dev    # Development server
+npx sxo start  # Production server
+```
+
+**Runtime Detection**: The CLI checks `globalThis.Bun` and `globalThis.Deno` to identify the current platform, falling back to Node.js. Each adapter uses platform-native APIs (e.g., `Bun.serve()`, `Deno.serve()`, `http.createServer()`) for optimal performance.
+
+**Shared Core Logic**: All adapters share the same Web Standard-based core (`Request`/`Response`), ensuring consistent behavior across platforms. Routing, SSR, static file serving, and middleware execution work identically everywhere.
+
+**Cloudflare Workers**: Due to its unique environment, Cloudflare Workers requires a custom entry point using the `sxo/cloudflare` export and a factory pattern (see [Platform Adapters](#platform-adapters)).
 
 ## Architecture Overview
 
@@ -178,24 +210,26 @@ pnpm install
 pnpm run dev
 ```
 
-Add a component from basecoat:
+Add components from SXOUI:
 
 ```shell
 # Add a button component
 sxo add button
 
-# Add a modal component
-sxo add modal
+# Add a dialog component
+sxo add dialog
 
 # Components are installed to src/components/
-# Available components: button, card, modal, badge, input, and more
+# Browse all available components at https://sxoui.com
 ```
+
+**SXOUI Component Library**: SXO includes access to 25+ production-ready components via the `sxo add` command. Visit [**sxoui.com**](https://sxoui.com) to browse the complete component library with live demos, accessibility documentation, and copy-paste ready code examples.
 
 Point to a different pages directory:
 
 ```shell
-sxo build --pages-dir examples/basic/src/pages
-sxo start --pages-dir examples/basic/src/pages --port 4011
+sxo build --pages-dir examples/node/src/pages
+sxo start --pages-dir examples/node/src/pages --port 4011
 ```
 
 Configure custom esbuild loaders for the server build:
@@ -215,6 +249,286 @@ LOADERS='{"svg":"file",".ts":"tsx"}' sxo dev
     ".ts": "tsx"
   }
 }
+```
+
+## SXOUI Component Library
+
+🎨 **[sxoui.com](https://sxoui.com)** — Production-ready components for SXO
+
+SXOUI is a comprehensive component library built specifically for SXO, featuring 25+ accessible, semantic, and performant components that work with server-side rendering and optional client-side interactivity.
+
+### Available Components
+
+#### Layout & Structure
+- **Card** - Flexible containers with header/body/footer
+- **Badge** - Status indicators and labels
+- **Breadcrumb** - Navigation trails
+- **Pagination** - Multi-page controls
+- **Table** - Data tables with sorting
+
+#### Form Controls
+- **Input** - Text, email, password, number inputs
+- **Textarea** - Multi-line text with auto-resize
+- **Select** - Native dropdowns with styling
+- **Select Menu** - Custom accessible dropdowns with search
+- **Checkbox** - Toggle selection with indeterminate state
+- **Radio Group** - Mutually exclusive options
+- **Switch** - Boolean toggle switches
+- **Slider** - Numeric range inputs
+- **Label** - Accessible form labels
+- **Form** - Validation and layout utilities
+
+#### Feedback & Overlays
+- **Alert** - Info, success, warning, error banners
+- **Alert Dialog** - Modal confirmations
+- **Dialog** - General-purpose modals
+- **Toast** - Temporary notifications
+- **Skeleton** - Loading placeholders
+- **Tooltip** - Contextual help
+
+#### Navigation
+- **Tabs** - Tabbed content organization
+- **Dropdown Menu** - Action menus
+- **Popover** - Floating content panels
+- **Accordion** - Expandable sections
+
+#### Content Display
+- **Avatar** - Profile images with fallback
+- **Button** - Interaction buttons with variants
+- **Icon** - SVG icon system
+
+### Key Features
+
+- ✅ **Zero Framework Dependencies** - Built on vanilla JSX, no React required
+- ♿ **WCAG 2.1 AA Compliant** - Full accessibility with ARIA attributes
+- ⌨️ **Keyboard Navigation** - Complete keyboard support for all interactive elements
+- 🎨 **Dark Mode Ready** - Built-in theme support with CSS custom properties
+- 📱 **Responsive Design** - Mobile-first approach
+- 🚀 **Performance Optimized** - Minimal bundle size with tree-shaking
+- 📝 **Type Safe** - Comprehensive JSDoc type definitions
+- 🎯 **Progressive Enhancement** - Works without JavaScript where possible
+
+### Installation
+
+```shell
+# Install individual components
+sxo add button
+sxo add card
+sxo add dialog
+
+# Components are added to src/components/
+```
+
+### Documentation
+
+Visit **[sxoui.com](https://sxoui.com)** for:
+- 🎭 Live interactive demos for all components
+- 📋 Copy-paste ready code snippets
+- 📚 Complete API documentation (props, variants, usage)
+- ♿ Accessibility notes and keyboard shortcuts
+- 🔧 Integration guides and best practices
+
+### Example Usage
+
+```jsx
+// src/pages/index.jsx
+import Button from "@components/button.jsx";
+import Card from "@components/card.jsx";
+
+export default () => (
+  <html lang="en">
+    <head>
+      <meta charSet="UTF-8" />
+      <title>My App</title>
+    </head>
+    <body>
+      <Card>
+        <Card.Header>
+          <Card.Title>Welcome</Card.Title>
+        </Card.Header>
+        <Card.Content>
+          <p>Get started with SXOUI components</p>
+        </Card.Content>
+        <Card.Footer>
+          <Button variant="primary">Get Started</Button>
+        </Card.Footer>
+      </Card>
+    </body>
+  </html>
+);
+```
+
+## Examples
+
+### Node.js Example
+
+Demonstrates SXO with Node.js.
+
+**Location**: `examples/node`
+
+**Features**:
+
+- Static and dynamic routing
+- Web Standard middleware
+- Per-route client entries
+- Global CSS
+- Server-side rendering with platform adapter
+
+**Quickstart**:
+
+```shell
+cd examples/node
+pnpm install
+pnpm run dev
+```
+
+### Cloudflare Workers Example
+
+A full example demonstrating SXO with Cloudflare Workers, including dynamic routes, per‑route client entries, global HTML/CSS, and deployment via Wrangler.
+
+**Location**: `examples/workers`
+
+**Features**:
+
+- Dynamic routing with `[slug]` segments
+- Optional per‑route client entry (`src/pages/<route>/client/index.js`)
+- Shared components under `src/components`
+- Global stylesheet (`src/pages/global.css`)
+- Post‑build script for edge import generation
+- Local dev and production deploy using Wrangler
+
+**Quickstart**:
+
+```shell
+cd examples/workers
+pnpm i
+
+# SXO dev server (SSE hot replace)
+pnpm dev
+
+# Optional: run Worker locally in another terminal
+pnpm start   # wrangler dev
+
+# Build (triggers postbuild import generation)
+pnpm build
+
+# Deploy to Cloudflare Workers
+pnpm deploy
+```
+
+**Structure**:
+
+```shell
+examples/workers/
+├── scripts/
+│   ├── generate-imports.js
+│   └── index.js
+├── src/
+│   ├── components/
+│   │   ├── Header.jsx
+│   │   └── Page.jsx
+│   └── pages/
+│       ├── global.css
+│       ├── index.jsx
+│       ├── about/
+│       │   ├── index.jsx
+│       │   └── [slug]/index.jsx
+│       └── counter/
+│           ├── index.jsx
+│           ├── counter.jsx
+│           └── client/index.js
+├── sxo.config.js
+├── wrangler.jsonc
+└── vitest.config.js
+```
+
+### Bun Example
+
+Demonstrates SXO with Bun's high-performance runtime.
+
+**Location**: `examples/bun`
+
+**Quickstart**:
+
+```shell
+cd examples/bun
+pnpm install
+pnpm run dev
+```
+
+### Deno Example
+
+Demonstrates SXO with Deno's secure runtime.
+
+**Location**: `examples/deno`
+
+**Quickstart**:
+
+```shell
+cd examples/deno
+pnpm install
+pnpm run dev
+```
+
+## Platform Adapters
+
+SXO supports multiple deployment platforms beyond the standard CLI server. Adapters share the same core runtime and use Web Standard APIs (`Request`, `Response`).
+
+### 1. Node.js Adapter
+
+For running on Node.js.
+
+```shell
+npx sxo start
+```
+
+The CLI automatically detects the runtime and loads the optimized adapter.
+
+### 2. Bun Adapter
+
+For high-performance serving with Bun.
+
+```shell
+bunx sxo start
+```
+
+The CLI automatically detects the runtime and loads the optimized adapter.
+
+### 3. Deno Adapter
+
+For running on Deno.
+
+```shell
+deno run -A npm:sxo start
+```
+
+The CLI automatically detects the runtime and loads the optimized adapter.
+
+### 4. Cloudflare Workers Adapter
+
+Requires configuring `wrangler.jsonc` aliases to point to your build artifacts.
+
+**wrangler.jsonc**:
+
+```jsonc
+{
+  "alias": {
+    "sxo:routes": "./dist/server/routes.json",
+    "sxo:modules": "./dist/server/modules.js",
+  },
+}
+```
+
+**worker.js**:
+
+```javascript
+import { createHandler } from "sxo/cloudflare";
+import middleware from "./src/middleware.js";
+
+export default await createHandler({
+  publicPath: "/",
+  middleware,
+});
 ```
 
 ## Routing Guide
@@ -252,28 +566,41 @@ Note: Pages must return a full `<html>...</html>` document (including `<head>` a
 
 ## Middleware
 
-User middleware file: `src/middleware.js` (optional).
+SXO supports two middleware signatures depending on your runtime.
 
-Supported export shapes:
+### 1. CLI Server (`sxo dev`, `sxo start`)
 
-- `export default function (req, res) { ... }`
-- `export default [fn1, fn2, ...]`
-- `export const middleware = (req, res) => {}`
-- `export const middlewares = [ ... ]`
+Uses **Node-style** middleware.
 
-Supported signatures:
+**Signature**: `(req, res, next) => void` or `(req, res) => boolean`
 
-1. Sync / async: `(req, res) => (truthyHandled?)`
-2. Callback / Express-style: `(req, res, next)` with `next()` or `next(err)`
+```javascript
+// src/middleware.js
+export default function (req, res, next) {
+  if (req.url === "/ping") {
+    res.end("pong");
+    return; // Handled
+  }
+  next(); // Continue
+}
+```
 
-Handling contract:
+### 2. Platform Adapters (`createHandler`)
 
-- If middleware ends the response (`res.writableEnded`), chain stops.
-- If middleware returns a truthy value, chain stops (treated as handled).
-- Errors bubble to server logs; request continues unless response already ended.
+Uses **Web Standard** middleware. This is required when using `sxo/cloudflare` or the internal runtime adapters.
 
-Dev mode: middleware is reloaded on changes (file name `middleware.js` or directories containing it).
-Prod mode: middleware loaded once at startup.
+**Signature**: `(request: Request, env: object) => Response | void`
+
+```javascript
+// src/middleware.js
+export default function (request, env) {
+  const url = new URL(request.url);
+  if (url.pathname === "/ping") {
+    return new Response("pong");
+  }
+  // Return nothing to continue
+}
+```
 
 Use cases:
 
@@ -293,14 +620,14 @@ Mechanism:
 - The client script (`/hot-replace.js`) receives a JSON payload (`{ body, assets, publicPath }`) and performs partial replacement:
   - Replaces the `<body>` innerHTML.
   - Re-injects all CSS and JS assets associated with the route from the manifest.
-  - Preserves scroll positions and (optionally) “reactive” component state heuristically.
+  - Preserves scroll positions and (optionally) "reactive" component state heuristically.
 - Build errors are sent as an HTML fragment in the `body` field of the payload.
 
 Readiness Probe:
 
 - Auto-open waits for HTTP readiness:
   - Attempts `HEAD` first, falls back to `GET`
-  - Any status `< 500` (including `404`) counts as “ready”
+  - Any status `< 500` (including `404`) counts as "ready"
   - Exponential backoff until timeout (default 10–12s)
 
 ## Custom Error Pages (404/500)
@@ -377,7 +704,7 @@ Production server behavior:
 Notes:
 
 - Dynamic routes (paths containing `[param]`) are never generated.
-- The manifest’s `generated` flag is persisted to `dist/server/routes.json`.
+- The manifest's `generated` flag is persisted to `dist/server/routes.json`.
 - Page module selection remains `module.default || module.jsx`.
 
 ## HTML Template and Styles
@@ -529,14 +856,67 @@ Runtime helpers:
 - Hot replace patches fragment and assets.
 - Readiness probe prevents race on browser auto-open.
 
-## Security Considerations
+## Security
 
-- No implicit CORS / CSP / compression / rate limiting: add via middleware explicitly.
-- Middleware runs _before_ static + route handling—validate and sanitize inputs early.
-- Only whitelisted file extensions are served; no directory listings.
-- Dynamic slug validation restricts to `^[A-Za-z0-9._-]{1,200}$` (requests failing validation yield 400).
-- Pages own their <head> contents; sanitize or escape any untrusted HTML in JSX.
-- Avoid embedding untrusted HTML inside JSX without sanitization.
+SXO provides **foundational security controls** while giving you full control over application-specific security policies through middleware.
+
+### 🔒 Built-in Protections
+
+✅ **What SXO Provides:**
+- Path traversal protection (automatic)
+- Security headers: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`
+- HTML escaping utilities (`escapeHtml()`)
+- Route slug validation (`^[A-Za-z0-9._-]{1,200}$`)
+- Static asset security (MIME type restrictions, no directory listing)
+- Secure file serving with ETag/caching controls
+
+### 🛡️ Your Responsibility (via Middleware)
+
+❌ **What You Must Implement:**
+- Authentication & Authorization
+- Session Management
+- CSRF Protection
+- Content Security Policy (CSP)
+- Rate Limiting
+- Input Validation (beyond route slugs)
+- HTTPS/TLS Configuration
+- Application-specific security logging
+
+### 📖 Comprehensive Security Guide
+
+**See [SECURITY.md](./SECURITY.md) for detailed guidance on:**
+
+- [Authentication patterns](./SECURITY.md#authentication) (JWT, sessions, OAuth/OIDC)
+- [Session management](./SECURITY.md#session-management) with secure cookies
+- [CSRF protection](./SECURITY.md#csrf-protection) strategies
+- [Content Security Policy (CSP)](./SECURITY.md#content-security-policy-csp) examples
+- [XSS prevention](./SECURITY.md#xss-prevention) best practices
+- [Input validation](./SECURITY.md#input-validation) patterns
+- [Secret management](./SECURITY.md#secret-management) (environment variables, rotation)
+- [HTTPS/TLS setup](./SECURITY.md#httpstls-configuration) for all platforms
+- [Rate limiting](./SECURITY.md#rate-limiting) implementation
+- [Security headers](./SECURITY.md#security-headers) reference
+- [Security testing](./SECURITY.md#security-testing) checklist
+
+### ⚡ Quick Security Checklist
+
+Before deploying to production:
+
+- [ ] All secrets in `.env` / `.env.local`, never committed to git
+- [ ] Application serves over HTTPS with valid certificates
+- [ ] Authentication & session management implemented
+- [ ] CSRF protection enabled for state-changing operations
+- [ ] Content-Security-Policy header configured
+- [ ] Rate limiting on sensitive endpoints (login, APIs)
+- [ ] All user inputs validated and sanitized
+- [ ] Error messages don't expose sensitive data
+- [ ] Dependencies audited (`npm audit` / `pnpm audit`)
+
+### 🐛 Reporting Security Issues
+
+**Do not open public issues for security vulnerabilities.**
+
+Please report security issues responsibly via GitHub Security Advisories or by contacting the maintainers privately. See [SECURITY.md](./SECURITY.md#reporting-security-issues) for details.
 
 ## Testing
 
@@ -554,141 +934,6 @@ Focused suites:
 - Utils: asset extraction, routing, statics security
 - JSX helpers: attribute normalization, spreads
 - Entry points: manifest generation semantics
-
-## Examples
-
-### Basic Example
-
-A minimal SXO app showcasing simple routing, dynamic params, per‑route client entry, and middleware.
-
-Location: `examples/basic`
-
-What it shows:
-
-- Static and dynamic routing: `/`, `/about`, `/about/[slug]`, `/counter`
-- Demonstrates route parameters and dynamic routes
-- Optional per‑route client entry (`src/pages/counter/client/index.js`) registering a custom element with `reactive-component`
-- Shared components under `src/components`
-- Global stylesheet (`src/pages/global.css`)
-- Example middleware chain: CORS, health check (`/healthz`), and OK endpoint (`/ok`)
-- Tailwind via CDN for styles on the counter page (loaded in head `script`)
-
-Quickstart:
-
-```shell
-cd examples/basic
-pnpm i
-
-# SXO dev server (SSE hot replace)
-pnpm dev
-
-# Build and run production server
-pnpm build
-pnpm start
-```
-
-Structure:
-
-```shell
-examples/basic/
-├── src/
-│   ├── components/
-│   │   ├── Header.jsx
-│   │   └── Page.jsx
-│   ├── middleware/
-│   │   └── cors.js
-│   ├── middleware.js
-│   └── pages/
-│       ├── global.css
-│       ├── docs.json
-│       ├── index.jsx
-│       ├── about/
-│       │   ├── index.jsx
-│       │   └── [slug]/index.jsx
-│       ├── counter/
-│       │   ├── index.jsx
-│       │   ├── counter.jsx
-│       │   └── client/
-│       │       └── index.js
-│       └── posts/
-│           ├── index.jsx
-│           └── [slug]
-│               └── index.jsx
-├── sxo.config.js
-├── package.json
-└── pnpm-lock.yaml
-```
-
-Also demonstrates:
-
-- API data fetching using JSONPlaceholder (posts/:id), with a dynamic route:
-  - routes: `/posts` (index listing) and `/posts/[slug]` (post details)
-  - files: `examples/basic/src/pages/posts/index.jsx`, `examples/basic/src/pages/posts/[slug]/index.jsx`
-
-Try it (JSONPlaceholder posts demo):
-
-- In dev, visit `/posts` for links to `/posts/1`, `/posts/2`, `/posts/3`
-- Click through to see server-rendered content fetched from https://jsonplaceholder.typicode.com/posts/:id
-
-### Cloudflare Workers Example
-
-A full example demonstrating SXO with Cloudflare Workers, including dynamic routes, per‑route client entries, global HTML/CSS, and deployment via Wrangler.
-
-Location: `examples/workers`
-
-What it shows:
-
-- Dynamic routing with `[slug]` segments
-- Optional per‑route client entry (`src/pages/<route>/client/index.js`)
-- Shared components under `src/components`
-- Global stylesheet (`src/pages/global.css`)
-- Post‑build script for edge import generation
-- Local dev and production deploy using Wrangler
-
-Quickstart:
-
-```shell
-cd examples/workers
-pnpm i
-
-# SXO dev server (SSE hot replace)
-pnpm dev
-
-# Optional: run Worker locally in another terminal
-pnpm start   # wrangler dev
-
-# Build (triggers postbuild import generation)
-pnpm build
-
-# Deploy to Cloudflare Workers
-pnpm deploy
-```
-
-Structure:
-
-```shell
-examples/workers/
-├── scripts/
-│   ├── generate-imports.js
-│   └── index.js
-├── src/
-│   ├── components/
-│   │   ├── Header.jsx
-│   │   └── Page.jsx
-│   └── pages/
-│       ├── global.css
-│       ├── index.jsx
-│       ├── about/
-│       │   ├── index.jsx
-│       │   └── [slug]/index.jsx
-│       └── counter/
-│           ├── index.jsx
-│           ├── counter.jsx
-│           └── client/index.js
-├── sxo.config.js
-├── wrangler.jsonc
-└── vitest.config.js
-```
 
 ## Deployment
 
@@ -709,7 +954,7 @@ Serve behind a reverse proxy (optional). Add your own middleware for:
 ## Acknowledgements
 
 - Built on top of esbuild — thanks to Evan Wallace and the esbuild project for the extremely fast bundler & plugin ecosystem: https://github.com/evanw/esbuild
-- Custom metafile-based asset injection — thanks to the internal plugin that maps entry points to outputs via esbuild’s metafile
+- Custom metafile-based asset injection — thanks to the internal plugin that maps entry points to outputs via esbuild's metafile
 - Utility inspiration / helper code from gc-victor/query — thanks for the lightweight query primitives used for route and JSX transform: https://github.com/gc-victor/query
 - Reactive components primitives: reactive-component — thanks for the tiny, framework-agnostic signals/effects runtime that powers "islands": https://github.com/gc-victor/reactive-component
 - Extra thanks to the open-source community for libraries and examples that influenced SXO's ergonomics and performance.
