@@ -1,6 +1,10 @@
-# SXO: Collection of Components
+# SXOUI: Collection of Components
 
 A comprehensive showcase project demonstrating the integration of **SXO** (server-side JSX framework), **reactive-component** (client-side islands), and **basecoat-css** (component styling system). This project serves as a reference implementation for building modern web applications with this powerful stack.
+
+**🌐 Live Demo & Documentation**: [https://sxoui.com](https://sxoui.com)
+
+SXOUI is a production-ready component library built on vanilla JSX with no client-side framework dependencies. All components are designed for server-side rendering with optional client-side interactivity through reactive islands. The library provides accessible, semantic, and performant components that work seamlessly with any backend stack.
 
 ## Table of Contents
 
@@ -11,6 +15,9 @@ A comprehensive showcase project demonstrating the integration of **SXO** (serve
 - [Project Structure](#project-structure)
 - [Architecture](#architecture)
 - [Components](#components)
+  - [UI Components](#ui-components)
+  - [Component Features](#component-features)
+  - [Using Components](#using-components)
 - [Development](#development)
 - [Build & Deployment](#build--deployment)
 - [Contributing](#contributing)
@@ -189,22 +196,69 @@ define("bc-accordion", ({ $state, $bind }) => {
 
 ### UI Components
 
-The library includes 20+ production-ready components:
+SXOUI includes 25+ production-ready components, all available at [sxoui.com](https://sxoui.com) with live demos, code examples, and installation instructions:
 
-- **Layout**: Card, Badge, Breadcrumb, Pagination
-- **Forms**: Input, Textarea, Select, Checkbox, Radio Group, Switch, Slider
-- **Feedback**: Alert, Alert Dialog, Toast, Skeleton
-- **Navigation**: Tabs, Dropdown Menu, Popover, Tooltip
-- **Content**: Avatar, Table, Accordion
-- **Utilities**: Button, Label
+#### Layout & Structure
+- **Card** - Flexible container with header, body, and footer sections
+- **Badge** - Small inline status indicators and labels
+- **Breadcrumb** - Hierarchical navigation trail
+- **Pagination** - Multi-page navigation controls
+- **Table** - Accessible data tables with sorting and styling
+
+#### Form Controls
+- **Input** - Text, email, password, and number inputs
+- **Textarea** - Multi-line text input with auto-resize
+- **Select** - Native dropdown select with styling
+- **Select Menu** - Custom accessible dropdown with search and keyboard navigation
+- **Checkbox** - Toggle selection with indeterminate state support
+- **Radio Group** - Mutually exclusive option selector
+- **Switch** - Toggle switch for boolean values
+- **Slider** - Range input for numeric values
+- **Label** - Accessible form field labels
+- **Form** - Form validation and layout utilities
+
+#### Feedback & Overlays
+- **Alert** - Informational banners with variants (info, success, warning, error)
+- **Alert Dialog** - Modal confirmation dialogs
+- **Dialog** - General-purpose modal dialogs
+- **Toast** - Temporary notification messages
+- **Skeleton** - Loading placeholders
+- **Tooltip** - Contextual help on hover/focus
+
+#### Navigation & Interaction
+- **Tabs** - Content organization with tabbed interface
+- **Dropdown Menu** - Accessible action menus
+- **Popover** - Floating content panels
+- **Accordion** - Expandable/collapsible content sections
+
+#### Content Display
+- **Avatar** - User profile images with fallback
+- **Button** - Primary interaction buttons with variants
+- **Icon** - SVG icon system with semantic usage
 
 ### Component Features
 
-- **Semantic HTML**: Proper accessibility attributes and structure
-- **Keyboard Navigation**: Full keyboard support for interactive elements
-- **Screen Reader Support**: ARIA attributes and live regions
-- **Theme Support**: Automatic dark/light mode switching
-- **Responsive**: Mobile-first design with breakpoint utilities
+All SXOUI components are built with the following principles:
+
+- **Semantic HTML**: Proper accessibility attributes and WCAG 2.1 AA compliance
+- **Keyboard Navigation**: Full keyboard support for all interactive elements (Tab, Enter, Space, Arrow keys, Escape)
+- **Screen Reader Support**: Comprehensive ARIA attributes, labels, and live regions
+- **Theme Support**: Built-in dark/light mode with CSS custom properties
+- **Responsive Design**: Mobile-first approach with breakpoint utilities
+- **Zero Runtime Dependencies**: No React, Vue, or other framework required
+- **Progressive Enhancement**: Works with JavaScript disabled where possible
+- **Type Safety**: Full JSDoc type definitions for all components
+- **Customizable**: CSS custom properties for theming and easy style overrides
+- **Performance Optimized**: Minimal bundle size with tree-shaking support
+
+### Using Components
+
+Visit [sxoui.com](https://sxoui.com) for:
+- **Live Examples**: Interactive component demonstrations
+- **Copy-Paste Ready**: Complete code snippets for each component
+- **API Documentation**: Props, variants, and usage patterns
+- **Accessibility Notes**: WCAG compliance details and keyboard shortcuts
+- **Integration Guides**: Framework-specific usage examples
 
 ## Development
 
@@ -339,3 +393,5 @@ MIT License - see [LICENSE](../LICENSE) file for details.
 ---
 
 Built with ❤️ using [SXO](https://github.com/gc-victor/sxo), [reactive-component](https://github.com/gc-victor/reactive-component), and [basecoat-css](https://basecoatui.com).
+
+**Explore the full component library at [sxoui.com](https://sxoui.com)** - Live demos, documentation, and copy-paste ready code for all components.
