@@ -1,0 +1,14 @@
+{
+    "name": "sxo-node-example",
+    "type": "module",
+    "private": true,
+    "scripts": {
+        "dev": "sxo dev",
+        "build": "sxo build",
+        "start": "sxo start"
+    },
+    "dependencies": {
+        "@qery/reactive-component": "^0.8.0",
+        "sxo": "file:../.."
+    }
+}
