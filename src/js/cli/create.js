@@ -10,6 +10,7 @@
 
 import fsp from "node:fs/promises";
 import path from "node:path";
+import readline from "node:readline";
 
 import { askYesNo, ensureDir, pathExists } from "./cli-helpers.js";
 import { log } from "./ui.js";
@@ -22,6 +23,59 @@ const GITHUB_API_BASE = "https://api.github.com/repos/gc-victor/sxo";
 const RAW_GITHUB_BASE = "https://raw.githubusercontent.com/gc-victor/sxo/main/";
 
 /**
+ * Prompts user to select a runtime via interactive menu.
+ * Non-TTY environments return "node" (default).
+ *
+ * @returns {Promise<"node"|"bun"|"deno"|"workers">}
+ */
+export async function selectRuntime() {
+    if (!process.stdout.isTTY || process.env.NODE_ENV === "test") {
+        return "node";
+    }
+
+    // Display menu
+    log.info("\nSelect a runtime:");
+    log.info("  1) node (default)");
+    log.info("  2) bun");
+    log.info("  3) deno");
+    log.info("  4) workers");
+    process.stdout.write("\n> ");
+
+    return new Promise((resolve) => {
+        const rl = readline.createInterface({
+            input: process.stdin,
+            output: process.stdout,
+        });
+
+        const ask = () => {
+            rl.question("", (answer) => {
+                const input = answer.trim();
+
+                if (input === "" || input === "1") {
+                    rl.close();
+                    resolve("node");
+                } else if (input === "2") {
+                    rl.close();
+                    resolve("bun");
+                } else if (input === "3") {
+                    rl.close();
+                    resolve("deno");
+                } else if (input === "4") {
+                    rl.close();
+                    resolve("workers");
+                } else {
+                    log.info("Invalid selection. Please choose 1-4 or press Enter for default (node).");
+                    process.stdout.write("> ");
+                    ask(); // Re-prompt
+                }
+            });
+        };
+
+        ask();
+    });
+}
+
+/**
  * Fetches the list of files in the templates directory from the GitHub repository.
  *
  * Uses the GitHub API with a recursive tree lookup. Unauthenticated requests have a
@@ -31,11 +85,12 @@ const RAW_GITHUB_BASE = "https://raw.githubusercontent.com/gc-victor/sxo/main/";
  * Potential future optimization—cache the template list locally with a TTL
  * to avoid repeated API calls during development. Could store in ~/.sxo or similar.
  *
+ * @param {string} runtime - Runtime to fetch templates for (node, bun, deno, workers)
  * @returns {Promise<string[]>} List of file paths relative to the templates directory
  */
-async function fetchTemplateFileList() {
+export async function fetchTemplateFileList(runtime) {
     try {
-        const response = await fetch(`${GITHUB_API_BASE}/git/trees/main:templates?recursive=1`, {
+        const response = await fetch(`${GITHUB_API_BASE}/git/trees/main:templates/${runtime}?recursive=1`, {
             headers: {
                 "User-Agent": "sxo-cli",
                 Accept: "application/vnd.github.v3+json",
@@ -70,19 +125,20 @@ async function fetchTemplateFileList() {
  *
  * @param {string} filePath - Path in the repo (e.g. "templates/package.json")
  * @param {string} projectName - Project name to replace in text files
+ * @param {string} runtime - Runtime to fetch templates for (node, bun, deno, workers)
  * @returns {Promise<string|Buffer>} File content (string for text, Buffer for binary)
  *
  * @example
  * // Text file with placeholder
- * const content = await fetchTemplateFile('templates/package.json', 'my-app');
+ * const content = await fetchTemplateFile('templates/package.json', 'my-app', 'node');
  * // => '{ "name": "my-app" }'
  *
  * // Binary file (image, archive, etc.)
- * const buffer = await fetchTemplateFile('templates/logo.png', 'my-app');
+ * const buffer = await fetchTemplateFile('templates/logo.png', 'my-app', 'node');
  * // => Buffer(...)  [no interpolation applied]
  */
-async function fetchTemplateFile(filePath, projectName) {
-    const url = `${RAW_GITHUB_BASE}${filePath}`;
+export async function fetchTemplateFile(filePath, projectName, runtime) {
+    const url = `${RAW_GITHUB_BASE}${runtime}/${filePath}`;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout for content
 
@@ -162,8 +218,9 @@ export async function checkDirectoryExists(projectPath, _projectName) {
  *
  * Orchestrates the project creation workflow:
  * 1. Check directory existence
- * 2. Fetch template list from GitHub
- * 3. Download and write all files
+ * 2. Select runtime (interactive or default)
+ * 3. Fetch template list from GitHub
+ * 4. Download and write all files
  *
  * When `projectName` is ".", creates the project in the current directory
  * (effectively using the current directory name as the project name).
@@ -185,11 +242,14 @@ export async function handleCreateCommand(projectName, cfg) {
         return false;
     }
 
+    const runtime = await selectRuntime();
+    log.info(`Creating ${runtime} project...`);
+
     try {
         await ensureDir(projectPath);
 
         log.info("Fetching template list from GitHub...");
-        const files = await fetchTemplateFileList();
+        const files = await fetchTemplateFileList(runtime);
 
         if (files.length === 0) {
             throw new Error("No template files found in the repository.");
@@ -207,7 +267,7 @@ export async function handleCreateCommand(projectName, cfg) {
         const downloadFile = async (file) => {
             const destPath = path.join(projectPath, file);
             await ensureDir(path.dirname(destPath));
-            const content = await fetchTemplateFile(`templates/${file}`, effectiveProjectName);
+            const content = await fetchTemplateFile(`templates/${runtime}/${file}`, effectiveProjectName, runtime);
             await fsp.writeFile(destPath, content);
             process.stdout.write(".");
         };

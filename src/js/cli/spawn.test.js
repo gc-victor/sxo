@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { setTimeout as sleep } from "node:timers/promises";
-import { runNode, spawnNode, spawnProcess, terminate } from "./spawn.js";
+import { spawnProcess, spawnRuntime, terminate } from "./spawn.js";
 
 async function withTempDir(fn) {
     const dir = await fsp.mkdtemp(path.join(os.tmpdir(), "sxo-spawn-"));
@@ -25,40 +25,6 @@ async function writeTempScript(dir, filename, content) {
     await fsp.writeFile(abs, content, "utf8");
     return abs;
 }
-
-test("spawnNode/runNode: runs a simple script and succeeds", async () => {
-    await withTempDir(async (dir) => {
-        const script = await writeTempScript(
-            dir,
-            "ok.mjs",
-            `
-        console.log("hello");
-        process.exit(0);
-      `.trim(),
-        );
-
-        const res = await runNode(script, { cwd: dir, stdio: "pipe", inheritOutput: false });
-        assert.equal(res.success, true);
-        assert.equal(res.code, 0);
-    });
-});
-
-test("spawnNode/runNode: propagates non-zero exit code", async () => {
-    await withTempDir(async (dir) => {
-        const script = await writeTempScript(
-            dir,
-            "bad.mjs",
-            `
-        console.error("oops");
-        process.exit(2);
-      `.trim(),
-        );
-
-        const res = await runNode(script, { cwd: dir, stdio: "pipe", inheritOutput: false });
-        assert.equal(res.success, false);
-        assert.equal(res.code, 2);
-    });
-});
 
 test("spawnProcess: line callbacks receive stdout/stderr lines with prefix", async () => {
     const linesOut = [];
@@ -104,7 +70,7 @@ test("terminate(): sends SIGTERM and script exits cleanly", async () => {
       `.trim(),
         );
 
-        const { child, wait } = spawnNode(script, { cwd: dir, stdio: "pipe", inheritOutput: false });
+        const { child, wait } = spawnRuntime(script, { cwd: dir, stdio: "pipe", inheritOutput: false });
 
         // Give it a moment to start
         await sleep(150);
@@ -133,7 +99,7 @@ test("spawnProcess: AbortSignal stops the child via SIGTERM", async () => {
 
         const ctrl = new AbortController();
 
-        const { wait } = spawnNode(script, {
+        const { wait } = spawnRuntime(script, {
             cwd: dir,
             stdio: "pipe",
             inheritOutput: false,
@@ -173,28 +139,4 @@ test("spawnProcess: onStdout/onStderr still work with long single chunks", async
     assert.equal(res.success, true);
     assert.deepEqual(out, ["line1", "line2", "line3"]);
     assert.deepEqual(err, ["e1", "e2"]);
-});
-
-test("runNode: returns code/signal info on forced early exit", async () => {
-    await withTempDir(async (dir) => {
-        const script = await writeTempScript(
-            dir,
-            "hang.mjs",
-            `
-        // Hang forever
-        setInterval(() => {}, 1000);
-      `.trim(),
-        );
-
-        // Start process
-        const { child, wait } = spawnNode(script, { cwd: dir, stdio: "pipe", inheritOutput: false });
-
-        // Kill it after a short delay; we don't assert a specific signal for cross-platform stability.
-        await sleep(200);
-        terminate(child, "SIGTERM", 2000);
-
-        const res = await wait;
-        // Should have exited; success likely false if it didn't exit with 0
-        assert.ok(res.code !== null || res.signal !== null, "should report code or signal on exit");
-    });
 });
