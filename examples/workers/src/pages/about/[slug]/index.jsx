@@ -1,17 +1,20 @@
-import { Header } from "@components/Header";
-import { Page } from "@components/Page";
-
-export default ({ slug }) => (
-    <html lang="en">
-        <head>
-            <meta charset="UTF-8" />
-            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-            <title>{`Slug - ${slug}`}</title>
-        </head>
-        <body>
-            <Page>
-                <Header title={`Slug - ${slug}!`} />
-            </Page>
-        </body>
-    </html>
-);
+export default function AboutSlug({ slug }) {
+    return (
+        <html lang="en">
+            <head>
+                <meta charset="utf-8" />
+                <meta name="viewport" content="width=device-width, initial-scale=1" />
+                <title>About {slug} - SXO</title>
+            </head>
+            <body>
+                <h1>About: {slug}</h1>
+                <p>
+                    This is a dynamic page for slug: <strong>{slug}</strong>
+                </p>
+                <nav>
+                    <a href="/">Home</a> | <a href="/about">About</a>
+                </nav>
+            </body>
+        </html>
+    );
+}

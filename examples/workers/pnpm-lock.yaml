@@ -12,8 +12,8 @@ importers:
         specifier: ^0.8.0
         version: 0.8.0
       sxo:
-        specifier: ^0.8.1
-        version: 0.8.1
+        specifier: file:../..
+        version: file:../..
     devDependencies:
       wrangler:
         specifier: ^4.53.0
@@ -724,8 +724,8 @@ packages:
     resolution: {integrity: sha512-SS+jx45GF1QjgEXQx4NJZV9ImqmO2NPz5FNsIHrsDjh2YsHnawpan7SNQ1o8NuhrbHZy9AZhIoCUiCeaW/C80g==}
     engines: {node: '>=18'}
 
-  sxo@0.8.1:
-    resolution: {integrity: sha512-vLV7A9lPdN00A5a6F3zbOAOST2J5YmuamvRObpk73ZiO6qRWtpHImrksSLEjiW8gkn99xlFD/lFFDgB/rWbD5g==}
+  sxo@file:../..:
+    resolution: {directory: ../.., type: directory}
     engines: {node: '>=20'}
     hasBin: true
 
@@ -1340,8 +1340,9 @@ snapshots:
 
   supports-color@10.2.2: {}
 
-  sxo@0.8.1:
+  sxo@file:../..:
     dependencies:
+      '@qery/reactive-component': 0.8.0
       cac: 6.7.14
       dotenv: 17.2.3
       esbuild: 0.27.1
