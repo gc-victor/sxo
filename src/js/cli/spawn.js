@@ -13,6 +13,7 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
 import process from "node:process";
+import { detectRuntime } from "../server/shared/runtime.js";
 
 /**
  * @typedef {Object} SpawnOptions
@@ -25,7 +26,7 @@ import process from "node:process";
  * @property {string} [prefix]          - Optional prefix to add to each output line
  * @property {AbortSignal} [signal]     - AbortSignal to cancel the process
  * @property {number} [forceKillAfterMs]- Force SIGKILL after this many ms on shutdown (default: 5000)
- * @property {string[]} [nodeOptions]   - Extra Node.js options (when using spawnNode)
+
  */
 
 /**
@@ -119,18 +120,42 @@ export function spawnProcess(command, args = [], options = {}) {
 }
 
 /**
- * Spawn a Node.js ESM script robustly (uses process.execPath for cross-platform)
+ * Get the runtime-appropriate command and prefix args for spawning scripts.
+ * Detects Node.js, Bun, or Deno and returns the correct executable configuration.
  *
- * @param {string} scriptPath - Path to the Node.js entry point (ESM or CJS)
- * @param {SpawnOptions & { args?: string[] }} [options]
+ * @returns {{ command: string, prefix: string[] }}
+ */
+function getRuntimeExecutable() {
+    const runtime = detectRuntime();
+    switch (runtime) {
+        case "bun":
+            // Bun can execute scripts directly via its process.execPath
+            return { command: process.execPath, prefix: [] };
+        case "deno":
+            // Deno needs 'run' subcommand and permissions
+            return {
+                command: process.execPath,
+                prefix: ["run", "--allow-all"],
+            };
+        default:
+            return { command: process.execPath, prefix: [] };
+    }
+}
+
+/**
+ * Spawn a script using the current runtime (Node.js, Bun, or Deno).
+ * Automatically detects the runtime and uses the appropriate executable and flags.
+ *
+ * @param {string} scriptPath - Path to the script entry point
+ * @param {SpawnOptions & { args?: string[], runtimeOptions?: string[] }} [options]
  * @returns {{ child: import('node:child_process').ChildProcess, wait: Promise<SpawnResult> }}
  */
-export function spawnNode(scriptPath, options = {}) {
-    const nodeExec = process.execPath;
-    const { args = [], nodeOptions = [], ...rest } = options;
+export function spawnRuntime(scriptPath, options = {}) {
+    const { command, prefix } = getRuntimeExecutable();
+    const { args = [], runtimeOptions = [], ...rest } = options;
     const resolved = path.resolve(scriptPath);
-    const finalArgs = [...(nodeOptions || []), resolved, ...(args || [])];
-    return spawnProcess(nodeExec, finalArgs, rest);
+    const finalArgs = [...prefix, ...(runtimeOptions || []), resolved, ...(args || [])];
+    return spawnProcess(command, finalArgs, rest);
 }
 
 /**
@@ -284,12 +309,12 @@ export async function runProcess(command, args = [], options = {}) {
 }
 
 /**
- * Convenience helper to run a Node script to completion.
+ * Convenience helper to run a script to completion using the current runtime.
  * @param {string} scriptPath
- * @param {SpawnOptions & { args?: string[] }} [options]
+ * @param {SpawnOptions & { args?: string[], runtimeOptions?: string[] }} [options]
  * @returns {Promise<SpawnResult>}
  */
-export async function runNode(scriptPath, options = {}) {
-    const { wait } = spawnNode(scriptPath, options);
+export async function runRuntime(scriptPath, options = {}) {
+    const { wait } = spawnRuntime(scriptPath, options);
     return await wait;
 }

@@ -34,7 +34,7 @@ import {
 } from "./cli-helpers.js";
 import { handleCreateCommand } from "./create.js";
 import { openWhenReady } from "./open.js";
-import { runNode, spawnNode } from "./spawn.js";
+import { runRuntime, spawnRuntime } from "./spawn.js";
 import { createSpinner, log, printBanner } from "./ui.js";
 
 /* ----------------------------- constants ----------------------------- */
@@ -81,7 +81,7 @@ registerCommonOptions(
 
         cfg.env.DEV = "true";
 
-        const prebuildRes = await runNode(ESBUILD_CONFIG_FILE, {
+        const prebuildRes = await runRuntime(ESBUILD_CONFIG_FILE, {
             cwd: root,
             env: cfg.env,
             stdio: "inherit",
@@ -102,8 +102,8 @@ registerCommonOptions(
         // Ensure dist exists (esbuild config already mkdir -p)
         await ensureDir(cfg.outDir);
 
-        // Spawn dev server
-        const { child, wait } = spawnNode(absoluteScript(root, SERVER_DEV_FILE), {
+        // Spawn dev server (auto-detects runtime internally)
+        const { child, wait } = spawnRuntime(absoluteScript(root, SERVER_DEV_FILE), {
             cwd: root,
             env: cfg.env,
             stdio: "inherit",
@@ -157,7 +157,7 @@ registerCommonOptions(
         s.start();
 
         log.info("Running build...");
-        const res = await runNode(ESBUILD_CONFIG_FILE, {
+        const res = await runRuntime(ESBUILD_CONFIG_FILE, {
             cwd: root,
             env: cfg.env,
             stdio: "inherit",
@@ -204,7 +204,7 @@ registerCommonOptions(cli.command("start", "Start the production server")).actio
             return;
         }
 
-        const { wait } = spawnNode(absoluteScript(root, SERVER_PROD_FILE), {
+        const { wait } = spawnRuntime(absoluteScript(root, SERVER_PROD_FILE), {
             cwd: root,
             env: { ...cfg.env, NODE_ENV: "production" },
             stdio: "inherit",
