@@ -1,0 +1,10 @@
+{
+    "imports": {
+        "@qery/reactive-component": "npm:@qery/reactive-component@^0.8.0"
+    },
+    "tasks": {
+        "dev": "deno run -A npm:sxo dev",
+        "build": "deno run -A npm:sxo build",
+        "start": "deno run -A npm:sxo start"
+    }
+}

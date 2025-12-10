@@ -1,0 +1,29 @@
+{
+    "name": "project_name",
+    "version": "0.1.0",
+    "description": "An SXO project (Cloudflare Workers)",
+    "type": "module",
+    "scripts": {
+        "dev": "pnpm run \"/^(tailwind:watch|sxo:dev)$/\"",
+        "server": "pnpm run sxo:build && wrangler dev",
+        "build": "pnpm run sxo:clean -y && pnpm run tailwind && sxo build",
+        "deploy": "pnpm run build && wrangler deploy",
+        "sxo:help": "sxo --help",
+        "sxo:dev": "sxo dev",
+        "sxo:generate": "sxo generate",
+        "sxo:clean": "sxo clean",
+        "tailwind": "tailwindcss -i src/styles.css -o src/pages/global.css --minify",
+        "tailwind:watch": "pnpm run tailwind --watch"
+    },
+    "dependencies": {
+        "@qery/reactive-component": "0.8.0",
+        "sxo": "0.9.0"
+    },
+    "devDependencies": {
+        "@tailwindcss/cli": "4.1.17",
+        "@types/node": "24.10.2",
+        "basecoat-css": "0.3.7",
+        "tailwindcss": "4.1.17",
+        "wrangler": "^4.53.0"
+    }
+}

@@ -1,0 +1,29 @@
+{
+    "name": "project_name",
+    "version": "0.1.0",
+    "description": "An SXO project (Bun)",
+    "type": "module",
+    "scripts": {
+        "dev": "bunx --bun concurrently \"bun:tailwind:watch\" \"bun:sxo:dev\"",
+        "server": "bun run sxo:build && bun run sxo:start",
+        "build": "bun run sxo:clean -y && bun run tailwind && bunx --bun sxo build",
+        "sxo:help": "bunx --bun sxo --help",
+        "sxo:dev": "bunx --bun sxo dev",
+        "sxo:generate": "bunx --bun sxo generate",
+        "sxo:start": "bunx --bun sxo start",
+        "sxo:clean": "bunx --bun sxo clean",
+        "tailwind": "bunx tailwindcss -i src/styles.css -o src/pages/global.css --minify",
+        "tailwind:watch": "bun run tailwind --watch"
+    },
+    "dependencies": {
+        "@qery/reactive-component": "0.8.0",
+        "concurrently": "^9.2.1",
+        "sxo": "0.9.0"
+    },
+    "devDependencies": {
+        "@tailwindcss/cli": "4.1.17",
+        "@types/node": "24.10.2",
+        "basecoat-css": "0.3.7",
+        "tailwindcss": "4.1.17"
+    }
+}
