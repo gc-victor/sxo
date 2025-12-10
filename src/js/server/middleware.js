@@ -11,7 +11,7 @@
  * - If a middleware returns a truthy value the runner treats the request as handled and returns `true`.
  * - If all middleware run and none handled the request, the runner returns `false`.
  *
- * Lightweight, explicit runner used to sequence existing helpers like `cors()` and `statics()`.
+ * Lightweight, explicit runner used to sequence custom middleware functions.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -40,20 +40,38 @@ export async function runMiddleware(req, res, middlewares = []) {
 }
 
 /**
- * Load user-defined middlewares from the pages directory middleware.js file.
+ * Load user-defined middlewares from the pages directory middleware file.
  * Accepts:
  *   - default export: function or array
  *   - named export: middlewares / middleware / mw
  * Returns an array of middleware functions. Errors are logged (if logger provided) and result in [].
  * Centralized loader used by dev and prod servers to avoid duplication.
  *
+ * Supports multiple file extensions (checked in priority order):
+ *   - .js (most common, backwards compatible)
+ *   - .ts (TypeScript)
+ *   - .mjs (ES modules)
+ *
  * @returns {Promise<Function[]>}
  */
 export async function loadUserDefinedMiddlewares() {
     const srcDir = SRC_DIR;
     if (!srcDir) return [];
-    const userMwPath = path.resolve(srcDir, "middleware.js");
-    if (!fs.existsSync(userMwPath)) return [];
+
+    // Try multiple extensions in priority order
+    const extensions = [".js", ".ts", ".mjs"];
+    let userMwPath = null;
+
+    for (const ext of extensions) {
+        const candidatePath = path.resolve(srcDir, `middleware${ext}`);
+        if (fs.existsSync(candidatePath)) {
+            userMwPath = candidatePath;
+            break; // Use first match
+        }
+    }
+
+    if (!userMwPath) return [];
+
     try {
         const url = `${pathToFileURL(userMwPath).href}?t=${Date.now()}`;
         const mod = await import(url);
