@@ -1,268 +1,46 @@
-import fsp from "node:fs/promises";
-import http from "node:http";
-import path from "node:path";
+/**
+ * Universal production server entry point.
+ *
+ * This module auto-detects the JavaScript runtime (Node.js, Bun, or Deno)
+ * and dynamically imports the appropriate platform-specific prod adapter.
+ *
+ * Usage:
+ *   - Node.js: node src/js/server/prod.js
+ *   - Bun: bun src/js/server/prod.js
+ *   - Deno: deno run --allow-all src/js/server/prod.js
+ *
+ * Or simply use the CLI: sxo start
+ *
+ * The prod server provides:
+ *   - Custom 404/500 error pages
+ *   - User middleware support
+ *   - Static file serving with precompression
+ *   - SSR for dynamic routes
+ *   - Pre-generated HTML serving for static routes
+ *
+ * Platform-specific adapters:
+ *   - prod/node.js - Uses Node.js http server
+ *   - prod/bun.js - Uses Bun.serve
+ *   - prod/deno.js - Uses Deno.serve
+ *
+ * Note: Cloudflare Workers uses a separate factory pattern (prod/cloudflare.js)
+ * and is not included in this auto-detection flow.
+ *
+ * @module sxo/server/prod
+ */
 
-import { OUTPUT_DIR_CLIENT, PORT, ROUTES_FILE, ROUTES_RELATIVE_PATH } from "../constants.js";
-import { loadUserDefinedMiddlewares, runMiddleware } from "./middleware.js";
-import {
-    httpLogger,
-    injectAssets,
-    loadJsxModule,
-    logger,
-    normalizePublicPath,
-    resolve404Page,
-    resolve500Page,
-    routeMatch,
-    statics,
-} from "./utils/index.js";
+import { detectRuntime } from "./shared/runtime.js";
 
-const MAX_URL_LEN = 2048;
-const HEADER_TIMEOUT_MS_RAW = process.env.HEADER_TIMEOUT_MS;
-const HEADER_TIMEOUT_MS = HEADER_TIMEOUT_MS_RAW != null && HEADER_TIMEOUT_MS_RAW !== "" ? parseInt(HEADER_TIMEOUT_MS_RAW, 10) : null; // headers
-const REQUEST_TIMEOUT_MS = parseInt(process.env.REQUEST_TIMEOUT_MS || "120000", 10); // full request
+const runtime = detectRuntime();
 
-const YELLOW = "\x1b[33m";
+// Log the detected runtime
+const runtimeNames = {
+    node: "Node.js",
+    bun: "Bun",
+    deno: "Deno",
+};
+console.log(`\x1b[33m▶ Starting production server with ${runtimeNames[runtime]} adapter\x1b[0m`);
 
-// Load and validate router config at startup
-let filesRaw;
-try {
-    const s = await fsp.readFile(ROUTES_FILE, "utf-8");
-    filesRaw = JSON.parse(s);
-    if (!Array.isArray(filesRaw)) throw new Error(`${ROUTES_RELATIVE_PATH} is not an array`);
-    for (const f of filesRaw) {
-        if (!f || typeof f !== "object") throw new Error("Invalid route entry");
-        if (typeof f.filename !== "string" || typeof f.jsx !== "string") {
-            throw new Error("Route missing filename or jsx");
-        }
-        if (f.path && typeof f.path !== "string") throw new Error("Route path must be string if provided");
-    }
-} catch (e) {
-    console.error(`Failed to load or validate ${ROUTES_RELATIVE_PATH}:`, e);
-    process.exit(1);
-}
-const files = filesRaw; // keep the canonical `files` name
-
-// Load user-defined middleware (centralized loader, one-time for prod)
-const userMiddlewares = await loadUserDefinedMiddlewares();
-
-const routes = new Map();
-
-const server = http.createServer(async (req, res) => {
-    httpLogger(req, res);
-
-    // Enforce URL length and safe decoding
-    if (!req.url || req.url.length > MAX_URL_LEN) {
-        res.writeHead(414, { "Content-Type": "text/plain; charset=utf-8" });
-        res.end("URI Too Long");
-        return;
-    }
-
-    // Execute user-defined middleware chain early so CORS logic (if provided) can set headers, including for OPTIONS.
-    if (userMiddlewares.length) {
-        try {
-            const handledEarly = await runMiddleware(req, res, userMiddlewares);
-            if (handledEarly) return;
-        } catch (e) {
-            logger.error({ err: e }, "User middleware error");
-            // Continue; do not leak stack to client.
-        }
-    }
-
-    // Preflight (user CORS middleware should already have set headers)
-    if (req.method === "OPTIONS") {
-        res.writeHead(204);
-        res.end();
-        return;
-    }
-
-    // Static files (ensure statics() does safe path handling internally)
-    const servedStatic = await statics(req, res);
-    if (servedStatic) return;
-
-    // Parse URL path safely
-    let pathname = "/";
-    try {
-        const u = new URL(req.url, "http://localhost");
-        pathname = decodeURIComponent(u.pathname);
-    } catch (e) {
-        logger.warn(
-            { err: e, method: req.method, url: req.url, remoteAddress: req.socket?.remoteAddress },
-            "Bad Request: failed to parse URL",
-        );
-        res.writeHead(400, { "Content-Type": "text/plain; charset=utf-8" });
-        res.end("Bad Request");
-        return;
-    }
-
-    let match = null;
-
-    if (routes.has(pathname)) {
-        match = routes.get(pathname);
-    } else {
-        match = routeMatch(pathname, files);
-        routes.set(pathname, match);
-    }
-
-    if (!match) {
-        try {
-            const special404 = resolve404Page();
-            if (special404) {
-                const fn = await loadJsxModule(special404);
-                const page404 = await fn({});
-                const isHtml = /^<html[\s>]/i.test(page404);
-                res.setHeader("Content-Type", "text/html; charset=utf-8");
-                res.setHeader("Cache-Control", "public, max-age=0, must-revalidate");
-                if (req.method === "HEAD") {
-                    res.writeHead(404);
-                    res.end();
-                    return;
-                }
-                res.writeHead(404);
-                res.end(isHtml ? `<!doctype html>\n${page404}` : page404);
-                return;
-            }
-        } catch (e) {
-            logger.error({ err: e }, "Failed to render custom 404 page");
-        }
-        res.setHeader("Content-Type", "text/plain; charset=utf-8");
-        res.setHeader("Cache-Control", "public, max-age=0, must-revalidate");
-        if (req.method === "HEAD") {
-            res.writeHead(404);
-            res.end();
-        } else {
-            res.writeHead(404);
-            res.end("Not found");
-        }
-        return;
-    }
-    if (match.invalid) {
-        logger.warn(
-            { method: req.method, url: req.url, pathname, remoteAddress: req.socket?.remoteAddress },
-            "Bad Request: invalid route parameters",
-        );
-        res.writeHead(400, { "Content-Type": "text/plain; charset=utf-8" });
-        res.end("Invalid parameters");
-        return;
-    }
-
-    const { route, params } = match;
-
-    try {
-        // If this page was generated by the CLI per manifest, serve it as-is (skip SSR)
-        if (route.generated === true) {
-            const htmlPath = path.resolve(OUTPUT_DIR_CLIENT, route.filename);
-            const html = await fsp.readFile(htmlPath, "utf-8");
-            res.setHeader("Content-Type", "text/html; charset=utf-8");
-            res.setHeader("Cache-Control", "public, max-age=300");
-            if (req.method === "HEAD") {
-                res.writeHead(200);
-                res.end();
-                return;
-            }
-            res.writeHead(200);
-            res.end(html);
-            return;
-        }
-
-        // Import SSR module (ESM import is cached by Node by spec)
-        const jsxFn = await loadJsxModule(route.jsx);
-        let page = await jsxFn(params);
-
-        const isHtml = /^<html[\s>]/i.test(page);
-
-        // Inject built assets for non-generated routes
-        const publicPath = normalizePublicPath(process.env.PUBLIC_PATH ?? "/");
-        if (route.assets && typeof route.assets === "object" && isHtml) {
-            page = injectAssets(page, route.assets, publicPath);
-        }
-
-        // Response headers
-        res.setHeader("Content-Type", "text/html; charset=utf-8");
-        // For dynamic pages, caching is disabled unless a specific strategy is implemented
-        res.setHeader("Cache-Control", "public, max-age=0, must-revalidate");
-
-        if (req.method === "HEAD") {
-            res.writeHead(200);
-            res.end();
-            return;
-        }
-
-        res.writeHead(200);
-        res.end(isHtml ? `<!doctype html>\n${page}` : page);
-    } catch (e) {
-        logger.error({ err: e }, "Request handling failed");
-        try {
-            const special500 = resolve500Page();
-            if (special500) {
-                const fn = await loadJsxModule(special500);
-                const page500 = await fn({});
-                const isHtml = /^<html[\s>]/i.test(page500);
-                res.setHeader("Content-Type", "text/html; charset=utf-8");
-                res.setHeader("Cache-Control", "no-store");
-                if (req.method === "HEAD") {
-                    res.writeHead(500);
-                    res.end();
-                    return;
-                }
-                res.writeHead(500);
-                res.end(isHtml ? `<!doctype html>\n${page500}` : page500);
-                return;
-            }
-        } catch (err500) {
-            logger.error({ err: err500 }, "Failed to render custom 500 page");
-        }
-        if (req.method === "HEAD") {
-            res.writeHead(500, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
-            res.end();
-        } else {
-            res.writeHead(500, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
-            res.end("Internal Server Error");
-        }
-    }
-});
-
-// Timeouts and error handling
-server.requestTimeout = REQUEST_TIMEOUT_MS;
-if (typeof HEADER_TIMEOUT_MS === "number" && HEADER_TIMEOUT_MS >= 0) {
-    server.headersTimeout = HEADER_TIMEOUT_MS;
-}
-
-server.on("clientError", (err, socket) => {
-    try {
-        const isTimeout = err?.code === "ERR_HTTP_REQUEST_TIMEOUT" || (typeof err?.message === "string" && /timeout/i.test(err.message));
-
-        if (isTimeout) {
-            socket.end("HTTP/1.1 408 Request Timeout\r\nConnection: close\r\nContent-Length: 0\r\n\r\n");
-        } else {
-            logger.debug(
-                {
-                    err,
-                    remoteAddress: socket.remoteAddress,
-                    remotePort: socket.remotePort,
-                    bytesRead: socket.bytesRead,
-                    bytesWritten: socket.bytesWritten,
-                },
-                "clientError: bad request, sending 400 and closing connection",
-            );
-            socket.end("HTTP/1.1 400 Bad Request\r\nConnection: close\r\nContent-Length: 0\r\n\r\n");
-        }
-    } catch (e) {
-        logger.warn({ err: e }, "clientError: failed to end socket cleanly");
-    }
-});
-
-server.listen(PORT, () => {
-    logger.info(`${YELLOW}http://localhost:${PORT}/`);
-});
-
-// Graceful shutdown
-process.on("SIGINT", () => {
-    logger.info("Shutting down...");
-    process.exit(0);
-});
-process.on("unhandledRejection", (reason) => {
-    logger.error({ reason }, "Unhandled Rejection");
-});
-process.on("uncaughtException", (err) => {
-    logger.error({ err }, "Uncaught Exception");
-});
+// Dynamic import of the platform-specific prod adapter
+// Each adapter uses the immediate-execution pattern (starts server on import)
+await import(`./prod/${runtime}.js`);
