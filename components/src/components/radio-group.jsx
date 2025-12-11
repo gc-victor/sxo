@@ -51,7 +51,6 @@ import Input from "./input.jsx";
  *   </div>
  * </RadioGroup>
  * @public
- * @since 1.0.0
  */
 export function RadioGroup({ class: klass, className, direction = "column", children, ...rest }) {
     const rootClass = cn("radio-group", direction === "row" ? "flex flex-row gap-3" : "grid gap-3", klass, className);
@@ -77,7 +76,6 @@ export function RadioGroup({ class: klass, className, direction = "column", chil
  * @example
  * <RadioGroupItem id="r1" name="theme" value="light" />
  * @public
- * @since 1.0.0
  */
 export function RadioGroupItem({ class: klass, className, ...rest }) {
     return <Input type="radio" class={cn(klass, className)} {...rest} />;

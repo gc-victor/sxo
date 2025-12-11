@@ -5,7 +5,6 @@
  * dev and prod servers, including ETags and Cache-Control headers.
  *
  * @module server/shared/cache
- * @since 1.0.0
  */
 
 // =============================================================================

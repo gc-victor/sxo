@@ -14,7 +14,6 @@
  * - Custom 404/500 error pages
  *
  * @module server/dev/core-handler
- * @since 1.0.0
  */
 
 import { optionsResponse } from "../shared/http-adapters.js";
@@ -73,7 +72,6 @@ function base64EncodeUnicode(str) {
  * @returns {(request: Request) => Promise<Response>} Request handler function
  * @throws {Error} If required config properties are missing
  * @public
- * @since 1.0.0
  */
 export function createDevHandler(config) {
     const {

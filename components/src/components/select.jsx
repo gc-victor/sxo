@@ -24,7 +24,6 @@
  *
  * (Versioning section removed; consolidated to single baseline.)
  * @version 1.0.0
- * @since 1.0.0
  * @public
  *
  *
@@ -51,7 +50,6 @@ import { cn } from "@utils/cn.js";
  * @example
  * <SelectOption value="apple">Apple</SelectOption>
  * @public
- * @since 1.4.0
  */
 export function SelectOption(props) {
     const { children, class: klass, className, value, disabled, selected, ...rest } = props || {};
@@ -86,7 +84,6 @@ export function SelectOption(props) {
  * @example
  * <SelectItem value="banana">Banana</SelectItem>
  * @public
- * @since 1.5.0
  */
 export function SelectItem(props) {
     return SelectOption(props);
@@ -109,7 +106,6 @@ export function SelectItem(props) {
  * @example
  * <SelectGroup label="Fruits"><SelectOption value="apple">Apple</SelectOption></SelectGroup>
  * @public
- * @since 1.4.0
  */
 export function SelectGroup({ children, class: klass, className, label, ...rest }) {
     return (
@@ -136,7 +132,6 @@ export function SelectGroup({ children, class: klass, className, label, ...rest 
  * @example
  * <SelectPlaceholder>Select a fruit</SelectPlaceholder>
  * @public
- * @since 1.4.0
  */
 export function SelectPlaceholder({ children, class: klass, className, selected }) {
     const label = children != null ? children : "Select…";
@@ -172,7 +167,6 @@ export function SelectPlaceholder({ children, class: klass, className, selected 
  *   <SelectOption value="banana">Banana</SelectOption>
  * </Select>
  * @public
- * @since 1.0.0
  */
 export default function Select(props) {
     const { class: klass, className, children, ...rest } = props || {};

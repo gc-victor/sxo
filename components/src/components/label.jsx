@@ -23,7 +23,6 @@
  * @author Victor García
  * @license MIT
  * @version 1.0.0
- * @since 1.0.0
  */
 
 import { cn } from "@utils/cn.js";
@@ -64,7 +63,6 @@ import { cn } from "@utils/cn.js";
  *   <textarea rows={4}></textarea>
  * </Label>
  * @public
- * @since 1.0.0
  */
 export default function Label({ variant = "inline", class: klass, className, children, ...rest }) {
     const variantClasses = {

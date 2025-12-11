@@ -27,7 +27,6 @@ import { Section, SectionDescription, SectionHeading } from "./section.jsx";
  * @example
  * <SectionButton />
  * @public
- * @since 1.0.0
  */
 export function SectionButton(props) {
     return (

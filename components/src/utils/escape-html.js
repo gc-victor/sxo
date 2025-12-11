@@ -42,7 +42,6 @@
  * escapeHtml(`<b id="x">Hi & welcome</b>`)
  * // => "&lt;b id=&quot;x&quot;&gt;Hi &amp; welcome&lt;/b&gt;"
  * @public
- * @since 1.0.0
  */
 export function escapeHtml(value) {
     if (value == null) return "";

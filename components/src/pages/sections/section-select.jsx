@@ -18,7 +18,6 @@ import { Section, SectionDescription, SectionHeading } from "./section.jsx";
  * @example
  * <SectionSelect />
  * @public
- * @since 1.0.0
  */
 export function SectionSelect(props) {
     return (

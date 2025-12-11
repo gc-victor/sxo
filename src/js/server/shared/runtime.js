@@ -6,7 +6,6 @@
  *
  * @module sxo/server/shared/runtime
  * @public
- * @since 1.0.0
  */
 
 /**
@@ -24,7 +23,6 @@
  *
  * @returns {Runtime} The detected runtime: "bun", "deno", or "node"
  * @public
- * @since 1.0.0
  *
  * @example
  * ```javascript
@@ -55,7 +53,6 @@ export function detectRuntime() {
  *
  * @returns {boolean} True if running in Bun
  * @public
- * @since 1.0.0
  */
 export function isBun() {
     return typeof globalThis.Bun !== "undefined";
@@ -66,7 +63,6 @@ export function isBun() {
  *
  * @returns {boolean} True if running in Deno
  * @public
- * @since 1.0.0
  */
 export function isDeno() {
     return typeof globalThis.Deno !== "undefined";
@@ -80,7 +76,6 @@ export function isDeno() {
  *
  * @returns {boolean} True if running in Node.js (not Bun or Deno)
  * @public
- * @since 1.0.0
  */
 export function isNode() {
     return !isBun() && !isDeno();

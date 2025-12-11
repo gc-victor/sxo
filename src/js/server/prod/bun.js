@@ -12,7 +12,6 @@
  * - SSR with route manifest
  *
  * @module server/prod/bun
- * @since 1.0.0
  */
 
 import path from "node:path";

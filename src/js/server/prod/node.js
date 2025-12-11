@@ -13,7 +13,6 @@
  * - SSR with route manifest
  *
  * @module server/prod/node
- * @since 1.0.0
  */
 
 import fsp from "node:fs/promises";

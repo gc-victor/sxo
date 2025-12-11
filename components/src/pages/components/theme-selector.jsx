@@ -19,7 +19,6 @@
  * @author Victor García
  * @license MIT
  * @version 1.0.0
- * @since 1.0.0
  */
 
 import Select, { SelectOption } from "@components/select.jsx";
@@ -30,7 +29,6 @@ import Select, { SelectOption } from "@components/select.jsx";
  * @typedef {HTMLElementAttributes & {
  *   className?: string
  * }} ThemeSelectorProps
- * @since 1.0.0
  */
 
 /**
@@ -40,7 +38,6 @@ import Select, { SelectOption } from "@components/select.jsx";
  * @param {ThemeSelectorProps} props
  * @returns {string} Rendered HTML string
  * @public
- * @since 1.0.0
  */
 export default function ThemeSelector({ className = "", ...rest }) {
     return (

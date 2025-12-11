@@ -29,7 +29,6 @@
  * @author Victor García
  * @license NOASSERTION
  * @version 1.3.0
- * @since 1.0.0
  */
 
 import { ICON_SYMBOL_MAP } from "./svg-symbols.jsx";
@@ -39,7 +38,6 @@ import { ICON_SYMBOL_MAP } from "./svg-symbols.jsx";
  *
  * @constant {string[]}
  * @public
- * @since 1.1.0
  */
 export const ICON_NAMES = Object.keys(ICON_SYMBOL_MAP);
 
@@ -141,7 +139,6 @@ const [
  * @example
  * <Icon name="spinner" class="animate-spin" stroke-width="1.5" />
  * @public
- * @since 1.0.0
  */
 export function Icon(props = {}) {
     const { name, title, class: klass, className, viewBox = "0 0 24 24", ...rest } = props;
@@ -184,7 +181,6 @@ export function Icon(props = {}) {
  * labeling via `title`.
  *
  * @typedef {Omit<IconProps,"name">} IconWrapperProps
- * @since 1.1.0
  */
 
 /* -------------------------------------------------------------------------------------------------
@@ -202,7 +198,6 @@ export function Icon(props = {}) {
  * @example
  * <IconChevronDown class="size-4" />
  * @public
- * @since 1.0.0
  */
 export const IconChevronDown = (props = {}) => <Icon name={NAME_CHEVRON_DOWN} {...props} />;
 
@@ -217,7 +212,6 @@ export const IconChevronDown = (props = {}) => <Icon name={NAME_CHEVRON_DOWN} {.
  * @example
  * <IconChevronRight class="size-4" />
  * @public
- * @since 1.0.0
  */
 export const IconChevronRight = (props = {}) => <Icon name={NAME_CHEVRON_RIGHT} {...props} />;
 
@@ -232,7 +226,6 @@ export const IconChevronRight = (props = {}) => <Icon name={NAME_CHEVRON_RIGHT} 
  * @example
  * <IconChevronLeft class="size-4" />
  * @public
- * @since 1.0.0
  */
 export const IconChevronLeft = (props = {}) => <Icon name={NAME_CHEVRON_LEFT} {...props} />;
 
@@ -247,7 +240,6 @@ export const IconChevronLeft = (props = {}) => <Icon name={NAME_CHEVRON_LEFT} {.
  * @example
  * <IconCircleExclamation title="Warning" class="text-amber-600" />
  * @public
- * @since 1.0.0
  */
 export const IconCircleExclamation = (props = {}) => <Icon name={NAME_CIRCLE_EXCLAMATION} {...props} />;
 
@@ -262,7 +254,6 @@ export const IconCircleExclamation = (props = {}) => <Icon name={NAME_CIRCLE_EXC
  * @example
  * <IconCircleCheck title="Success" class="text-green-600" />
  * @public
- * @since 1.0.0
  */
 export const IconCircleCheck = (props = {}) => <Icon name={NAME_CIRCLE_CHECK} {...props} />;
 
@@ -277,7 +268,6 @@ export const IconCircleCheck = (props = {}) => <Icon name={NAME_CIRCLE_CHECK} {.
  * @example
  * <IconTriangleWarning class="text-amber-600" />
  * @public
- * @since 1.0.0
  */
 export const IconTriangleWarning = (props = {}) => <Icon name={NAME_TRIANGLE_WARNING} {...props} />;
 
@@ -292,7 +282,6 @@ export const IconTriangleWarning = (props = {}) => <Icon name={NAME_TRIANGLE_WAR
  * @example
  * <IconCircleInfo class="size-4" />
  * @public
- * @since 1.1.0
  */
 export const IconCircleInfo = (props = {}) => <Icon name={NAME_CIRCLE_INFO} {...props} />;
 
@@ -307,7 +296,6 @@ export const IconCircleInfo = (props = {}) => <Icon name={NAME_CIRCLE_INFO} {...
  * @example
  * <IconSend class="size-4" />
  * @public
- * @since 1.0.0
  */
 export const IconSend = (props = {}) => <Icon name={NAME_SEND} {...props} />;
 
@@ -322,7 +310,6 @@ export const IconSend = (props = {}) => <Icon name={NAME_SEND} {...props} />;
  * @example
  * <IconArrowRight class="size-4" />
  * @public
- * @since 1.0.0
  */
 export const IconArrowRight = (props = {}) => <Icon name={NAME_ARROW_RIGHT} {...props} />;
 
@@ -337,7 +324,6 @@ export const IconArrowRight = (props = {}) => <Icon name={NAME_ARROW_RIGHT} {...
  * @example
  * <IconDotsHorizontal class="size-4" />
  * @public
- * @since 1.0.0
  */
 export const IconDotsHorizontal = (props = {}) => <Icon name={NAME_DOTS_HORIZONTAL} {...props} />;
 
@@ -352,7 +338,6 @@ export const IconDotsHorizontal = (props = {}) => <Icon name={NAME_DOTS_HORIZONT
  * @example
  * <IconEllipsis class="size-4" />
  * @public
- * @since 1.1.0
  */
 export const IconEllipsis = (props = {}) => <Icon name={NAME_ELLIPSIS} {...props} />;
 
@@ -367,7 +352,6 @@ export const IconEllipsis = (props = {}) => <Icon name={NAME_ELLIPSIS} {...props
  * @example
  * <IconTrash class="size-4" />
  * @public
- * @since 1.0.0
  */
 export const IconTrash = (props = {}) => <Icon name={NAME_TRASH} {...props} />;
 
@@ -382,7 +366,6 @@ export const IconTrash = (props = {}) => <Icon name={NAME_TRASH} {...props} />;
  * @example
  * <IconSpinner class="size-4 animate-spin" />
  * @public
- * @since 1.0.0
  */
 export const IconSpinner = (props = {}) => <Icon name={NAME_SPINNER} {...props} />;
 
@@ -397,7 +380,6 @@ export const IconSpinner = (props = {}) => <Icon name={NAME_SPINNER} {...props} 
  * @example
  * <IconList class="size-4" />
  * @public
- * @since 1.0.0
  */
 export const IconList = (props = {}) => <Icon name={NAME_LIST} {...props} />;
 
@@ -412,7 +394,6 @@ export const IconList = (props = {}) => <Icon name={NAME_LIST} {...props} />;
  * @example
  * <IconGift class="size-4" />
  * @public
- * @since 1.0.0
  */
 export const IconGift = (props = {}) => <Icon name={NAME_GIFT} {...props} />;
 
@@ -427,7 +408,6 @@ export const IconGift = (props = {}) => <Icon name={NAME_GIFT} {...props} />;
  * @example
  * <IconImage class="size-4" />
  * @public
- * @since 1.0.0
  */
 export const IconImage = (props = {}) => <Icon name={NAME_IMAGE} {...props} />;
 
@@ -442,7 +422,6 @@ export const IconImage = (props = {}) => <Icon name={NAME_IMAGE} {...props} />;
  * @example
  * <IconCube class="size-4" />
  * @public
- * @since 1.0.0
  */
 export const IconCube = (props = {}) => <Icon name={NAME_CUBE} {...props} />;
 
@@ -457,7 +436,6 @@ export const IconCube = (props = {}) => <Icon name={NAME_CUBE} {...props} />;
  * @example
  * <IconChevronsVertical class="size-4" />
  * @public
- * @since 1.0.0
  */
 export const IconChevronsVertical = (props = {}) => <Icon name={NAME_CHEVRONS_VERTICAL} {...props} />;
 
@@ -472,7 +450,6 @@ export const IconChevronsVertical = (props = {}) => <Icon name={NAME_CHEVRONS_VE
  * @example
  * <IconSearch class="size-4" />
  * @public
- * @since 1.0.0
  */
 export const IconSearch = (props = {}) => <Icon name={NAME_SEARCH} {...props} />;
 
@@ -487,7 +464,6 @@ export const IconSearch = (props = {}) => <Icon name={NAME_SEARCH} {...props} />
  * @example
  * <IconX class="size-4" />
  * @public
- * @since 1.0.0
  */
 export const IconX = (props = {}) => <Icon name={NAME_X} {...props} />;
 
@@ -502,7 +478,6 @@ export const IconX = (props = {}) => <Icon name={NAME_X} {...props} />;
  * @example
  * <IconClose class="size-4" />
  * @public
- * @since 1.1.0
  */
 export const IconClose = (props = {}) => <Icon name={NAME_CLOSE} {...props} />;
 
@@ -517,7 +492,6 @@ export const IconClose = (props = {}) => <Icon name={NAME_CLOSE} {...props} />;
  * @example
  * <IconCheckmark class="size-4" />
  * @public
- * @since 1.0.0
  */
 export const IconCheckmark = (props = {}) => <Icon name={NAME_CHECK} {...props} />;
 
@@ -532,7 +506,6 @@ export const IconCheckmark = (props = {}) => <Icon name={NAME_CHECK} {...props} 
  * @example
  * <IconShieldExclamation class="size-4" />
  * @public
- * @since 1.0.0
  */
 export const IconShieldExclamation = (props = {}) => <Icon name={NAME_SHIELD_EXCLAMATION} {...props} />;
 
@@ -547,7 +520,6 @@ export const IconShieldExclamation = (props = {}) => <Icon name={NAME_SHIELD_EXC
  * @example
  * <IconCopy class="size-4" />
  * @public
- * @since 1.2.1
  */
 export const IconCopy = (props = {}) => <Icon name={NAME_COPY} {...props} />;
 
@@ -562,7 +534,6 @@ export const IconCopy = (props = {}) => <Icon name={NAME_COPY} {...props} />;
  * @example
  * <IconSun class="size-4" />
  * @public
- * @since 1.3.0
  */
 export const IconSun = (props = {}) => <Icon name={NAME_SUN} {...props} />;
 
@@ -577,7 +548,6 @@ export const IconSun = (props = {}) => <Icon name={NAME_SUN} {...props} />;
  * @example
  * <IconMoon class="size-4" />
  * @public
- * @since 1.3.0
  */
 export const IconMoon = (props = {}) => <Icon name={NAME_MOON} {...props} />;
 
@@ -591,6 +561,5 @@ export const IconMoon = (props = {}) => <Icon name={NAME_MOON} {...props} />;
  * @example
  * <IconExternalLink class="size-4" />
  * @public
- * @since 1.3.0
  */
 export const IconExternalLink = (props = {}) => <Icon name={NAME_EXTERNAL_LINK} {...props} />;

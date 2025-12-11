@@ -23,7 +23,6 @@ import { Section, SectionDescription, SectionHeading } from "./section.jsx";
  * @example
  * <SectionBreadcrumb />
  * @public
- * @since 1.0.0
  */
 export function SectionBreadcrumb(props) {
     return (

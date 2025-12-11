@@ -20,7 +20,6 @@
  * @author Victor García
  * @license MIT
  * @version 1.0.0
- * @since 1.0.0
  */
 
 import Button from "@components/button.jsx";
@@ -32,7 +31,6 @@ import { IconMoon, IconSun } from "@components/icon.jsx";
  * @typedef {HTMLElementAttributes & {
  *   className?: string
  * }} ThemeToggleProps
- * @since 1.0.0
  */
 
 /**
@@ -42,7 +40,6 @@ import { IconMoon, IconSun } from "@components/icon.jsx";
  * @param {ThemeToggleProps} props
  * @returns {string} Rendered HTML string
  * @public
- * @since 1.0.0
  */
 export default function ThemeToggle({ className = "", ...rest }) {
     return (

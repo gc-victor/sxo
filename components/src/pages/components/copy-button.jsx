@@ -18,7 +18,6 @@
  * @author Victor García
  * @license MIT
  * @version 1.0.0
- * @since 1.0.0
  */
 
 import Button from "@components/button.jsx";

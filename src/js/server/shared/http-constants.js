@@ -5,7 +5,6 @@
  * to avoid hardcoding magic numbers and strings throughout the codebase.
  *
  * @module server/shared/http-constants
- * @since 1.0.0
  */
 
 // =============================================================================

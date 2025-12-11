@@ -37,7 +37,6 @@ import { cn } from "@utils/cn.js";
  * }} props
  * @returns {string} Rendered HTML string
  * @public
- * @since 1.0.0
  */
 export default function Sidebar({
     children,

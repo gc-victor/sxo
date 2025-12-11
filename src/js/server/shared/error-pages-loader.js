@@ -11,7 +11,6 @@
  * - Works with any JSX module loader
  *
  * @module server/shared/error-pages-loader
- * @since 1.0.0
  */
 
 /**
@@ -29,7 +28,6 @@
  * @param {(err: Error, page: "404" | "500") => void} [options.onError] - Error callback
  * @returns {Promise<{render404: Function | null, render500: Function | null}>}
  * @public
- * @since 1.0.0
  *
  * @example
  * ```javascript

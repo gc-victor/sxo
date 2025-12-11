@@ -38,7 +38,6 @@ import { cn } from "@utils/cn.js";
  *   <Toast category="success">...</Toast>
  * </Toaster>
  * @public
- * @since 1.0.0
  */
 export function Toaster({ align = "end", class: klass, className, children, ...rest }) {
     const dataAlign = align === "end" ? {} : { "data-align": align };
@@ -63,7 +62,6 @@ export function Toaster({ align = "end", class: klass, className, children, ...r
  * @example
  * <ToastTitle>Success</ToastTitle>
  * @public
- * @since 1.0.0
  */
 export function ToastTitle({ class: klass, className, children, ...rest }) {
     return (
@@ -87,7 +85,6 @@ export function ToastTitle({ class: klass, className, children, ...rest }) {
  * @example
  * <ToastDescription>Operation completed successfully.</ToastDescription>
  * @public
- * @since 1.0.0
  */
 export function ToastDescription({ class: klass, className, children, ...rest }) {
     return (
@@ -120,7 +117,6 @@ export function ToastDescription({ class: klass, className, children, ...rest })
  *   </Toast>
  * </Toaster>
  * @public
- * @since 1.0.0
  */
 export function Toast({ class: klass, className, children, category, ...rest }) {
     return (

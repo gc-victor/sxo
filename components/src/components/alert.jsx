@@ -26,7 +26,6 @@
  * @author Victor García
  * @license MIT
  * @version 1.0.0
- * @since 1.0.0
  */
 
 import { cn } from "@utils/cn.js";
@@ -60,7 +59,6 @@ import { cn } from "@utils/cn.js";
  *   <AlertDescription>All changes saved successfully.</AlertDescription>
  * </Alert>
  * @public
- * @since 1.0.0
  */
 export function Alert(props) {
     const { class: klass, className, role, children, ...rest } = props || {};
@@ -113,7 +111,6 @@ export function Alert(props) {
  * @example
  * <AlertTitle level={3}>System Warning</AlertTitle>
  * @public
- * @since 1.0.0
  */
 export function AlertTitle({ level, class: klass, className, children, ...rest }) {
     const numericLevel = Number(level);
@@ -146,7 +143,6 @@ export function AlertTitle({ level, class: klass, className, children, ...rest }
  *   Your session will expire in <strong>2 minutes</strong>. Please save your work.
  * </AlertDescription>
  * @public
- * @since 1.0.0
  */
 export function AlertDescription(props) {
     const { class: klass, className, children, ...rest } = props || {};

@@ -45,7 +45,6 @@ import Button from "./button";
  * @typedef {HTMLDivAttributes & ComponentProps & {}} PopoverProps
  * @param {PopoverProps} props
  * @public
- * @since 1.0.0
  */
 export function Popover({ class: klass, className, children, ...rest }) {
     return (
@@ -73,7 +72,6 @@ export function Popover({ class: klass, className, children, ...rest }) {
  * }} PopoverTriggerProps
  * @param {PopoverTriggerProps} props
  * @public
- * @since 2.0.0
  */
 export function PopoverTrigger({ variant = "outline", class: klass, className, contentId, children, ...rest }) {
     const triggerId = `${contentId}-trigger`;
@@ -113,7 +111,6 @@ export function PopoverTrigger({ variant = "outline", class: klass, className, c
  * }} PopoverContentProps
  * @param {PopoverContentProps} props
  * @public
- * @since 2.0.0
  */
 export function PopoverContent({ class: klass, className, children, ...rest }) {
     const contentClass = cn("popover-content", "hidden", "text-foreground", className || klass, "absolute z-10");

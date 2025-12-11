@@ -22,7 +22,6 @@
  * </el-dropdown-menu>
  *
  * @license MIT
- * @since 1.0.0
  */
 import { define } from "@qery/reactive-component";
 

@@ -28,7 +28,6 @@
  * @author Victor García
  * @license MIT
  * @version 1.0.0
- * @since 1.0.0
  */
 
 import { cn } from "@utils/cn.js";
@@ -60,7 +59,6 @@ import { IconChevronRight } from "./icon.jsx";
  *   </BreadcrumbList>
  * </Breadcrumb>
  * @public
- * @since 1.0.0
  */
 export default function Breadcrumb({ ariaLabel = "Breadcrumb", class: klass, className, children, ...rest }) {
     return (
@@ -88,7 +86,6 @@ export default function Breadcrumb({ ariaLabel = "Breadcrumb", class: klass, cla
  *   <BreadcrumbItem>...</BreadcrumbItem>
  * </BreadcrumbList>
  * @public
- * @since 1.0.0
  */
 export function BreadcrumbList({ class: klass, className, children, ...rest }) {
     return (
@@ -128,7 +125,6 @@ export function BreadcrumbList({ class: klass, className, children, ...rest }) {
  * @example
  * <BreadcrumbItem><BreadcrumbLink href="/">Home</BreadcrumbLink></BreadcrumbItem>
  * @public
- * @since 1.0.0
  */
 export function BreadcrumbItem({ class: klass, className, children, ...rest }) {
     return (
@@ -156,7 +152,6 @@ export function BreadcrumbItem({ class: klass, className, children, ...rest }) {
  * @example
  * <BreadcrumbSeparator>|</BreadcrumbSeparator>
  * @public
- * @since 1.0.0
  */
 export function BreadcrumbSeparator({ class: klass, className, children, ...rest }) {
     return (
@@ -187,7 +182,6 @@ export function BreadcrumbSeparator({ class: klass, className, children, ...rest
  * @example
  * <BreadcrumbLink>Static Segment</BreadcrumbLink>
  * @public
- * @since 1.0.0
  */
 export function BreadcrumbLink({ href, class: klass, className, children, ...rest }) {
     const linkClass = cn("hover:text-foreground transition-colors", klass, className);
@@ -221,7 +215,6 @@ export function BreadcrumbLink({ href, class: klass, className, children, ...res
  * @example
  * <BreadcrumbPage>Profile</BreadcrumbPage>
  * @public
- * @since 1.0.0
  */
 export function BreadcrumbPage({ class: klass, className, children, ...rest }) {
     return (

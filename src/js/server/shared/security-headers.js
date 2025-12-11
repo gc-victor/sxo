@@ -6,7 +6,6 @@
  * consistent security posture.
  *
  * @module server/shared/security-headers
- * @since 1.0.0
  */
 
 /**
@@ -29,7 +28,6 @@
  * it requires per-application tuning and can break inline scripts/styles.
  *
  * @type {Record<string, string>}
- * @since 1.0.0
  */
 export const SECURITY_HEADERS = {
     "X-Content-Type-Options": "nosniff",

@@ -6,7 +6,6 @@
  * avoid importing platform-specific modules in the wrong runtime.
  *
  * @module server/shared/file-readers
- * @since 1.0.0
  */
 
 /**

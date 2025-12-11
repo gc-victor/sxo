@@ -10,7 +10,6 @@
  * All request handling logic is delegated to the shared core-handler.
  *
  * @module server/dev/deno
- * @since 1.0.0
  */
 
 import fs from "node:fs";

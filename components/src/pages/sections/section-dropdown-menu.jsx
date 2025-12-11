@@ -43,7 +43,6 @@ import { Section, SectionDescription, SectionHeading } from "./section.jsx";
  * @example
  * <SectionDropdownMenu />
  * @public
- * @since 1.0.0
  */
 export function SectionDropdownMenu(props) {
     return (
