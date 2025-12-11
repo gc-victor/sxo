@@ -29,7 +29,7 @@ You should consult this file when authoring or reviewing JSDoc comments to ensur
 
 1. Prefer minimal, high‑signal documentation—especially in performance‑sensitive or frequently modified code.
 2. Avoid duplicating information obvious from the signature (e.g., repeating the parameter name in prose without added value).
-3. Use `@since` only at the first introduction of a public API surface; never retroactively alter it.
+3. **DO NOT use `@since`** — version tracking belongs in git history, CHANGELOG, and release notes, not inline documentation.
 4. Use `@deprecated` only with explicit migration guidance.
 5. Inline tags (`{@link ...}`) should clarify—not distract; prefer canonical targets.
 6. Only one primary descriptive block: summary line (first), optional blank line, then extended description or structured tags.
@@ -96,7 +96,7 @@ You should consult this file when authoring or reviewing JSDoc comments to ensur
 | `@requires`        | —                          | Module dependency.                                        | Rare; better handled via imports.                                                   |
 | `@returns`         | `return`                   | Return value description.                                 | Always specify type; mention semantics not obvious from name.                       |
 | `@see`             | —                          | Cross-reference related docs/resources.                   | Keep curated; avoid noise.                                                          |
-| `@since`           | —                          | Introduction version.                                     | Immutable once published.                                                           |
+| `@since`           | —                          | Introduction version.                                     | **DEPRECATED: Do not use.** Version tracking belongs in git history, CHANGELOG, and release notes. |
 | `@static`          | —                          | Static member of class.                                   | Use when overshadowing instance semantics.                                          |
 | `@summary`         | —                          | Shortened description.                                    | Use when extended description is lengthy.                                           |
 | `@this`            | —                          | Explicit `this` binding.                                  | Use in functional patterns relying on manual binding.                               |
@@ -164,7 +164,6 @@ Exported component props typedef pattern:
  * @property {string} [className] - Alias for `class`.
  * @property {JSX.Element|JSX.Element[]|string} [children] - Content.
  * @property {Object} [rest] - Additional attributes.
- * @since 1.0.0
  */
 ```
 
@@ -178,7 +177,6 @@ Function JSDoc pattern:
  * @example
  * <ComponentName>Example</ComponentName>
  * @public
- * @since 1.0.0
  */
 ```
 
@@ -188,7 +186,7 @@ Function JSDoc pattern:
 
 | Scenario                     | Use                            | Avoid                                                     |
 | ---------------------------- | ------------------------------ | --------------------------------------------------------- |
-| Introducing new public API   | `@since`, `@public`            | Redundant `@access public`                                |
+| Introducing new public API   | `@public`                      | `@since` (use git/CHANGELOG instead)                      |
 | Deprecating feature          | `@deprecated` + migration note | Bare `@deprecated` with no guidance                       |
 | Components with object props | `@typedef`, `@property`        | Embedding props via multiple `@param` object.member forms |
 | Linking related utilities    | `@see` (1–3 curated)           | Excessive cross-links                                     |
@@ -202,12 +200,11 @@ Function JSDoc pattern:
 
 | Anti-Pattern                                      | Why Problematic     | Preferred Alternative                           |
 | ------------------------------------------------- | ------------------- | ----------------------------------------------- |
+| Using `@since` tag                                | Clutters docs, duplicates git history | Use git log, CHANGELOG, release notes |
 | Documenting every local variable with `@member`   | Noise, low value    | Omit                                            |
 | Using `@returns {void}` for obvious void          | Redundant           | Omit if self-evident                            |
 | Large prose in `@description` duplicating summary | Redundancy          | Concise summary; elaborate only when necessary  |
 | Using `@param {...} options` instead of typedef   | Loss of structure   | Create `@typedef`                               |
-| Missing `@since` on first introduction            | Loss of audit trail | Add at creation                                 |
-| Adding `@since` for internal refactors            | Misleading          | Do not change original                          |
 | Overusing `@todo` for speculative ideas           | Increases entropy   | Track externally or convert to actionable issue |
 
 ---
@@ -242,7 +239,6 @@ Function JSDoc pattern:
  * @property {"info"|"warn"|"error"|"success"} [tone="info"] - Visual tone.
  * @property {JSX.Element|JSX.Element[]|string} [children] - Content body.
  * @property {Object} [rest] - Additional attributes.
- * @since 1.0.0
  */
 
 /**
@@ -252,7 +248,6 @@ Function JSDoc pattern:
  * @example
  * <Notice tone="warn">Check configuration.</Notice>
  * @public
- * @since 1.0.0
  */
 export function Notice({ class: klass, className, tone = "info", children, ...rest } = {}) {
   const c = ["notice", `notice--${tone}`, klass || className].filter(Boolean).join(" ");
@@ -279,9 +274,9 @@ export function Notice({ class: klass, className, tone = "info", children, ...re
 
 ## 10. Versioning & Stability Guidelines
 
-- Never alter existing `@since` values.
-- Only add `@version` at module/file level if versioning independently of package release.
-- Use `@deprecated` only with:
+Version tracking belongs in git history, CHANGELOG files, and release notes—not inline JSDoc comments. Focus documentation on behavior and usage, not historical metadata.
+
+Use `@deprecated` only with:
   - Replacement symbol or migration path.
   - Target removal version (if known).
   - Rationale.
@@ -314,7 +309,7 @@ Example:
 - [ ] `class` + `className` both documented (UI components).
 - [ ] At least one `@example` per public export.
 - [ ] No redundant/empty tags.
-- [ ] `@since` present only at first introduction.
+- [ ] No `@since` tags present (use git/CHANGELOG for versions).
 - [ ] `@deprecated` (if present) includes actionable migration path.
 - [ ] Inline `{@link}` targets resolve or are canonical URLs.
 

@@ -165,7 +165,7 @@ Quick non-normative summary:
 - Use native HTML semantics (`<details>/<summary>`, `<dialog>`, etc.) plus `// LIMITATION:` notes instead of
   re‑creating behavior imperatively.
 - Avoid React runtime patterns, `data-*` attributes, and uncontrolled `id` usage.
-- Tag each new public export with `@public` and `@since`.
+- Tag each new public export with `@public` (do NOT use `@since` — version tracking belongs in git history).
 - Follow migration & validation checklists in the referenced rule file.
 
 #### Native HTML Attribute Inheritance
@@ -195,7 +195,6 @@ Example:
  *   customProp1?: type,
  *   customProp2?: type,
  * }} ComponentNameProps
- * @since 1.0.0
  */
 
 

@@ -196,7 +196,6 @@ import something from "@/relative/path.js"; // @/* resolves to src/*
  * @author Author Name
  * @license MIT
  * @version 1.0.0
- * @since 1.0.0
  */
 
 /**
@@ -210,7 +209,6 @@ import something from "@/relative/path.js"; // @/* resolves to src/*
  * @param {ComponentNameProps} props
  * @returns {string} Rendered HTML string
  * @public
- * @since 1.0.0
  */
 export default function ComponentName({ className, children, variant = "primary", ...rest }) {
   // Implementation
