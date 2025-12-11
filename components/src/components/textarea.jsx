@@ -38,7 +38,6 @@ import { cn } from "@utils/cn.js";
  * @example
  * <Textarea placeholder="Type your notes..." rows={4} />
  * @public
- * @since 1.0.0
  */
 export default function Textarea({ class: klass, className, children, ...rest }) {
     return (

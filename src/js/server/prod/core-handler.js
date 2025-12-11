@@ -18,7 +18,6 @@
  * - Graceful shutdown
  *
  * @module server/prod/core-handler
- * @since 1.0.0
  */
 
 import { CACHE_404, CACHE_500, CACHE_GENERATED, CACHE_SSR } from "../shared/cache.js";

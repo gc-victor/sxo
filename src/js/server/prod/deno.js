@@ -12,7 +12,6 @@
  * - SSR with route manifest
  *
  * @module server/prod/deno
- * @since 1.0.0
  */
 
 import { OUTPUT_DIR_CLIENT, OUTPUT_DIR_SERVER, PORT, ROUTES_FILE, ROUTES_RELATIVE_PATH } from "../../constants.js";

@@ -41,7 +41,6 @@ import { Section, SectionDescription, SectionHeading } from "./section.jsx";
  * @example
  * <SectionTooltip />
  * @public
- * @since 1.0.0
  */
 export function SectionTooltip({ class: klass, className, ...rest }) {
     const cls = ["section-tooltips", klass, className].filter(Boolean).join(" ");

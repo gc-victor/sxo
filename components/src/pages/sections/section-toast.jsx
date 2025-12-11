@@ -19,7 +19,6 @@ import { Section, SectionDescription, SectionHeading } from "./section.jsx";
  * @example
  * <SectionToast />
  * @public
- * @since 1.0.0
  */
 export function SectionToast(props) {
     return (

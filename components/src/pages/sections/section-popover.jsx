@@ -35,7 +35,6 @@ import { Section, SectionDescription, SectionHeading } from "./section.jsx";
  * @example
  * <SectionPopover />
  * @public
- * @since 1.0.0
  */
 export function SectionPopover(props) {
     const contentId = "popover-dimensions-panel";

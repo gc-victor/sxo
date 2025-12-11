@@ -50,7 +50,6 @@ function shapeClassFor(shape) {
  *   children?: never,
  *   rest?: Object
  * }} SkeletonProps
- * @since 1.0.0
  */
 
 /**
@@ -60,7 +59,6 @@ function shapeClassFor(shape) {
  * @example
  * <Skeleton widthClass="w-40" heightClass="h-6" shape="rounded" />
  * @public
- * @since 1.0.0
  */
 export default function Skeleton({
     class: klass,

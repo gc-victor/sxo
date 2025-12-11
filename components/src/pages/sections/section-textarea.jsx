@@ -18,7 +18,6 @@ import { Section, SectionDescription, SectionHeading } from "./section.jsx";
  * @example
  * <SectionTextarea />
  * @public
- * @since 1.0.0
  */
 export function SectionTextarea(props) {
     return (

@@ -11,7 +11,6 @@
  * - Comprehensive error messages
  *
  * @module server/shared/routes-loader
- * @since 1.0.0
  */
 
 import fs from "node:fs";
@@ -38,7 +37,6 @@ import fs from "node:fs";
  * @returns {Route[]} Validated routes array
  * @throws {Error} If validation fails
  * @public
- * @since 1.0.0
  *
  * @example
  * ```javascript
@@ -82,7 +80,6 @@ export function validateRoutes(data, source = "routes.json") {
  * @returns {Promise<Route[]>} Validated routes array
  * @throws {Error} After exhausting all retries or on validation failure
  * @public
- * @since 1.0.0
  *
  * @example
  * ```javascript

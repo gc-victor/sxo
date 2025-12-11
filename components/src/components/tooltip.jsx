@@ -50,7 +50,6 @@ function cn(...parts) {
  * @example
  * <Tooltip placement="right"><TooltipTrigger>Hover</TooltipTrigger><TooltipContent>Add</TooltipContent></Tooltip>
  * @public
- * @since 1.0.0
  */
 export function Tooltip({ class: klass, className, placement = "top", align = "center", children, ...rest }) {
     const cls = cn("tooltip-root", `tooltip-side-${placement}`, `tooltip-align-${align}`, klass, className);
@@ -78,7 +77,6 @@ export function Tooltip({ class: klass, className, placement = "top", align = "c
  * @example
  * <TooltipTrigger as="button">Hover</TooltipTrigger>
  * @public
- * @since 1.0.0
  */
 export function TooltipTrigger({ class: klass, className, as = "button", href, children, ...rest }) {
     const tag = String(as).toLowerCase();
@@ -124,7 +122,6 @@ export function TooltipTrigger({ class: klass, className, as = "button", href, c
  * @example
  * <TooltipContent>Helpful text</TooltipContent>
  * @public
- * @since 1.0.0
  */
 export function TooltipContent({ class: klass, className, children, ...rest }) {
     const cls = cn("tooltip-content", klass, className);

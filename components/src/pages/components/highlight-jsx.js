@@ -37,7 +37,6 @@ import { escapeHtml } from "@utils/escape-html.js";
  * highlightJsx(`<Button variant="primary">Click me</Button>`)
  * // Returns: <span class="jsx-tag">&lt;</span><span class="jsx-name">Button</span> <span class="jsx-attribute">variant</span>=<span class="jsx-string">"primary"</span><span class="jsx-tag">&gt;</span>Click me<span class="jsx-tag">&lt;/span><span class="jsx-tag">Button</span><span class="jsx-tag">&gt;</span>
  * @public
- * @since 1.0.0
  */
 export function highlightJsx(code) {
     if (!code) return "";

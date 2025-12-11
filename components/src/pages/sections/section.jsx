@@ -43,7 +43,6 @@ import InstallTabs from "../components/install-tabs";
  *   <div>Content here</div>
  * </Section>
  * @public
- * @since 1.0.0
  */
 export function Section({ class: klass, className, children, id, ...rest }) {
     const cls = ["scroll-mt-32", "mb-20", klass, className].filter(Boolean).join(" ");
@@ -86,7 +85,6 @@ export function Section({ class: klass, className, children, id, ...rest }) {
  * @example
  * <SectionHeading class="custom-heading">Custom</SectionHeading>
  * @public
- * @since 1.0.0
  */
 export function SectionHeading({ class: klass, className, level = 2, children, ...rest }) {
     const cls = ["mb-2 text-4xl font-semibold tracking-tight sm:text-3xl xl:text-4xl", klass, className].filter(Boolean).join(" ");
@@ -113,7 +111,6 @@ export function SectionHeading({ class: klass, className, level = 2, children, .
  * @example
  * <SectionDescription>This section showcases tooltip usage patterns.</SectionDescription>
  * @public
- * @since 1.1.0
  */
 export function SectionDescription({ class: klass, className, children, ...rest }) {
     const cls = ["mb-8 text-muted-foreground text-balance text-base md:text-xl", klass, className].filter(Boolean).join(" ");

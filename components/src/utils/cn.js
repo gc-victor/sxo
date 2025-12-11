@@ -45,7 +45,6 @@
  * @example
  * cn(["a", ["b", "c"]], "d") // => "a b c d"  (inner array flattened one level)
  * @public
- * @since 1.0.0
  */
 export function cn(...tokens) {
     // One-level flatten, filter out falsy (including 0). If preserving 0 is ever needed,

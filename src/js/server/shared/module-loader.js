@@ -12,7 +12,6 @@
  * - Batch loading for multiple routes
  *
  * @module server/shared/module-loader
- * @since 1.0.0
  */
 
 import { jsxBundlePath } from "../utils/jsx-bundle-path.js";

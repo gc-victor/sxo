@@ -12,7 +12,6 @@
  * await fromWebResponse(webResponse, req, res);
  *
  * @module server/shared/http-adapters
- * @since 0.9.0
  */
 
 import { Readable } from "node:stream";
@@ -39,7 +38,6 @@ const BODYLESS_METHODS = new Set([HTTP_METHOD_GET, HTTP_METHOD_HEAD, "OPTIONS"])
  * @param {import("node:http").IncomingMessage} req - Node.js request object
  * @param {number} port - Server port (used for URL construction when host header is missing)
  * @returns {Request} Web Standard Request object
- * @since 0.9.0
  */
 export function toWebRequest(req, port) {
     const protocol = req.socket?.encrypted ? "https" : "http";
@@ -94,7 +92,6 @@ export function toWebRequest(req, port) {
  * @param {import("node:http").IncomingMessage | {method: string}} req - Node.js request (for HEAD detection)
  * @param {import("node:http").ServerResponse} res - Node.js response object
  * @returns {Promise<void>}
- * @since 0.9.0
  */
 export async function fromWebResponse(webResponse, req, res) {
     // Handle null response as 404
@@ -154,7 +151,6 @@ export async function fromWebResponse(webResponse, req, res) {
  * @public
  * @param {Request | import("node:http").IncomingMessage | {method: string}} requestOrReq - Request object
  * @returns {boolean} True if the request method is HEAD
- * @since 0.9.0
  */
 export function isHeadRequest(requestOrReq) {
     const method = requestOrReq.method || "";
@@ -170,7 +166,6 @@ export function isHeadRequest(requestOrReq) {
  * @public
  * @param {Response} response - Original response
  * @returns {Response} Response with null body but same status/headers
- * @since 1.0.0
  *
  * @example
  * ```javascript
@@ -196,7 +191,6 @@ export function toHeadResponse(response) {
  * @param {Response} response - Original response
  * @param {Request | import("node:http").IncomingMessage | {method: string}} request - Request object
  * @returns {Response} Original response or HEAD-stripped response
- * @since 1.0.0
  *
  * @example
  * ```javascript
@@ -227,7 +221,6 @@ export function maybeHeadResponse(response, request) {
  * @public
  * @param {Request | import("node:http").IncomingMessage | {method: string}} [request] - Optional request for HEAD handling
  * @returns {Response} 404 response
- * @since 1.0.0
  *
  * @example
  * ```javascript
@@ -262,7 +255,6 @@ export function notFoundResponse(request = null) {
  * @public
  * @param {Request | import("node:http").IncomingMessage | {method: string}} [request] - Optional request for HEAD handling
  * @returns {Response} 500 response
- * @since 1.0.0
  *
  * @example
  * ```javascript
@@ -297,7 +289,6 @@ export function serverErrorResponse(request = null) {
  * @param {Request | import("node:http").IncomingMessage | {method: string}} [request] - Optional request for HEAD handling
  * @param {string} [message="Bad Request"] - Custom error message
  * @returns {Response} 400 response
- * @since 1.0.0
  *
  * @example
  * ```javascript
@@ -330,7 +321,6 @@ export function badRequestResponse(request = null, message = "Bad Request") {
  * @public
  * @param {Request | import("node:http").IncomingMessage | {method: string}} [request] - Optional request for HEAD handling
  * @returns {Response} 414 response
- * @since 1.0.0
  *
  * @example
  * ```javascript
@@ -359,7 +349,6 @@ export function uriTooLongResponse(request = null) {
  *
  * @public
  * @returns {Response} 204 response
- * @since 1.0.0
  *
  * @example
  * ```javascript

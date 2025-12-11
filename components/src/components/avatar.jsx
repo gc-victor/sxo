@@ -27,7 +27,6 @@
  * @author Victor García
  * @license MIT
  * @version 1.0.0
- * @since 1.0.0
  */
 
 import { cn } from "@utils/cn.js";
@@ -64,7 +63,6 @@ import { cn } from "@utils/cn.js";
  * @example
  * <Avatar initials="AI" grayscale class="ring-2 ring-background" />
  * @public
- * @since 1.0.0
  */
 export default function Avatar(props) {
     const {
@@ -156,7 +154,6 @@ export default function Avatar(props) {
  *   { name: "Dev Lead", initials: "VL" },
  * ]}/>
  * @public
- * @since 1.0.0
  */
 export function AvatarGroup(props) {
     const {

@@ -51,7 +51,6 @@
  * - The `active` attribute (if present on a panel) seeds initial state; otherwise the first tab's `data-name` is used.
  * - Runtime updates aria-selected and tabindex based on active state.
  *
- * @since 1.0.0
  */
 import { define } from "@qery/reactive-component";
 

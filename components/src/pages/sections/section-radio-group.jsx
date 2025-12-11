@@ -19,7 +19,6 @@ import { Section, SectionDescription, SectionHeading } from "./section.jsx";
  * @example
  * <SectionRadioGroup />
  * @public
- * @since 1.0.0
  */
 export function SectionRadioGroup({ class: klass, className, ...rest }) {
     return (

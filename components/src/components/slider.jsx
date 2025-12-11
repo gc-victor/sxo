@@ -37,7 +37,6 @@ import { cn } from "@utils/cn.js";
  * @example
  * <Slider min={0} max={50} step={5} value={25} aria-label="Progress" />
  * @public
- * @since 1.0.0
  */
 export default function Slider({ class: klass, className, inputClass = "input w-full", ...rest }) {
     // Extract selected native attributes for clamping / boolean handling; forward remainder

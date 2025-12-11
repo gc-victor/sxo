@@ -20,7 +20,6 @@
  * @author Victor García
  * @license MIT
  * @version 1.0.0
- * @since 1.0.0
  */
 
 import { cn } from "@utils/cn.js";
@@ -103,7 +102,6 @@ function countClasses(enabled) {
  * @example
  * <Badge pill variant="destructive">Deprecated</Badge>
  * @public
- * @since 1.0.0
  */
 export default function Badge(props) {
     const {

@@ -37,7 +37,6 @@ import { cn } from "@utils/cn.js";
  * @param {TabsProps} props
  * @returns {JSX.Element}
  * @public
- * @since 1.0.0
  */
 export function Tabs({ class: klass, className, children, variant = "default", ...rest }) {
     const tabClass = variant === "none" ? undefined : "tabs";
@@ -56,7 +55,6 @@ export function Tabs({ class: klass, className, children, variant = "default", .
  * @function TabsList
  * @param {TabsListProps} props
  * @public
- * @since 1.0.0
  */
 export function TabsList({ class: klass, className, children, ...rest }) {
     return (
@@ -76,7 +74,6 @@ export function TabsList({ class: klass, className, children, ...rest }) {
  * @param {TabsTriggerProps} props
  * @returns {string} Rendered button element with ARIA attributes
  * @public
- * @since 1.0.0
  */
 export function TabsTrigger({ class: klass, className, children, name, active = false, ...rest }) {
     // NOTE: active prop allows SSR of initial active state; runtime (tabs.client.js) will override based on reactive state.
@@ -106,7 +103,6 @@ export function TabsTrigger({ class: klass, className, children, name, active = 
  * @function TabsContent
  * @param {TabsContentProps} props
  * @public
- * @since 1.0.0
  */
 export function TabsContent({ class: klass, className, children, name, active, ...rest }) {
     // Panels start hidden unless active; runtime manages active attribute and visibility.

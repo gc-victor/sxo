@@ -5,7 +5,6 @@
  * and debouncing used by all platform-specific dev adapters (Node.js, Bun, Deno).
  *
  * @module server/dev/core
- * @since 1.0.0
  */
 
 import { normalizePublicPath } from "../utils/inject-assets.js";
@@ -21,7 +20,6 @@ import { normalizePublicPath } from "../utils/inject-assets.js";
  * @param {number} delay - Delay in milliseconds
  * @returns {Function} Debounced function that accepts any arguments
  * @public
- * @since 1.0.0
  * @example
  * const debouncedSave = debounce(saveFile, 250);
  * debouncedSave(); // Will only execute once after 250ms of inactivity
@@ -43,7 +41,6 @@ export function debounce(fn, delay) {
  * @param {string} html - Full HTML document string
  * @returns {string} Body content or empty string if no body tags found
  * @public
- * @since 1.0.0
  * @example
  * const body = extractBodyFromHtml('<html><body><div>Hello</div></body></html>');
  * // Returns: '<div>Hello</div>'
@@ -67,7 +64,6 @@ export function extractBodyFromHtml(html) {
  * @param {string} options.publicPath - Public base path for assets
  * @returns {Promise<string>} JSON stringified payload with body, assets, publicPath
  * @public
- * @since 1.0.0
  */
 export async function buildHotReplacePayload({ route, params, jsxFn, publicPath }) {
     const html = await jsxFn(params);
@@ -99,7 +95,6 @@ export async function buildHotReplacePayload({ route, params, jsxFn, publicPath 
  * @param {object} logger - Logger instance with warn method
  * @returns {(err: Error) => void} Error handler function
  * @public
- * @since 1.0.0
  * @example
  * const handler = getWatcherErrorHandler("src", logger);
  * watcher.on("error", handler);
@@ -119,7 +114,6 @@ export function getWatcherErrorHandler(context, logger) {
  * @param {string} filename - Filename or path to check
  * @returns {boolean} True if file is middleware-related
  * @public
- * @since 1.0.0
  * @example
  * isMiddlewareFile("middleware.js"); // true
  * isMiddlewareFile("src/middleware/auth.js"); // true
@@ -150,7 +144,6 @@ export function isMiddlewareFile(filename) {
  * @param {string} [options.filename] - Optional filename to log (for hot-reload feedback)
  * @returns {Promise<string>} Cleaned error string (empty string if no errors)
  * @public
- * @since 1.0.0
  * @example
  * // Node.js example
  * const errorString = await runEsbuild({
@@ -206,7 +199,6 @@ export async function runEsbuild({ spawnEsbuild, logger, colors = {}, filename }
  * @param {number} [options.retries=3] - Number of retry attempts for manifest loading
  * @returns {Promise<Array>} Parsed routes array
  * @public
- * @since 1.0.0
  * @example
  * // Node.js example
  * const routes = await reloadRoutesManifest(routesPath, {

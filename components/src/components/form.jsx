@@ -30,7 +30,6 @@
  * @author Victor García
  * @license MIT
  * @version 1.0.0
- * @since 1.0.0
  */
 import { cn } from "@utils/cn.js";
 import Button from "./button.jsx";
@@ -59,7 +58,6 @@ import Button from "./button.jsx";
  *   {children}
  * </Form>
  * @public
- * @since 1.0.0
  */
 export default function Form({ class: klass, className, children, ...rest }) {
     const merged = cn("form", klass, className);
@@ -89,7 +87,6 @@ export default function Form({ class: klass, className, children, ...rest }) {
  *   {children}
  * </FormFieldset>
  * @public
- * @since 1.0.0
  */
 export function FormFieldset({ class: klass, className, children, ...rest }) {
     const merged = cn("form-fieldset", klass, className);
@@ -119,7 +116,6 @@ export function FormFieldset({ class: klass, className, children, ...rest }) {
  *   {children}
  * </FormFieldset>
  * @public
- * @since 1.0.0
  */
 export function FormLegend({ class: klass, className, children, ...rest }) {
     const merged = cn("form-legend", klass, className);
@@ -151,7 +147,6 @@ export function FormLegend({ class: klass, className, children, ...rest }) {
  *   <FormDescription id="username-note">3–16 characters, letters or digits.</FormDescription>
  * </div>
  * @public
- * @since 1.0.0
  */
 export function FormDescription({ class: klass, className, children, ...rest }) {
     const merged = cn("form-description", klass, className);
@@ -188,7 +183,6 @@ export function FormDescription({ class: klass, className, children, ...rest }) 
  * @example
  * <FormSubmit loading loadingText="Saving…">Save</FormSubmit>
  * @public
- * @since 1.0.0
  */
 export function FormSubmit({ children, ...rest }) {
     return (
@@ -223,7 +217,6 @@ export function FormSubmit({ children, ...rest }) {
  * @example
  * <FormReset variant="ghost">Clear</FormReset>
  * @public
- * @since 1.0.0
  */
 export function FormReset({ children, variant = "outline", ...rest }) {
     return (
@@ -245,7 +238,6 @@ export function FormReset({ children, variant = "outline", ...rest }) {
  *
  * @typedef {import("./input.jsx").InputProps} FormInputProps
  * @public
- * @since 1.0.0
  */
 export { default as FormInput } from "./input.jsx";
 
@@ -257,6 +249,5 @@ export { default as FormInput } from "./input.jsx";
  *
  * @typedef {import("./label.jsx").LabelProps} FormLabelProps
  * @public
- * @since 1.0.0
  */
 export { default as FormLabel } from "./label.jsx";

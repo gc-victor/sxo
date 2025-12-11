@@ -26,7 +26,6 @@
  * Dispatch custom events with data: document.dispatchEvent(new CustomEvent('el-toast:success', { detail: { title: 'Saved', description: 'Settings saved.' } }));
  *
  * @license MIT
- * @since 1.0.0
  */
 import { define } from "@qery/reactive-component";
 

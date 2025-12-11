@@ -134,7 +134,6 @@ function computePageItems(total, current, boundaryCount, siblingCount) {
  *   firstLabel?: string,
  *   lastLabel?: string
  * }} PaginationProps
- * @since 2.0.0
  */
 
 /* ---------- Internal Declarative Subcomponents (NOT exported) ---------- */
@@ -236,7 +235,6 @@ function ControlButton({ targetPage, disabled = false, variant, label, icon, cla
  * @example
  * <Pagination totalPages={12} currentPage={5} showPrev showNext showFirst showLast />
  * @public
- * @since 2.0.0
  */
 export default function Pagination(props = {}) {
     const {

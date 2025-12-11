@@ -17,7 +17,6 @@ import { Section, SectionDescription, SectionHeading } from "./section.jsx";
  * @example
  * <SectionPagination />
  * @public
- * @since 1.0.0
  */
 export function SectionPagination(props) {
     return (

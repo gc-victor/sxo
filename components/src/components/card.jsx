@@ -29,7 +29,6 @@
  * @author Victor García
  * @license MIT
  * @version 1.0.0
- * @since 1.0.0
  */
 
 import { cn } from "@utils/cn.js";
@@ -56,7 +55,6 @@ import { cn } from "@utils/cn.js";
  *   <CardFooter>Updated just now</CardFooter>
  * </Card>
  * @public
- * @since 1.0.0
  */
 export default function Card({ class: klass, className, children, ...rest }) {
     return (
@@ -86,7 +84,6 @@ export default function Card({ class: klass, className, children, ...rest }) {
  *   <CardHeaderDescription>Arbitrary child composition.</CardHeaderDescription>
  * </CardHeader>
  * @public
- * @since 1.0.0
  */
 export function CardHeader({ children, class: klass, className, ...rest }) {
     if (!children) return "";
@@ -118,7 +115,6 @@ export function CardHeader({ children, class: klass, className, ...rest }) {
  * @example
  * <CardHeaderTitle>Section Title (defaults to h2)</CardHeaderTitle>
  * @public
- * @since 1.0.0
  */
 export function CardHeaderTitle({ level, children, class: klass, className, ...rest }) {
     if (children == null || children === "") return "";
@@ -149,7 +145,6 @@ export function CardHeaderTitle({ level, children, class: klass, className, ...r
  * @example
  * <CardHeaderDescription>Last updated 5 minutes ago.</CardHeaderDescription>
  * @public
- * @since 1.0.0
  */
 export function CardHeaderDescription({ children, class: klass, className, ...rest }) {
     if (children == null || children === "") return "";
@@ -179,7 +174,6 @@ export function CardHeaderDescription({ children, class: klass, className, ...re
  *   <p>Body content...</p>
  * </CardSection>
  * @public
- * @since 1.0.0
  */
 export function CardSection({ children, class: klass, className, ...rest }) {
     return (
@@ -209,7 +203,6 @@ export function CardSection({ children, class: klass, className, ...rest }) {
  *   <button class="btn-primary">Save</button>
  * </CardFooter>
  * @public
- * @since 1.0.0
  */
 export function CardFooter({ children, class: klass, className, ...rest }) {
     return (

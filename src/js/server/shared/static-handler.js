@@ -21,7 +21,6 @@
  * });
  *
  * @module server/shared/static-handler
- * @since 0.9.0
  */
 
 import { CACHE_IMMUTABLE, CACHE_SHORT, weakEtagFromStat } from "./cache.js";
@@ -54,7 +53,6 @@ import { getBasename, getExtension, isHashedAsset, normalizePath, resolveSafePat
  * @public
  * @param {StaticHandlerOptions} options - Handler configuration
  * @returns {(request: Request) => Promise<Response | null>} Request handler function
- * @since 0.9.0
  */
 export function createStaticHandler({ staticDir, fileReader, cacheControl, skipCompression = false }) {
     /**

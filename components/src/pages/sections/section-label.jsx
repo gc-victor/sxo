@@ -34,7 +34,6 @@ import { Section, SectionDescription, SectionHeading } from "./section.jsx";
  * @example
  * <SectionLabel />
  * @public
- * @since 1.0.0
  */
 export function SectionLabel(props) {
     return (

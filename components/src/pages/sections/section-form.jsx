@@ -35,7 +35,6 @@ import { Section, SectionDescription, SectionHeading } from "./section.jsx";
  * @example
  * <SectionForm />
  * @public
- * @since 1.0.0
  */
 export function SectionForm({ class: klass, className, ...rest }) {
     return (

@@ -36,7 +36,6 @@
  * Assumptions: authors will layer progressive enhancement scripts if richer behavior is required.
  *
  * @version 1.0.0
- * @since 1.0.0
  * @public
  */
 import { cn } from "@utils/cn.js";
@@ -78,7 +77,6 @@ import { IconChevronsVertical } from "./icon.jsx";
  *   </SelectMenuPopover>
  * </SelectMenu>
  * @public
- * @since 1.0.0
  *
  * Hidden value helper:
  * - If `name` provided, a hidden input is auto-rendered immediately after children.
@@ -127,7 +125,6 @@ export function SelectMenu({ class: klass, className, children, name, value, ...
  *   </SelectMenuPopover>
  * </SelectMenu>
  * @public
- * @since 1.0.0
  */
 export function SelectMenuTrigger(props) {
     const { class: klass, className, children, label, ariaExpanded = "false", ariaLabel, ...rest } = props || {};
@@ -169,7 +166,6 @@ export function SelectMenuTrigger(props) {
  *   <SelectMenuList><SelectMenuOption value="x">X</SelectMenuOption></SelectMenuList>
  * </SelectMenuPopover>
  * @public
- * @since 1.0.0
  */
 export function SelectMenuPopover(props) {
     const { class: klass, className, children, hidden = true, ...rest } = props || {};
@@ -195,7 +191,6 @@ export function SelectMenuPopover(props) {
  * @example
  * <SelectMenuSearch placeholder="Filter…” />
  * @public
- * @since 1.0.0
  */
 export function SelectMenuSearch(props) {
     const { class: klass, className, placeholder = "Search…", type, ...rest } = props || {};
@@ -236,7 +231,6 @@ export function SelectMenuSearch(props) {
  *   <SelectMenuOption value="apple">Apple</SelectMenuOption>
  * </SelectMenuList>
  * @public
- * @since 1.0.0
  */
 export function SelectMenuList(props) {
     const { class: klass, className, children, ariaLabelledby, ...rest } = props || {};
@@ -271,7 +265,6 @@ export function SelectMenuList(props) {
  *   <SelectMenuOption value="apple">Apple</SelectMenuOption>
  * </SelectMenuGroup>
  * @public
- * @since 1.0.0
  */
 export function SelectMenuGroup(props) {
     const { class: klass, className, children, label, ...rest } = props || {};
@@ -326,7 +319,6 @@ export function SelectMenuGroup(props) {
  *   </SelectMenuPopover>
  * </SelectMenu>
  * @public
- * @since 1.0.0
  */
 export function SelectMenuOption(props) {
     const { class: klass, className, children, value, selected, ...rest } = props || {};
@@ -361,7 +353,6 @@ export function SelectMenuOption(props) {
  * @example
  * <SelectMenuSeparator />
  * @public
- * @since 1.0.0
  */
 export function SelectMenuSeparator(props) {
     const { class: klass, className, ...rest } = props || {};

@@ -23,7 +23,6 @@
  * @author Victor García
  * @license MIT
  * @version 1.0.0
- * @since 1.0.0
  */
 
 import { cn } from "@utils/cn.js";
@@ -81,7 +80,6 @@ function resolveButtonClass({ variant, size }) {
  * @example
  * <Button loading loadingText="Submitting…">Submit</Button>
  * @public
- * @since 1.0.0
  */
 export default function Button(props) {
     const {

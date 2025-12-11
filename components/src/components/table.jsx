@@ -57,7 +57,6 @@ import { cn } from "@utils/cn.js";
  *   </TableBody>
  * </Table>
  * @public
- * @since 1.0.0
  */
 export function Table({
     class: klass,
@@ -101,7 +100,6 @@ export function Table({
  * @example
  * <TableCaption>A list of your recent invoices.</TableCaption>
  * @public
- * @since 1.0.0
  */
 export function TableCaption({ class: klass, className, children, ...rest }) {
     const cls = cn("mt-4 text-sm text-muted-foreground", klass, className);
@@ -130,7 +128,6 @@ export function TableCaption({ class: klass, className, children, ...rest }) {
  *   </TableRow>
  * </TableHeader>
  * @public
- * @since 1.0.0
  */
 export function TableHeader({ class: klass, className, children, ...rest }) {
     const cls = cn("[&_tr]:border-b", klass, className);
@@ -159,7 +156,6 @@ export function TableHeader({ class: klass, className, children, ...rest }) {
  *   </TableRow>
  * </TableBody>
  * @public
- * @since 1.0.0
  */
 export function TableBody({ class: klass, className, children, ...rest }) {
     const cls = cn("[&_tr:last-child]:border-0", klass, className);
@@ -188,7 +184,6 @@ export function TableBody({ class: klass, className, children, ...rest }) {
  *   </TableRow>
  * </TableFooter>
  * @public
- * @since 1.0.0
  */
 export function TableFooter({ class: klass, className, children, ...rest }) {
     const cls = cn("border-t bg-muted/50 font-medium [&>tr]:last:border-b-0", klass, className);
@@ -215,7 +210,6 @@ export function TableFooter({ class: klass, className, children, ...rest }) {
  *   <TableCell>Data</TableCell>
  * </TableRow>
  * @public
- * @since 1.0.0
  */
 export function TableRow({ class: klass, className, children, ...rest }) {
     const cls = cn("border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted", klass, className);
@@ -242,7 +236,6 @@ export function TableRow({ class: klass, className, children, ...rest }) {
  * @example
  * <TableHead>Name</TableHead>
  * @public
- * @since 1.0.0
  */
 export function TableHead({ class: klass, className, scope = "col", children, ...rest }) {
     const cls = cn("h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0", klass, className);
@@ -267,7 +260,6 @@ export function TableHead({ class: klass, className, scope = "col", children, ..
  * @example
  * <TableCell>Value</TableCell>
  * @public
- * @since 1.0.0
  */
 export function TableCell({ class: klass, className, children, ...rest }) {
     const cls = cn("p-4 align-middle [&:has([role=checkbox])]:pr-0", klass, className);

@@ -35,7 +35,6 @@ import { cn } from "@utils/cn.js";
  * @example
  * <label><Switch checked={true} /> Airplane Mode</label>
  * @public
- * @since 1.0.0
  */
 export default function Switch({ class: klass, className, checked = false, ...rest }) {
     const cls = cn("input", klass, className);

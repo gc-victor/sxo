@@ -18,7 +18,6 @@
  * @author Víctor García
  * @license MIT
  * @version 1.0.0
- * @since 1.0.0
  */
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@components/tabs.jsx";
@@ -41,7 +40,6 @@ import CopyButton from "./copy-button.jsx";
  *   },
  *   className?: string
  * }} InstallTabsProps
- * @since 1.0.0
  */
 
 /**
@@ -53,7 +51,6 @@ import CopyButton from "./copy-button.jsx";
  * @param {InstallTabsProps} props
  * @returns {string} Rendered HTML string
  * @public
- * @since 1.0.0
  */
 export default /**
  * @param {InstallTabsProps} props

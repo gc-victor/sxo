@@ -18,7 +18,6 @@ import { Section, SectionDescription, SectionHeading } from "./section.jsx";
  * @example
  * <SectionBadge />
  * @public
- * @since 1.0.0
  */
 export function SectionBadge(props) {
     return (
