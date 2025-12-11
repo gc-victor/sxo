@@ -24,7 +24,8 @@ import process from "node:process";
 import { pathToFileURL } from "node:url";
 
 import { OUTPUT_DIR_CLIENT, ROUTES_FILE } from "../constants.js";
-import { injectAssets, loadJsxModule, normalizePublicPath } from "../server/utils/index.js";
+import { injectAssets, normalizePublicPath } from "../server/utils/inject-assets.js";
+import { loadJsxModule } from "../server/utils/load-jsx-module.js";
 
 /* ------------------------------ helpers ------------------------------ */
 
