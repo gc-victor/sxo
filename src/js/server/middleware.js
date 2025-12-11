@@ -73,7 +73,9 @@ export async function loadUserDefinedMiddlewares() {
     if (!userMwPath) return [];
 
     try {
-        const url = `${pathToFileURL(userMwPath).href}?t=${Date.now()}`;
+        // Cache-bust in dev to enable hot-reload; stable URL in prod (single load at startup)
+        const baseUrl = pathToFileURL(userMwPath).href;
+        const url = process.env.DEV === "true" ? `${baseUrl}?t=${Date.now()}-${Math.random()}` : baseUrl;
         const mod = await import(url);
         const exported = mod.default ?? mod.middlewares ?? mod.middleware ?? mod.mw;
         if (Array.isArray(exported)) {
