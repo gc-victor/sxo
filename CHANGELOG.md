@@ -1,3 +1,17 @@
+## [0.9.1] - 2025-12-11
+
+### 🐛 Bug Fixes
+
+- *(middleware)* Gate cache-busting to dev mode only
+
+### 🚜 Refactor
+
+- Remove deprecated @since tags from codebase
+
+### 📚 Documentation
+
+- Deprecate @since JSDoc tag in favor of git history
+
 ## [0.9.0] - 2025-12-11
 
 ### 🚀 Features
