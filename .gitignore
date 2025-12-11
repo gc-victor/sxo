@@ -16,3 +16,9 @@ jsx-transformer/
 *.sw?
 target
 coverage
+
+# Template lock files (templates use latest published version)
+templates/**/pnpm-lock.yaml
+templates/**/bun.lock
+templates/**/bun.lockb
+templates/**/deno.lock
