@@ -20,7 +20,7 @@
     },
     "dependencies": {
         "@qery/reactive-component": "0.8.0",
-        "sxo": "0.9.0"
+        "sxo": "0.9.1"
     },
     "devDependencies": {
         "@tailwindcss/cli": "4.1.17",

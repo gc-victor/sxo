@@ -119,8 +119,9 @@ release: ensure-clean
 		exit 1; \
 	fi; \
 	git branch -m "release/$$version"; \
+	./sh/update_template_versions.sh "$$version"; \
 	make changelog; \
-	git add CHANGELOG.md package.json; \
+	git add CHANGELOG.md package.json templates/*; \
 	git commit -m "release: v$$version"; \
 	git push --set-upstream origin "release/$$version"; \
 	echo; \
