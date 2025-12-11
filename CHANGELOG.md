@@ -1,3 +1,44 @@
+## [0.9.0] - 2025-12-11
+
+### 🚀 Features
+
+- *(examples/workers)* Add asset injection and pre-rendered page support
+- *(runtime)* [**breaking**] Add Web Standard runtime handlers
+- *(server)* Add shared server utilities for multi-runtime support
+- *(cli)* Improve create command with runtime-specific templates
+- *(build)* Enhance esbuild config and hot-reload
+- *(server)* Add structured logging utility
+- *(templates)* Add runtime-specific project templates
+- *(examples)* Add runtime-specific examples
+- *(examples)* Update workers example with new architecture
+- *(server)* Add new shared loader utilities
+
+### 💼 Other
+
+- *(examples/basic)* Upgrade @qery/reactive-component to v0.8.0
+- *(examples/workers)* Update dependencies and add reactive-component
+- Update package configuration for new exports
+
+### 🚜 Refactor
+
+- *(examples/basic)* Migrate counter to reactive-component v0.8.0 API
+- *(examples/workers)* Migrate counter to reactive-component v0.8.0 API
+- *(server)* Remove deprecated apply-head utility
+- *(dev)* [**breaking**] Refactor dev server with multi-runtime support
+- *(prod)* [**breaking**] Refactor prod server with multi-runtime support
+- Update older server utilities
+
+### 📚 Documentation
+
+- *(security)* Add comprehensive security guide
+- *(components)* Update component library README
+- Update architecture documentation for multi-runtime support
+
+### ⚙️ Miscellaneous Tasks
+
+- Remove deprecated single-runtime templates
+- Remove basic example in favor of runtime-specific examples
+
 ## [0.8.1] - 2025-11-30
 
 ### 🐛 Bug Fixes
