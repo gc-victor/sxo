@@ -275,24 +275,25 @@ describe("cli/create", () => {
             }
         });
 
-        it("fetchTemplateFile constructs raw URL with runtime for node", async () => {
+        it("fetchTemplateFile constructs correct raw URL", async () => {
             const { fetchTemplateFile } = await import("./create.js");
 
             global.fetch = mock.fn(async (url) => {
-                if (url === "https://raw.githubusercontent.com/gc-victor/sxo/main/node/package.json") {
+                if (url === "https://raw.githubusercontent.com/gc-victor/sxo/main/templates/node/package.json") {
                     return {
                         ok: true,
                         arrayBuffer: async () => Buffer.from('{"name": "test"}'),
                     };
                 }
-                return { ok: false };
+                return { ok: false, status: 404, statusText: "Not Found" };
             });
 
             try {
-                await fetchTemplateFile("package.json", "test", "node");
+                // The implementation expects the full repo path
+                await fetchTemplateFile("templates/node/package.json", "test", "node");
                 assert.equal(global.fetch.mock.callCount(), 1);
                 const calledUrl = global.fetch.mock.calls[0].arguments[0];
-                assert.equal(calledUrl, "https://raw.githubusercontent.com/gc-victor/sxo/main/node/package.json");
+                assert.equal(calledUrl, "https://raw.githubusercontent.com/gc-victor/sxo/main/templates/node/package.json");
             } finally {
                 global.fetch = mock.fn();
             }
@@ -341,8 +342,7 @@ describe("cli/create", () => {
             });
         }
 
-        // TODO: Re-enable after creating templates/node/ directory
-        it.skip("creates a new project successfully", async () => {
+        it("creates a new project successfully", async () => {
             await withTempDir(async (cwd) => {
                 mockFetchForSuccess();
 
@@ -363,8 +363,7 @@ describe("cli/create", () => {
             });
         });
 
-        // TODO: Re-enable after creating templates/node/ directory
-        it.skip("handles '.' as project name (current directory)", async () => {
+        it("handles '.' as project name (current directory)", async () => {
             Object.defineProperty(process.stdout, "isTTY", { value: true, configurable: true });
 
             // Mock readline to simulate "yes" answer
@@ -448,8 +447,7 @@ describe("cli/create", () => {
             });
         });
 
-        // TODO: Re-enable after creating templates/node/ directory
-        it.skip("warns if GitHub tree is truncated", async () => {
+        it("warns if GitHub tree is truncated", async () => {
             await withTempDir(async (cwd) => {
                 global.fetch = mock.fn(async (url) => {
                     if (url === GITHUB_API_TREE) {
@@ -509,8 +507,7 @@ describe("cli/create", () => {
             });
         });
 
-        // TODO: Re-enable after creating templates/node/ directory
-        it.skip("overwrites existing directory if user approves", async () => {
+        it("overwrites existing directory if user approves", async () => {
             // Force TTY to true so askYesNo enters interactive mode
             Object.defineProperty(process.stdout, "isTTY", { value: true, configurable: true });
 
@@ -544,8 +541,7 @@ describe("cli/create", () => {
             }
         });
 
-        // TODO: Re-enable after creating templates/node/ directory
-        it.skip("handles multiple project_name occurrences in text files (interpolation)", async () => {
+        it("handles multiple project_name occurrences in text files (interpolation)", async () => {
             await withTempDir(async (cwd) => {
                 global.fetch = mock.fn(async (url) => {
                     if (url === GITHUB_API_TREE) {
@@ -578,8 +574,7 @@ describe("cli/create", () => {
             });
         });
 
-        // TODO: Re-enable after creating templates/node/ directory
-        it.skip("handles text files with no project_name placeholder", async () => {
+        it("handles text files with no project_name placeholder", async () => {
             await withTempDir(async (cwd) => {
                 global.fetch = mock.fn(async (url) => {
                     if (url === GITHUB_API_TREE) {
@@ -607,8 +602,7 @@ describe("cli/create", () => {
             });
         });
 
-        // TODO: Re-enable after creating templates/node/ directory
-        it.skip("detects binary files with null bytes and writes them as-is (no interpolation)", async () => {
+        it("detects binary files with null bytes and writes them as-is (no interpolation)", async () => {
             await withTempDir(async (cwd) => {
                 global.fetch = mock.fn(async (url) => {
                     if (url === GITHUB_API_TREE) {
@@ -648,8 +642,7 @@ describe("cli/create", () => {
             });
         });
 
-        // TODO: Re-enable after creating templates/node/ directory
-        it.skip("batches downloads with concurrency limit (5 files per batch)", async () => {
+        it("batches downloads with concurrency limit (5 files per batch)", async () => {
             await withTempDir(async (cwd) => {
                 const fileCount = 12; // More than one batch (5 files)
                 const fetchCallOrder = [];
@@ -692,8 +685,7 @@ describe("cli/create", () => {
             });
         });
 
-        // TODO: Re-enable after creating templates/node/ directory
-        it.skip("writes progress dots to stdout for each downloaded file", async () => {
+        it("writes progress dots to stdout for each downloaded file", async () => {
             await withTempDir(async (cwd) => {
                 const stdoutWrites = [];
                 const originalWrite = process.stdout.write;
@@ -776,8 +768,7 @@ describe("cli/create", () => {
             });
         });
 
-        // TODO: Re-enable after creating templates/node/ directory
-        it.skip("handles special characters in project names (interpolation is exact string match)", async () => {
+        it("handles special characters in project names (interpolation is exact string match)", async () => {
             await withTempDir(async (cwd) => {
                 global.fetch = mock.fn(async (url) => {
                     if (url === GITHUB_API_TREE) {
@@ -830,8 +821,7 @@ describe("cli/create", () => {
             });
         });
 
-        // TODO: Re-enable after creating templates/node/ directory
-        it.skip("creates nested directory structure for files in subdirectories", async () => {
+        it("creates nested directory structure for files in subdirectories", async () => {
             await withTempDir(async (cwd) => {
                 global.fetch = mock.fn(async (url) => {
                     if (url === GITHUB_API_TREE) {
@@ -869,8 +859,7 @@ describe("cli/create", () => {
             });
         });
 
-        // TODO: Re-enable after creating templates/node/ directory
-        it.skip("logs next steps with relative path when creating in non-current directory", async () => {
+        it("logs next steps with relative path when creating in non-current directory", async () => {
             await withTempDir(async (cwd) => {
                 mockFetchForSuccess();
 
@@ -887,8 +876,7 @@ describe("cli/create", () => {
             });
         });
 
-        // TODO: Re-enable after creating templates/node/ directory
-        it.skip("omits cd step when creating in current directory (.)", async () => {
+        it("omits cd step when creating in current directory (.)", async () => {
             Object.defineProperty(process.stdout, "isTTY", { value: true, configurable: true });
 
             const questionMock = mock.fn((_q, cb) => cb("yes"));
