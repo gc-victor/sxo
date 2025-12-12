@@ -12,6 +12,8 @@
  * - FormReset
  * - FormInput (re-export alias of Input)
  * - FormLabel (re-export alias of Label)
+ * - FormSelect (re-export alias of Select)
+ * - FormTextarea (re-export alias of Textarea)
  *
  * Design notes:
  * - No automatic id generation: caller manages relationships (`id`, `for`/`htmlFor`, `aria-describedby`).
@@ -251,3 +253,27 @@ export { default as FormInput } from "./input.jsx";
  * @public
  */
 export { default as FormLabel } from "./label.jsx";
+
+/**
+ * Props accepted by `<FormSelect />`.
+ *
+ * Alias re-export of `<Select />` for ergonomic colocation within form primitives. See `ui/select`
+ * for complete prop reference and examples. All props are forwarded unchanged; no additional
+ * behavior is introduced.
+ *
+ * @typedef {import("./select.jsx").SelectProps} FormSelectProps
+ * @public
+ */
+export { default as FormSelect } from "./select.jsx";
+
+/**
+ * Props accepted by `<FormTextarea />`.
+ *
+ * Alias re-export of `<Textarea />` for ergonomic colocation within form primitives. See `ui/textarea`
+ * for complete prop reference and examples. All props are forwarded unchanged; no additional
+ * behavior is introduced.
+ *
+ * @typedef {import("./textarea.jsx").TextareaProps} FormTextareaProps
+ * @public
+ */
+export { default as FormTextarea } from "./textarea.jsx";
