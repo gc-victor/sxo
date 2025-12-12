@@ -297,18 +297,6 @@ export function terminate(child, signal = "SIGTERM", forceAfterMs = 5000) {
 }
 
 /**
- * Convenience helper to run a process to completion.
- * @param {string} command
- * @param {string[]} [args]
- * @param {SpawnOptions} [options]
- * @returns {Promise<SpawnResult>}
- */
-export async function runProcess(command, args = [], options = {}) {
-    const { wait } = spawnProcess(command, args, options);
-    return await wait;
-}
-
-/**
  * Convenience helper to run a script to completion using the current runtime.
  * @param {string} scriptPath
  * @param {SpawnOptions & { args?: string[], runtimeOptions?: string[] }} [options]
