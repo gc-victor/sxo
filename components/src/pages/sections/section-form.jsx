@@ -16,7 +16,18 @@
  * @version 1.0.0
  */
 
-import Form, { FormDescription, FormFieldset, FormInput, FormLabel, FormLegend, FormReset, FormSubmit } from "@components/form.jsx";
+import Form, {
+    FormDescription,
+    FormFieldset,
+    FormInput,
+    FormLabel,
+    FormLegend,
+    FormReset,
+    FormSelect,
+    FormSubmit,
+    FormTextarea,
+} from "@components/form.jsx";
+import { SelectOption } from "@components/select.jsx";
 import Tabs, { TabsContent, TabsList, TabsTrigger } from "@components/tabs.jsx";
 import CopyButton from "@pages/components/copy-button.jsx";
 import highlightJsx from "@pages/components/highlight-jsx.js";
@@ -61,12 +72,11 @@ export function SectionForm({ class: klass, className, ...rest }) {
                         {/* Case 2: Email field */}
                         <div class="grid gap-2">
                             <FormLabel for="demo-form-select">Email</FormLabel>
-                            {/* TODO: Use FormSelect */}
-                            <select id="demo-form-select" class="input">
-                                <option value="m@example.com">m@example.com</option>
-                                <option value="m@google.com">m@google.com</option>
-                                <option value="m@support.com">m@support.com</option>
-                            </select>
+                            <FormSelect id="demo-form-select">
+                                <SelectOption value="m@example.com">m@example.com</SelectOption>
+                                <SelectOption value="m@google.com">m@google.com</SelectOption>
+                                <SelectOption value="m@support.com">m@support.com</SelectOption>
+                            </FormSelect>
                             <FormDescription class="text-foreground/70 text-sm">
                                 You can manage email addresses in your email settings.
                             </FormDescription>
@@ -75,8 +85,7 @@ export function SectionForm({ class: klass, className, ...rest }) {
                         {/* Case 3: Bio field */}
                         <div class="grid gap-2">
                             <FormLabel for="demo-form-textarea">Bio</FormLabel>
-                            {/* TODO: Use FormTextarea */}
-                            <textarea id="demo-form-textarea" placeholder="I like to..." rows="3" class="textarea"></textarea>
+                            <FormTextarea id="demo-form-textarea" placeholder="I like to..." rows="3" />
                             <FormDescription class="text-foreground/70 text-sm">
                                 You can @mention other users and organizations.
                             </FormDescription>
