@@ -122,13 +122,18 @@ pnpm test
 ```
 
 **Create command** (`sxo create <project>`):
+
 - Scaffolds a new SXO project by fetching templates from GitHub.
 - `project`: optional project name (defaults to current directory name if omitted or ".").
 - If directory exists, prompts user to confirm overwrite.
+- Prompts user to select a runtime template: `node` (default), `bun`, `deno`, or `workers`.
+- In non-TTY environments (tests, CI), runtime selection is skipped and defaults to `node`.
+- Templates are downloaded from the `gc-victor/sxo` GitHub repository under `templates/<runtime>/...`.
 - Downloads all template files concurrently (batch size: 5) with placeholder substitution (`project_name` replaced with actual name).
 - Next steps printed after successful creation: install dependencies and run dev server.
 
 **Add command** (`sxo add <component>`):
+
 - Installs a component from the SXO basecoat library to the project's `src/components/` directory.
 - Fetches component files (.jsx, .client.js, .css) from GitHub (https://raw.githubusercontent.com/gc-victor/sxo/main/components/src/components/).
 - Falls back to local `components/src/components/` directory if GitHub is unavailable (e.g., offline, network error).
@@ -203,20 +208,22 @@ Exception: Sentinel pattern components (e.g., `ComboboxOption`, `ComboboxGroup`)
 ## 4. Layout (Key Directories)
 
 ```
+
 src/js/
-  cli/              # CLI + helpers (+ readiness, spawn)
-  config.js         # flag/env/config resolution
-  constants.js      # derived paths from resolved config
-  esbuild/          # entry discovery, plugin, orchestrator
+  cli/ # CLI + helpers (+ readiness, spawn)
+  config.js # flag/env/config resolution
+  constants.js # derived paths from resolved config
+  esbuild/ # entry discovery, plugin, orchestrator
   server/
-    dev.js          # dev server + hot reload
-    prod.js         # prod server
-    middleware.js   # loader + runner
-    utils/          # decomposed server helpers
-      ...
+    dev.js # dev server + hot reload
+    prod.js # prod server
+    middleware.js # loader
+    utils/ # decomposed server helpers
+    ...
 dist/
-  client/           # public
-  server/           # private SSR bundles + routes.json
+  client/ # public
+  server/ # private SSR bundles + routes.json
+
 ```
 
 ---
@@ -276,15 +283,36 @@ Loader picks first of:
 - `middleware`
 - `mw`
 
+Middleware Signature (Web Standard):
+
+```javascript
+/**
+ * @param {Request} request - Web Standard Request object
+ * @param {object} [env] - Platform-specific environment (e.g., Cloudflare bindings)
+ * @returns {Response | void | Promise<Response | void>}
+ */
+function middleware(request, env) {
+  // Return Response to short-circuit and handle the request
+  // Return void/undefined to continue to next middleware/handler
+}
+```
+
 Execution:
 
-- Sequence preserved.
-- Return truthy OR end response => request handled (short-circuit).
-- Callback signature `(req,res,next)` supported; `next(err)` rejects (dev/prod logs, prod returns 500).
-- Dev: reloaded on change detection.
-- Prod: single load at startup.
+- Sequence preserved; middlewares run in array order.
+- Return `Response` => request handled (short-circuit; no further middleware or route handler runs).
+- Return `void`/`undefined` => continue to next middleware or route handler.
+- Throwing an error propagates as rejection (dev/prod logs; prod returns 500).
+- Dev: middleware reloaded on file change detection.
+- Prod: middleware loaded once at startup (no hot reload).
 
-Important: Avoid writing large bodies before delegating; run cheap checks early.
+Platform Adapters:
+
+- All dev/prod adapters (Node.js, Bun, Deno, Cloudflare Workers) use Web Standard middleware.
+- Node.js adapter converts between Node.js HTTP primitives and Web Standard Request/Response internally.
+- The `env` parameter provides platform-specific context (e.g., Cloudflare Workers bindings, Deno env variables).
+
+Important: Avoid writing large bodies before delegating; run cheap checks early. If middleware needs to end the request, return a `Response` object with appropriate status and body.
 
 ---
 
@@ -449,19 +477,19 @@ Do NOT modify:
 
 ## 19. Quick Reference (Cheat Sheet)
 
-| Concern                    | File                                 |
-| -------------------------- | ------------------------------------ |
-| Route Discovery & Manifest | [`esbuild/entry-points-config.js`](src/js/esbuild/entry-points-config.js)     |
+| Concern                    | File                                                                              |
+| -------------------------- | --------------------------------------------------------------------------------- |
+| Route Discovery & Manifest | [`esbuild/entry-points-config.js`](src/js/esbuild/entry-points-config.js)         |
 | Metafile & Asset Mapping   | [`esbuild/esbuild-metafile.plugin.js`](src/js/esbuild/esbuild-metafile.plugin.js) |
-| Build Orchestrator         | [`esbuild/esbuild.config.js`](src/js/esbuild/esbuild.config.js)          |
-| JSX Plugin                 | [`esbuild/esbuild-jsx.plugin.js`](src/js/esbuild/esbuild-jsx.plugin.js)      |
-| Dev Server (entry point)   | [`server/dev.js`](src/js/server/dev.js)                      |
-| Dev Server (Node.js)       | [`server/dev/node.js`](src/js/server/dev/node.js)            |
-| Dev Server (Bun)           | [`server/dev/bun.js`](src/js/server/dev/bun.js)              |
-| Dev Server (Deno)          | [`server/dev/deno.js`](src/js/server/dev/deno.js)            |
-| Dev Server (Core Utils)    | [`server/dev/core.js`](src/js/server/dev/core.js)            |
-| Prod Server                | [`server/prod.js`](src/js/server/prod.js)                     |
-| Middleware Loader          | [`server/middleware.js`](src/js/server/middleware.js)               |
+| Build Orchestrator         | [`esbuild/esbuild.config.js`](src/js/esbuild/esbuild.config.js)                   |
+| JSX Plugin                 | [`esbuild/esbuild-jsx.plugin.js`](src/js/esbuild/esbuild-jsx.plugin.js)           |
+| Dev Server (entry point)   | [`server/dev.js`](src/js/server/dev.js)                                           |
+| Dev Server (Node.js)       | [`server/dev/node.js`](src/js/server/dev/node.js)                                 |
+| Dev Server (Bun)           | [`server/dev/bun.js`](src/js/server/dev/bun.js)                                   |
+| Dev Server (Deno)          | [`server/dev/deno.js`](src/js/server/dev/deno.js)                                 |
+| Dev Server (Core Utils)    | [`server/dev/core.js`](src/js/server/dev/core.js)                                 |
+| Prod Server                | [`server/prod.js`](src/js/server/prod.js)                                         |
+| Middleware Loader          | [`server/middleware.js`](src/js/server/middleware.js)                             |
 
 | Static Assets | [`server/utils/statics.js`](src/js/server/utils/statics.js) |
 | Route Match | [`server/utils/route-match.js`](src/js/server/utils/route-match.js) |
@@ -502,6 +530,7 @@ src/js/server/
 ```
 
 All adapters share utilities from `src/js/server/prod/utils/`:
+
 - `mime-types.js` - MIME type detection, compressibility checks, default paths
 - `path.js` - Safe path resolution, extension detection, hashed asset detection
 - `routes.js` - Generated route lookup
@@ -536,6 +565,7 @@ Note: `./node`, `./bun`, and `./deno` exports removed (CLI-only usage via `sxo s
 5. Platform-specific adapter starts the prod server immediately (no exports)
 
 **Pattern:**
+
 ```javascript
 // src/js/server/prod.js (universal entry point)
 function detectRuntime() {
@@ -549,6 +579,7 @@ await import(`./prod/${runtime}.js`);
 ```
 
 Each adapter (`node.js`, `bun.js`, `deno.js`):
+
 - Loads routes, modules, and middleware at startup
 - Starts server immediately (immediate execution, no exports)
 - Provides custom 404/500 error pages
@@ -559,12 +590,14 @@ Each adapter (`node.js`, `bun.js`, `deno.js`):
 ### Usage
 
 **Node.js / Bun / Deno (CLI Only):**
+
 ```bash
 # Simply use the CLI (auto-detects runtime)
 sxo start
 ```
 
 No custom server file needed. The CLI automatically:
+
 - Detects your JavaScript runtime
 - Loads the appropriate adapter
 - Starts the production server
@@ -574,16 +607,18 @@ No custom server file needed. The CLI automatically:
 Cloudflare Workers requires a custom entry point due to its environment constraints.
 
 Configure `wrangler.jsonc` with aliases for virtual imports:
+
 ```jsonc
 {
   "alias": {
     "sxo:routes": "./dist/server/routes.json",
-    "sxo:modules": "./dist/server/modules.js"
-  }
+    "sxo:modules": "./dist/server/modules.js",
+  },
 }
 ```
 
 Then create `src/index.js`:
+
 ```javascript
 import { createHandler } from "sxo/cloudflare";
 
@@ -595,12 +630,12 @@ export default await createHandler({
 
 ### Platform-Specific APIs
 
-| Feature | Node.js | Bun | Deno | Cloudflare |
-|---------|---------|-----|------|------------|
-| HTTP Server | `http.createServer()` | `Bun.serve()` | `Deno.serve()` | `export default` |
-| File Reading | `fs.readFile()` | `Bun.file()` | `Deno.readTextFile()` | `env.ASSETS` |
-| File Stats | `fs.stat()` | `Bun.file().size` | `Deno.stat()` | N/A |
-| Startup | Immediate execution | Immediate execution | Immediate execution | Factory pattern |
+| Feature      | Node.js               | Bun                 | Deno                  | Cloudflare       |
+| ------------ | --------------------- | ------------------- | --------------------- | ---------------- |
+| HTTP Server  | `http.createServer()` | `Bun.serve()`       | `Deno.serve()`        | `export default` |
+| File Reading | `fs.readFile()`       | `Bun.file()`        | `Deno.readTextFile()` | `env.ASSETS`     |
+| File Stats   | `fs.stat()`           | `Bun.file().size`   | `Deno.stat()`         | N/A              |
+| Startup      | Immediate execution   | Immediate execution | Immediate execution   | Factory pattern  |
 
 ### Middleware
 
@@ -611,14 +646,15 @@ All production adapters (Node.js, Bun, Deno, Cloudflare Workers) use the Web Sta
 ```javascript
 // src/middleware.js
 export default function middleware(request, env) {
-  if (new URL(request.url).pathname === '/health') {
-    return new Response('OK', { status: 200 });
+  if (new URL(request.url).pathname === "/health") {
+    return new Response("OK", { status: 200 });
   }
   // Return nothing to continue to next middleware/handler
 }
 ```
 
 Middleware signature: `(request: Request, env?: object) => Response | void`
+
 - Return a `Response` to short-circuit and handle the request
 - Return `void`/`undefined` to continue to the next middleware or route handler
 - The `env` parameter is optional and provides environment context (e.g., Cloudflare Workers bindings)
@@ -669,13 +705,13 @@ src/js/server/
 
 ### Platform-Specific APIs
 
-| Feature | Node.js | Bun | Deno |
-|---------|---------|-----|------|
-| HTTP Server | `http.createServer()` | `Bun.serve()` | `Deno.serve()` |
-| File Watching | `fs.watch()` | `fs.watch()` | `Deno.watchFs()` |
-| Process Spawn | `child_process.spawn()` | `Bun.spawn()` | `Deno.Command()` |
-| File Reading | `fs.readFile()` | `Bun.file()` | `Deno.readTextFile()` |
-| SSE Streaming | Response write | `ReadableStream` | `ReadableStream` |
+| Feature       | Node.js                 | Bun              | Deno                  |
+| ------------- | ----------------------- | ---------------- | --------------------- |
+| HTTP Server   | `http.createServer()`   | `Bun.serve()`    | `Deno.serve()`        |
+| File Watching | `fs.watch()`            | `fs.watch()`     | `Deno.watchFs()`      |
+| Process Spawn | `child_process.spawn()` | `Bun.spawn()`    | `Deno.Command()`      |
+| File Reading  | `fs.readFile()`         | `Bun.file()`     | `Deno.readTextFile()` |
+| SSE Streaming | Response write          | `ReadableStream` | `ReadableStream`      |
 
 ### Usage
 
@@ -888,3 +924,64 @@ Refined Prompt Output (illustrative):
 (You would emit only the structured refined prompt per the pattern above, populated with concrete, testable acceptance criteria.)
 
 Use this template verbatim structure only when refinement is explicitly requested or clearly beneficial; otherwise proceed with direct execution per Section 21 workflow.
+
+---
+
+## 22. Testing Workflow for Code Changes (Agent-Friendly)
+
+Goal: quickly prove changes didn’t break core behavior across runtimes.
+
+### What to run (in order)
+
+#### 1) Unit tests + lint (always)
+
+```bash
+pnpm test
+pnpm run check:fix
+```
+
+#### 2) Cross-runtime smoke (when touching shared/runtime-sensitive code)
+
+Run the repo’s maintained smoke script (covers `examples/node`, `examples/bun`, `examples/deno`, `examples/workers`):
+
+```bash
+pnpm run test:runtimes
+```
+
+### When to run runtime smoke tests
+
+Run `pnpm run test:runtimes` if you changed anything related to:
+
+- `src/js/server/**` (dev/prod adapters, statics, routing, middleware loading)
+- `src/js/esbuild/**` (entry discovery, build pipeline, metafile/asset mapping)
+- `src/js/runtime/**` (handler semantics)
+- config resolution / CLI behavior that affects builds or servers
+
+Otherwise, `pnpm test` + `pnpm run check` is usually enough.
+
+### Prereqs / common failures
+
+- `pnpm run test:runtimes` expects: `curl`, `pnpm`, plus `bun` and `deno` installed for their sections.
+- If port `3000` is busy:
+
+```bash
+lsof -ti:3000 | xargs kill -9 2>/dev/null
+```
+
+- If you need a different port:
+
+```bash
+PORT=3001 pnpm run test:runtimes
+```
+
+### Script reference
+
+- Source of truth: `scripts/test-runtimes.sh`
+- npm script: `pnpm run test:runtimes`
+
+### Documentation follow-up
+
+If you changed user-facing behavior or commands:
+
+- Update `README.md`
+- Update `AGENTS.md`
