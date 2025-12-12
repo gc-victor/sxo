@@ -23,15 +23,7 @@
  * @version 1.0.0
  */
 
-/**
- * Internal utility to join class name fragments.
- * TODO(cn-migrate): Replace with shared utility when centralized.
- * @param {...any} parts
- * @returns {string}
- */
-function cn(...parts) {
-    return parts.filter(Boolean).join(" ");
-}
+import { cn } from "@utils/cn.js";
 
 /**
  * Props accepted by `<Tooltip />`.
