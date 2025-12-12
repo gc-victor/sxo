@@ -186,7 +186,7 @@ export default () => (
 Commands:
 
 ```shell
-sxo create <project>  # Create a new SXO project from templates (name defaults to current directory)
+sxo create <project>  # Create a new SXO project from templates (prompts for runtime; defaults to node)
 sxo add <component>     # Add a component from the basecoat library to src/components
 sxo dev                 # Start the development server with hot replace
 sxo build               # Build the project for production (client and server bundles)
@@ -198,14 +198,59 @@ sxo generate            # Pre-render static routes to HTML after a successful bu
 Create a new project:
 
 ```shell
-# Create in a new directory
+# Create a new project in a new directory
 sxo create my-app
-cd my-app
-pnpm install
-pnpm run dev
 
-# Or create in the current directory
+# Create a project in the current directory
 sxo create .
+
+# Or omit the name entirely (uses current directory name)
+sxo create
+```
+
+**Runtime Selection:**
+
+When you run the command, you'll see an interactive prompt to select your target runtime:
+
+```
+Select a runtime:
+  1) node (default)
+  2) bun
+  3) deno
+  4) workers
+
+>
+```
+
+- **Press Enter** → selects `node` (default)
+- **Type `1`** → selects `node`
+- **Type `2`** → selects `bun`
+- **Type `3`** → selects `deno`
+- **Type `4`** → selects `workers` (Cloudflare Workers)
+
+In non-interactive environments (CI, tests), the prompt is skipped and `node` is used automatically.
+
+Templates are fetched from the `gc-victor/sxo` repository under `templates/<runtime>/...`.
+
+**Existing Directory:**
+
+If the target directory already exists, you'll be prompted to confirm overwriting:
+
+```
+Create SXO template in "my-app"? (This will overwrite existing files.) (y/N)
+```
+
+**Full Example Workflow:**
+
+```shell
+# 1. Create the project
+sxo create my-app
+
+# 2. Select runtime when prompted (or press Enter for node)
+# > 2  (selects bun)
+
+# 3. Follow the next steps printed by the CLI
+cd my-app
 pnpm install
 pnpm run dev
 ```

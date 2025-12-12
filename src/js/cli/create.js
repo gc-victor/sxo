@@ -138,7 +138,7 @@ export async function fetchTemplateFileList(runtime) {
  * // => Buffer(...)  [no interpolation applied]
  */
 export async function fetchTemplateFile(filePath, projectName, runtime) {
-    const url = `${RAW_GITHUB_BASE}${runtime}/${filePath}`;
+    const url = `${RAW_GITHUB_BASE}${filePath}`;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout for content
 
