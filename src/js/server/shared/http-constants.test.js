@@ -8,7 +8,6 @@ import { describe, test } from "node:test";
 import {
     HTTP_METHOD_GET,
     HTTP_METHOD_HEAD,
-    HTTP_METHOD_POST,
     HTTP_STATUS_FORBIDDEN,
     HTTP_STATUS_NOT_FOUND,
     HTTP_STATUS_OK,
@@ -36,10 +35,6 @@ describe("HTTP Status Codes", () => {
 describe("HTTP Methods", () => {
     test("HTTP_METHOD_GET should be 'GET'", () => {
         assert.strictEqual(HTTP_METHOD_GET, "GET");
-    });
-
-    test("HTTP_METHOD_POST should be 'POST'", () => {
-        assert.strictEqual(HTTP_METHOD_POST, "POST");
     });
 
     test("HTTP_METHOD_HEAD should be 'HEAD'", () => {

@@ -14,24 +14,6 @@
 export const MAX_PATH_LEN = 1024;
 
 /**
- * Default output directory name.
- * @type {string}
- */
-export const DEFAULT_OUTPUT_DIR = "dist";
-
-/**
- * Default server directory name (contains SSR bundles).
- * @type {string}
- */
-export const DEFAULT_SERVER_DIR = "server";
-
-/**
- * Default client directory name (contains static assets).
- * @type {string}
- */
-export const DEFAULT_CLIENT_DIR = "client";
-
-/**
  * MIME type mapping for static files.
  * Keys are file extensions with leading dot.
  * @type {Record<string, string>}
