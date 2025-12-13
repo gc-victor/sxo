@@ -64,12 +64,6 @@ export const HTTP_STATUS_SERVER_ERROR = 500;
 export const HTTP_METHOD_GET = "GET";
 
 /**
- * HTTP POST method.
- * @type {string}
- */
-export const HTTP_METHOD_POST = "POST";
-
-/**
  * HTTP HEAD method.
  * @type {string}
  */

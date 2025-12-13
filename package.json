@@ -52,7 +52,8 @@
         "components:install": "pnpm run --filter ./components install --frozen-lockfile",
         "components:playwright:install": "pnpm run --filter ./components playwright:install",
         "test": "NODE_ENV=test node --test src/js/**/*.test.js",
-        "test:e2e": "pnpm run --filter ./components test:e2e"
+        "test:e2e": "pnpm run --filter ./components test:e2e",
+        "test:runtimes": "bash scripts/test-runtimes.sh"
     },
     "devDependencies": {
         "@biomejs/biome": "^2.3.4",

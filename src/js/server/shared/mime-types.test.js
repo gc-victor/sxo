@@ -5,16 +5,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import {
-    COMPRESSIBLE_EXTS,
-    DEFAULT_CLIENT_DIR,
-    DEFAULT_OUTPUT_DIR,
-    DEFAULT_SERVER_DIR,
-    getMimeType,
-    isCompressible,
-    MAX_PATH_LEN,
-    MIME_TYPES,
-} from "./mime-types.js";
+import { COMPRESSIBLE_EXTS, getMimeType, isCompressible, MAX_PATH_LEN, MIME_TYPES } from "./mime-types.js";
 
 describe("MIME_TYPES", () => {
     it("should have correct MIME type for .css", () => {
@@ -95,18 +86,6 @@ describe("COMPRESSIBLE_EXTS", () => {
 describe("Constants", () => {
     it("should have MAX_PATH_LEN of 1024", () => {
         assert.equal(MAX_PATH_LEN, 1024);
-    });
-
-    it("should have DEFAULT_OUTPUT_DIR as 'dist'", () => {
-        assert.equal(DEFAULT_OUTPUT_DIR, "dist");
-    });
-
-    it("should have DEFAULT_SERVER_DIR as 'server'", () => {
-        assert.equal(DEFAULT_SERVER_DIR, "server");
-    });
-
-    it("should have DEFAULT_CLIENT_DIR as 'client'", () => {
-        assert.equal(DEFAULT_CLIENT_DIR, "client");
     });
 });
 

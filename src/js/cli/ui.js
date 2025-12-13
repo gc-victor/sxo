@@ -326,49 +326,6 @@ export function createSpinner(text, opts = {}) {
     };
 }
 
-/* ------------------------------ info grid ------------------------------- */
-
-/**
- * Render a label-value grid (aligned) as a string.
- * @param {Array<[string, string|number|boolean|undefined|null]>|Record<string, any>} rows
- * @param {Object} [opts]
- * @param {boolean} [opts.color]    - force colors (default: TTY && !NO_COLOR)
- * @param {number}  [opts.padding]  - spaces after label column (default: 2)
- * @param {string}  [opts.labelColor="dim"] - "dim" | "bold" | "gray"
- * @returns {string}
- */
-export function formatInfoGrid(rows, opts = {}) {
-    const { isTTY, noColor } = detectTTY();
-    const colorEnabled = opts.color ?? (isTTY && !noColor);
-    const c = makeColors(colorEnabled);
-
-    /** @type {Array<[string, string]>} */
-    const pairs = Array.isArray(rows)
-        ? rows.map(([k, v]) => [String(k), toStringValue(v)])
-        : Object.entries(rows).map(([k, v]) => [String(k), toStringValue(v)]);
-
-    const padding = Math.max(0, opts.padding ?? 2);
-    const maxLabel = pairs.reduce((m, [k]) => Math.max(m, stripAnsi(k).length), 0);
-
-    const paintLabel = opts.labelColor === "bold" ? (s) => c.bold(s) : opts.labelColor === "gray" ? (s) => c.gray(s) : (s) => c.dim(s);
-
-    const lines = pairs.map(([k, v]) => {
-        const label = paintLabel(k.padEnd(maxLabel, " "));
-        return `${label}${" ".repeat(padding)}${v}`;
-    });
-
-    return lines.join("\n");
-}
-
-/**
- * Print a label-value grid to stdout.
- * @param {Array<[string, string|number|boolean|undefined|null]>|Record<string, any>} rows
- * @param {Object} [opts] - see formatInfoGrid
- */
-export function printInfoGrid(rows, opts = {}) {
-    process.stdout.write(`${formatInfoGrid(rows, opts)}\n`);
-}
-
 /* --------------------------------- log ---------------------------------- */
 
 export const log = {
@@ -404,23 +361,12 @@ export const log = {
     },
 };
 
-/* -------------------------------- utils --------------------------------- */
-
-function toStringValue(v) {
-    if (v === null || v === undefined) return "";
-    if (typeof v === "boolean") return v ? "true" : "false";
-    if (typeof v === "number") return String(v);
-    return String(v);
-}
-
 /* -------------------------------- export -------------------------------- */
 
 export const ui = {
     formatBanner,
     printBanner,
     createSpinner,
-    formatInfoGrid,
-    printInfoGrid,
     log,
 };
 

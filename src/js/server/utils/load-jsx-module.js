@@ -23,7 +23,7 @@ import { jsxBundlePath } from "./jsx-bundle-path.js";
  * Default in-memory cache for loaded JSX render functions.
  * Keyed by the original `jsxPath` value.
  */
-export const jsxModuleCache = new Map();
+const jsxModuleCache = new Map();
 
 /**
  * Load (and optionally cache-bust) a JSX SSR module and return its render function.
@@ -65,16 +65,6 @@ export async function loadJsxModule(jsxPath, { bustCache = false, cache = jsxMod
         }
         throw err;
     }
-}
-
-/**
- * Clear the provided cache (or the default cache).
- * Useful for dev hot reload scenarios.
- *
- * @param {Map<string, Function>} [cache=jsxModuleCache]
- */
-export function clearJsxModuleCache(cache = jsxModuleCache) {
-    cache.clear();
 }
 
 /**

@@ -1,7 +1,5 @@
 /** Regex to match the <div id="page">...</div> in HTML templates (lazy, DOTALL via [\s\S]) */
 export const DIV_APP_REGEX = /<div\s+id=["']page["'][^>]*>[\s\S]*?<\/div>/i;
-/** Regex to match the <title>...</title> in HTML templates */
-export const TITLE_REGEX = /<title>[\s\S]*?<\/title>/i;
 
 /**
  * Escape HTML-sensitive characters to avoid injection when rendering messages or inline content.

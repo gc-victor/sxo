@@ -116,14 +116,3 @@ export function routeMatch(url, files, options = {}) {
 
     return null;
 }
-
-/**
- * Convenience predicate: does a URL match any route (ignores invalid slug case)?
- * @param {string} url
- * @param {Array} files
- * @returns {boolean}
- */
-export function hasRoute(url, files) {
-    const result = routeMatch(url, files);
-    return !!(result && !result.invalid);
-}
