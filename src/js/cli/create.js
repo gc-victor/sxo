@@ -125,19 +125,18 @@ export async function fetchTemplateFileList(runtime) {
  *
  * @param {string} filePath - Path in the repo (e.g. "templates/package.json")
  * @param {string} projectName - Project name to replace in text files
- * @param {string} runtime - Runtime to fetch templates for (node, bun, deno, workers)
  * @returns {Promise<string|Buffer>} File content (string for text, Buffer for binary)
  *
  * @example
  * // Text file with placeholder
- * const content = await fetchTemplateFile('templates/package.json', 'my-app', 'node');
+ * const content = await fetchTemplateFile('templates/package.json', 'my-app');
  * // => '{ "name": "my-app" }'
  *
  * // Binary file (image, archive, etc.)
- * const buffer = await fetchTemplateFile('templates/logo.png', 'my-app', 'node');
+ * const buffer = await fetchTemplateFile('templates/logo.png', 'my-app');
  * // => Buffer(...)  [no interpolation applied]
  */
-export async function fetchTemplateFile(filePath, projectName, runtime) {
+export async function fetchTemplateFile(filePath, projectName) {
     const url = `${RAW_GITHUB_BASE}${filePath}`;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout for content
@@ -267,7 +266,7 @@ export async function handleCreateCommand(projectName, cfg) {
         const downloadFile = async (file) => {
             const destPath = path.join(projectPath, file);
             await ensureDir(path.dirname(destPath));
-            const content = await fetchTemplateFile(`templates/${runtime}/${file}`, effectiveProjectName, runtime);
+            const content = await fetchTemplateFile(`templates/${runtime}/${file}`, effectiveProjectName);
             await fsp.writeFile(destPath, content);
             process.stdout.write(".");
         };
