@@ -15,12 +15,17 @@ export {
 export { injectAssets, injectCss, injectJs, normalizePublicPath } from "./inject-assets.js";
 export { loadJsxModule } from "./load-jsx-module.js";
 
-import { routeMatch, SLUG_REGEX } from "./route-match.js";
+import { routeMatch, SLUG_REGEX, validateRoutePattern } from "./route-match.js";
 
+/**
+ * Validates route pattern parameter names (must start with letter, alphanumeric + underscore, unique).
+ * @see route-match.js for full documentation
+ */
 export {
     DIV_APP_REGEX,
     SLUG_REGEX,
     routeMatch,
+    validateRoutePattern,
     escapeHtml,
     renderErrorHtml,
     jsxBundlePath,

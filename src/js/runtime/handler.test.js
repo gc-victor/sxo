@@ -101,7 +101,7 @@ describe("createCoreHandler", () => {
 
         strictEqual(response.status, 200);
         strictEqual(renderFn.mock.calls.length, 1, "render function should be called once");
-        deepStrictEqual(renderFn.mock.calls[0].arguments[0], { slug: "test-post" });
+        deepStrictEqual(renderFn.mock.calls[0].arguments[0], Object.assign(Object.create(null), { slug: "test-post" }));
     });
 
     test("handler supports async render functions", async () => {

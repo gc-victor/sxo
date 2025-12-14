@@ -359,11 +359,19 @@ If adding new MIME types: update mapping + tests if behavior differs.
 `routeMatch()`:
 
 - Normalizes path (removes query/hash).
-- Supports dynamic `[slug]` segments (current doc states single param limitation even though code replaces every occurrence—treat multi-segment usage as accidental until greenlit).
-- Slug validation: `SLUG_REGEX` (return `{invalid:true}` on fail).
+- Supports multi-parameter dynamic routes (e.g., `/blog/[category]/[post]`).
+- Parameter value validation: `SLUG_REGEX` validates each parameter value (return `{invalid:true}` on fail).
+- Parameter name validation: `validateRoutePattern()` enforces naming rules during build:
+  - Must start with a letter (a-z, A-Z)
+  - Can contain letters, numbers, and underscores
+  - Must be unique within each route
+  - Validated in `assembleRoutes()` before expensive processing
 - Root matches `""`, `/`, `/index.html`.
 
-If expanding to multi-param or advanced patterns: update sections (README + here) & tests under [`src/js/server/utils/tests/route-match.test.js`](src/js/server/utils/tests/route-match.test.js).
+Examples:
+- `/blog/[slug]` → `{ slug: "hello-world" }`
+- `/shop/[category]/[product]` → `{ category: "electronics", product: "laptop" }`
+- `/users/[userId]/profile` → `{ userId: "123" }`
 
 ---
 

@@ -170,7 +170,7 @@ try {
 
     // Generate modules.js after server build completes
     await generateModulesFile(routes);
-} catch (_) {
-    // console.error("Build failed:", error);
+} catch (error) {
+    console.error(`\x1b[31m■ \x1b[0m${error.message || error}`);
     process.exit(1);
 }

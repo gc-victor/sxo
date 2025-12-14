@@ -82,6 +82,12 @@ export default function HomePage() {
                                     <li>✓ Server-side JSX rendering</li>
                                     <li>✓ Hot reload with state preservation</li>
                                     <li>✓ Directory-based routing</li>
+                                    <li>
+                                        ✓{" "}
+                                        <a href="/shop/electronics/laptop" class="text-blue-600 hover:underline">
+                                            Multi-parameter routes
+                                        </a>
+                                    </li>
                                 </ul>
                                 <ul class="space-y-2">
                                     <li>✓ Tailwind CSS with Basecoat presets</li>
