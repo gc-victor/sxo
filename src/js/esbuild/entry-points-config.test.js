@@ -166,3 +166,60 @@ test("multi-client route collects all client/index.* and client/*.index.* entrie
     }
     assert.equal(f.path, "multi-client");
 });
+
+test("assembleRoutes throws on duplicate parameter names", async () => {
+    // Create fixture with duplicate param names
+    const invalidDir = path.join(fixturesRoot, "invalid-dup", "[id]", "[id]");
+    writeFileRecursive(path.join(invalidDir, "index.jsx"), "export default () => '<div/>'");
+
+    const savedPagesDir = process.env.PAGES_DIR;
+    try {
+        process.env.PAGES_DIR = pagesDir;
+
+        // Force re-import to pick up new fixture
+        const timestamp = Date.now();
+        const mod = await import(`./entry-points-config.js?t=${timestamp}`);
+
+        await assert.rejects(
+            async () => {
+                mod.entryPointsConfig();
+            },
+            {
+                name: "Error",
+                message: /Invalid route pattern.*duplicate/i,
+            },
+            "Should throw on duplicate parameter names",
+        );
+    } finally {
+        process.env.PAGES_DIR = savedPagesDir;
+        rmDirRecursive(path.dirname(path.dirname(invalidDir)));
+    }
+});
+
+test("assembleRoutes throws on parameter names starting with numbers", async () => {
+    const invalidDir = path.join(fixturesRoot, "invalid-num", "[123abc]");
+    writeFileRecursive(path.join(invalidDir, "index.jsx"), "export default () => '<div/>'");
+
+    const savedPagesDir = process.env.PAGES_DIR;
+    try {
+        process.env.PAGES_DIR = pagesDir;
+
+        // Force re-import
+        const timestamp = Date.now();
+        const mod = await import(`./entry-points-config.js?t=${timestamp}`);
+
+        await assert.rejects(
+            async () => {
+                mod.entryPointsConfig();
+            },
+            {
+                name: "Error",
+                message: /Invalid route pattern.*must start with a letter/i,
+            },
+            "Should throw on parameter names starting with numbers",
+        );
+    } finally {
+        process.env.PAGES_DIR = savedPagesDir;
+        rmDirRecursive(path.dirname(invalidDir));
+    }
+});
