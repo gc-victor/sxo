@@ -591,13 +591,24 @@ src/pages/
     └── index.jsx    -> "/contact"
 ```
 
-Dynamic segments: directory named `[slug]` (currently limited to a single slug token per segment; nested dynamic directories are allowed).
+Dynamic segments: directories named with bracket notation (e.g., `[slug]`, `[category]`). Multiple dynamic parameters are supported in a single route.
 
 ```
-src/pages/blog/[slug]/index.jsx  -> /blog/:slug
+src/pages/blog/[slug]/index.jsx              -> /blog/:slug
+src/pages/shop/[category]/[product]/index.jsx -> /shop/:category/:product
+src/pages/users/[userId]/profile/index.jsx   -> /users/:userId/profile
 ```
 
-Parameters object passed to the page render function is shaped from bracket names: `{ slug: string }`.
+Parameters object passed to the page render function is shaped from bracket names:
+
+- Single parameter: `{ slug: string }`
+- Multiple parameters: `{ category: string, product: string }`
+
+**Parameter naming rules:**
+- Must start with a letter (a-z, A-Z)
+- Can contain letters, numbers, and underscores
+- Must be unique within each route
+- Examples: `[id]`, `[userId]`, `[post_id]`, `[category123]`
 
 ## Page Module API
 

@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { CLIENT_DIR, PAGES_DIR, PAGES_RELATIVE_DIR } from "../constants.js";
+import { validateRoutePattern } from "../server/utils/route-match.js";
 
 /**
  * Build route configs for esbuild htmlPlugin.
@@ -121,6 +122,11 @@ function findClientEntries(parentDir) {
  * Convert metadata into final route objects for esbuild.
  * Each route's entryPoints includes route-specific client code and global.css (if present).
  * Note: esbuild deduplicates identical entries during bundling.
+ *
+ * Validates route patterns to ensure parameter names are:
+ * - Alphanumeric (plus underscore)
+ * - Start with a letter
+ * - Unique within each route
  */
 function assembleRoutes(metaMap, { globalCss, cwd }) {
     const routes = [];
@@ -129,6 +135,14 @@ function assembleRoutes(metaMap, { globalCss, cwd }) {
         const isRoot = relDir === "" || relDir === ".";
         const pageBase = `${path.basename(pageIndex).replace(/\.(tsx|ts|jsx|js)$/, "")}.html`;
         const filename = normalizePath(isRoot ? pageBase : path.join(relDir, pageBase));
+
+        // Validate route pattern before building (fail fast)
+        if (!isRoot) {
+            const validation = validateRoutePattern(relDir);
+            if (!validation.valid) {
+                throw new Error(`Invalid route pattern "${relDir}": ${validation.error}`);
+            }
+        }
 
         const entryPoints = [...clientEntries.map((entry) => normalizePath(path.relative(cwd, entry))), ...(globalCss ? [globalCss] : [])];
 

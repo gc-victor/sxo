@@ -17,6 +17,9 @@ export default function Index() {
                         <a href="/counter">Counter</a>
                     </li>
                     <li>
+                        <a href="/shop/electronics/laptop">Shop (Multi-param)</a>
+                    </li>
+                    <li>
                         <a href="/api/health">API Health</a>
                     </li>
                 </ul>
