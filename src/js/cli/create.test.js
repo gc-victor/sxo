@@ -117,83 +117,41 @@ describe("cli/create", () => {
             }
         });
 
-        it('returns "bun" when user inputs 2', async () => {
-            const originalNodeEnv = process.env.NODE_ENV;
-            delete process.env.NODE_ENV;
+        // Parameterized test for runtime selection by input
+        const runtimeTestCases = [
+            { input: "1", expected: "node" },
+            { input: "2", expected: "bun" },
+            { input: "3", expected: "deno" },
+            { input: "4", expected: "workers" },
+        ];
 
-            Object.defineProperty(process.stdout, "isTTY", { value: true, configurable: true });
+        for (const { input, expected } of runtimeTestCases) {
+            it(`returns "${expected}" when user inputs ${input}`, async () => {
+                const originalNodeEnv = process.env.NODE_ENV;
+                delete process.env.NODE_ENV;
 
-            const questionMock = mock.fn((_q, cb) => cb("2"));
-            const closeMock = mock.fn();
+                Object.defineProperty(process.stdout, "isTTY", { value: true, configurable: true });
 
-            mock.method(readline, "createInterface", () => ({
-                question: questionMock,
-                close: closeMock,
-            }));
+                const questionMock = mock.fn((_q, cb) => cb(input));
+                const closeMock = mock.fn();
 
-            try {
-                const { selectRuntime } = await import("./create.js");
-                const result = await selectRuntime();
-                assert.equal(result, "bun");
-                assert.equal(questionMock.mock.callCount(), 1);
-                assert.equal(closeMock.mock.callCount(), 1);
-            } finally {
-                Object.defineProperty(process.stdout, "isTTY", { value: originalIsTTY, configurable: true });
-                process.env.NODE_ENV = originalNodeEnv;
-            }
-        });
+                mock.method(readline, "createInterface", () => ({
+                    question: questionMock,
+                    close: closeMock,
+                }));
 
-        it('returns "deno" when user inputs 3', async () => {
-            const originalNodeEnv = process.env.NODE_ENV;
-            delete process.env.NODE_ENV;
-
-            Object.defineProperty(process.stdout, "isTTY", { value: true, configurable: true });
-
-            const questionMock = mock.fn((_q, cb) => cb("3"));
-            const closeMock = mock.fn();
-
-            mock.method(readline, "createInterface", () => ({
-                question: questionMock,
-                close: closeMock,
-            }));
-
-            try {
-                const { selectRuntime } = await import("./create.js");
-                const result = await selectRuntime();
-                assert.equal(result, "deno");
-                assert.equal(questionMock.mock.callCount(), 1);
-                assert.equal(closeMock.mock.callCount(), 1);
-            } finally {
-                Object.defineProperty(process.stdout, "isTTY", { value: originalIsTTY, configurable: true });
-                process.env.NODE_ENV = originalNodeEnv;
-            }
-        });
-
-        it('returns "workers" when user inputs 4', async () => {
-            const originalNodeEnv = process.env.NODE_ENV;
-            delete process.env.NODE_ENV;
-
-            Object.defineProperty(process.stdout, "isTTY", { value: true, configurable: true });
-
-            const questionMock = mock.fn((_q, cb) => cb("4"));
-            const closeMock = mock.fn();
-
-            mock.method(readline, "createInterface", () => ({
-                question: questionMock,
-                close: closeMock,
-            }));
-
-            try {
-                const { selectRuntime } = await import("./create.js");
-                const result = await selectRuntime();
-                assert.equal(result, "workers");
-                assert.equal(questionMock.mock.callCount(), 1);
-                assert.equal(closeMock.mock.callCount(), 1);
-            } finally {
-                Object.defineProperty(process.stdout, "isTTY", { value: originalIsTTY, configurable: true });
-                process.env.NODE_ENV = originalNodeEnv;
-            }
-        });
+                try {
+                    const { selectRuntime } = await import("./create.js");
+                    const result = await selectRuntime();
+                    assert.equal(result, expected);
+                    assert.equal(questionMock.mock.callCount(), 1);
+                    assert.equal(closeMock.mock.callCount(), 1);
+                } finally {
+                    Object.defineProperty(process.stdout, "isTTY", { value: originalIsTTY, configurable: true });
+                    process.env.NODE_ENV = originalNodeEnv;
+                }
+            });
+        }
 
         it("re-prompts on invalid input (e.g., 5, abc)", async () => {
             const originalNodeEnv = process.env.NODE_ENV;
@@ -229,51 +187,34 @@ describe("cli/create", () => {
             }
         });
 
-        it("fetchTemplateFileList constructs path for node runtime", async () => {
-            const { fetchTemplateFileList } = await import("./create.js");
+        // Parameterized test for fetchTemplateFileList URL construction
+        const templateListTestCases = [{ runtime: "node" }, { runtime: "bun" }];
 
-            global.fetch = mock.fn(async (url) => {
-                if (url === "https://api.github.com/repos/gc-victor/sxo/git/trees/main:templates/node?recursive=1") {
-                    return {
-                        ok: true,
-                        json: async () => ({ tree: [] }),
-                    };
+        for (const { runtime } of templateListTestCases) {
+            it(`fetchTemplateFileList constructs path for ${runtime} runtime`, async () => {
+                const { fetchTemplateFileList } = await import("./create.js");
+                const expectedUrl = `https://api.github.com/repos/gc-victor/sxo/git/trees/main:templates/${runtime}?recursive=1`;
+
+                global.fetch = mock.fn(async (url) => {
+                    if (url === expectedUrl) {
+                        return {
+                            ok: true,
+                            json: async () => ({ tree: [] }),
+                        };
+                    }
+                    return { ok: false };
+                });
+
+                try {
+                    await fetchTemplateFileList(runtime);
+                    assert.equal(global.fetch.mock.callCount(), 1);
+                    const calledUrl = global.fetch.mock.calls[0].arguments[0];
+                    assert.equal(calledUrl, expectedUrl);
+                } finally {
+                    global.fetch = mock.fn();
                 }
-                return { ok: false };
             });
-
-            try {
-                await fetchTemplateFileList("node");
-                assert.equal(global.fetch.mock.callCount(), 1);
-                const calledUrl = global.fetch.mock.calls[0].arguments[0];
-                assert.equal(calledUrl, "https://api.github.com/repos/gc-victor/sxo/git/trees/main:templates/node?recursive=1");
-            } finally {
-                global.fetch = mock.fn();
-            }
-        });
-
-        it("fetchTemplateFileList constructs path for bun runtime", async () => {
-            const { fetchTemplateFileList } = await import("./create.js");
-
-            global.fetch = mock.fn(async (url) => {
-                if (url === "https://api.github.com/repos/gc-victor/sxo/git/trees/main:templates/bun?recursive=1") {
-                    return {
-                        ok: true,
-                        json: async () => ({ tree: [] }),
-                    };
-                }
-                return { ok: false };
-            });
-
-            try {
-                await fetchTemplateFileList("bun");
-                assert.equal(global.fetch.mock.callCount(), 1);
-                const calledUrl = global.fetch.mock.calls[0].arguments[0];
-                assert.equal(calledUrl, "https://api.github.com/repos/gc-victor/sxo/git/trees/main:templates/bun?recursive=1");
-            } finally {
-                global.fetch = mock.fn();
-            }
-        });
+        }
 
         it("fetchTemplateFile constructs correct raw URL", async () => {
             const { fetchTemplateFile } = await import("./create.js");
@@ -290,7 +231,7 @@ describe("cli/create", () => {
 
             try {
                 // The implementation expects the full repo path
-                await fetchTemplateFile("templates/node/package.json", "test", "node");
+                await fetchTemplateFile("templates/node/package.json", "test");
                 assert.equal(global.fetch.mock.callCount(), 1);
                 const calledUrl = global.fetch.mock.calls[0].arguments[0];
                 assert.equal(calledUrl, "https://raw.githubusercontent.com/gc-victor/sxo/main/templates/node/package.json");
