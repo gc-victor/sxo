@@ -461,6 +461,10 @@ describe("cli/create", () => {
                 close: closeMock,
             }));
 
+            // Ensure NODE_ENV is "test" so selectRuntime returns immediately without readline
+            const originalNodeEnv = process.env.NODE_ENV;
+            process.env.NODE_ENV = "test";
+
             try {
                 await withTempDir(async (cwd) => {
                     const projectDir = path.join(cwd, "overwrite-me");
@@ -477,8 +481,9 @@ describe("cli/create", () => {
                     assert.equal(await fsp.readFile(path.join(projectDir, "package.json"), "utf8"), '{ "name": "overwrite-me" }');
                 });
             } finally {
-                // Restore TTY
+                // Restore TTY and NODE_ENV
                 Object.defineProperty(process.stdout, "isTTY", { value: originalIsTTY, configurable: true });
+                process.env.NODE_ENV = originalNodeEnv;
             }
         });
 

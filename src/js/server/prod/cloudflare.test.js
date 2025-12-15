@@ -278,7 +278,9 @@ describe("Cloudflare adapter SSR handling", () => {
         const response = await handler.fetch(request, env, ctx);
 
         strictEqual(response.status, 200);
-        deepStrictEqual(receivedParams, { slug: "hello-world" });
+        const expectedParams = Object.create(null);
+        expectedParams.slug = "hello-world";
+        deepStrictEqual(receivedParams, expectedParams);
     });
 
     test("returns 400 for invalid slug parameters", async () => {
