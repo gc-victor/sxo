@@ -89,10 +89,9 @@ registerCommonOptions(
 
         if (!prebuildRes.success) {
             prebuildSpinner.fail("Prebuild failed");
-            log.error("Couldn't generate routes with esbuild.");
+            log.error("Couldn't generate routes with esbuild. Check the error above for details.");
             log.info(`- PAGES_DIR: ${toPosixPath(cfg.pagesDir)}`);
-            log.info(`- Expected: ${toPosixPath(cfg.pagesDir)}/index.html`);
-            log.info("- Hint: run with --pages-dir or set PAGES_DIR to your pages root (e.g., examples/basic/src/pages).");
+            log.info("- Hint: run with --pages-dir or set PAGES_DIR to your pages root.");
             process.exitCode = prebuildRes.code ?? 1;
             return;
         } else {
@@ -165,7 +164,7 @@ registerCommonOptions(
 
         if (!res.success) {
             s.fail("Build failed");
-            log.error("esbuild process failed.");
+            log.error("esbuild process failed. Check the error above for details.");
             process.exitCode = res.code ?? 1;
             return;
         }
