@@ -5,15 +5,16 @@
  * configuration files, and starter pages. Fetches templates recursively from GitHub
  * to ensure the latest version is used.
  *
- * @module cli/create
+ * @module cli/commands/create
  */
 
 import fsp from "node:fs/promises";
 import path from "node:path";
+import process from "node:process";
 import readline from "node:readline";
 
-import { askYesNo, ensureDir, pathExists } from "./cli-helpers.js";
-import { log } from "./ui.js";
+import { askYesNo, ensureDir, pathExists } from "../cli-helpers.js";
+import { log } from "../ui.js";
 
 // Used to list files in the repository (discovery).
 // We need this because raw.githubusercontent.com doesn't support directory listing.
@@ -34,12 +35,13 @@ export async function selectRuntime() {
     }
 
     // Display menu
-    log.info("\nSelect a runtime:");
-    log.info("  1) node (default)");
-    log.info("  2) bun");
-    log.info("  3) deno");
-    log.info("  4) workers");
-    process.stdout.write("\n> ");
+
+    log.newLine();
+    log.text("Select a runtime:");
+    log.text("  1) node (default)");
+    log.text("  2) bun");
+    log.text("  3) deno");
+    log.text("  4) workers");
 
     return new Promise((resolve) => {
         const rl = readline.createInterface({
@@ -48,7 +50,7 @@ export async function selectRuntime() {
         });
 
         const ask = () => {
-            rl.question("", (answer) => {
+            rl.question("\nPick a runtime (1-4): ", (answer) => {
                 const input = answer.trim();
 
                 if (input === "" || input === "1") {
@@ -181,24 +183,23 @@ export async function fetchTemplateFile(filePath, projectName) {
  * Checks if a directory exists and prompts user for overwrite decision.
  *
  * If the directory already exists, prompts the user to confirm overwriting.
- * When the project name is ".", uses the actual directory name in the prompt.
+ * Uses the directory's basename in the prompt message.
  *
  * @function checkDirectoryExists
  * @param {string} projectPath - Absolute path to project directory
- * @param {string} [projectName] - Original project name argument (used for context in messaging)
  * @returns {Promise<{exists: boolean, shouldProceed: boolean}>} Decision object
  *
  * @example
  * // Non-existent directory: returns immediately
- * await checkDirectoryExists('/tmp/new-app', 'new-app')
+ * await checkDirectoryExists('/tmp/new-app')
  * // => { exists: false, shouldProceed: true }
  *
  * // Existing directory with TTY: prompts user
- * await checkDirectoryExists('/tmp/existing', 'existing')
+ * await checkDirectoryExists('/tmp/existing')
  * // => prompts: "Create SXO template in 'existing'? (This will overwrite existing files.) (y/N)"
  * // => { exists: true, shouldProceed: true } if user answers "yes"
  */
-export async function checkDirectoryExists(projectPath, _projectName) {
+export async function checkDirectoryExists(projectPath) {
     const exists = await pathExists(projectPath);
 
     if (!exists) {
@@ -226,73 +227,84 @@ export async function checkDirectoryExists(projectPath, _projectName) {
  *
  * @function handleCreateCommand
  * @param {string} projectName - Name of the project to create (or "." for current directory)
- * @param {object} cfg - Resolved SXO configuration object
- * @param {string} cfg.cwd - Current working directory
- * @returns {Promise<boolean>} True if project created successfully
+ * @param {object} _flags - Command flags (unused, for signature compatibility)
+ * @returns {Promise<void>}
  */
-export async function handleCreateCommand(projectName, cfg) {
-    const effectiveProjectName = !projectName || projectName === "." ? path.basename(cfg.cwd) : projectName;
-
-    const projectPath = projectName === "." ? cfg.cwd : path.join(cfg.cwd, effectiveProjectName);
-    const { exists, shouldProceed } = await checkDirectoryExists(projectPath, projectName);
-
-    if (exists && !shouldProceed) {
-        log.info("Project creation cancelled");
-        return false;
-    }
-
-    const runtime = await selectRuntime();
-    log.info(`Creating ${runtime} project...`);
-
+export async function handleCreateCommand(projectName, _flags) {
     try {
-        await ensureDir(projectPath);
+        const root = path.resolve(process.cwd());
+        const effectiveProjectName = !projectName || projectName === "." ? path.basename(root) : projectName;
 
-        log.info("Fetching template list from GitHub...");
-        const files = await fetchTemplateFileList(runtime);
+        const projectPath = projectName === "." ? root : path.join(root, effectiveProjectName);
+        const { exists, shouldProceed } = await checkDirectoryExists(projectPath);
 
-        if (files.length === 0) {
-            throw new Error("No template files found in the repository.");
+        if (exists && !shouldProceed) {
+            log.info("Project creation cancelled");
+            process.exitCode = 1;
+            return;
         }
 
-        log.info(`Found ${files.length} files. Downloading templates...`);
+        const runtime = await selectRuntime();
+        log.info(`Creating ${runtime} project...`);
 
-        // Downloads are batched with a concurrency limit of 5 to balance:
-        // - GitHub rate limits (avoid overwhelming the API)
-        // - Performance (5 parallel requests is a good practical sweet-spot)
-        // - Memory usage (large repos don't spike memory consumption)
-        // Each batch is awaited fully before proceeding to the next batch.
-        const CONCURRENCY_LIMIT = 5;
+        try {
+            await ensureDir(projectPath);
 
-        const downloadFile = async (file) => {
-            const destPath = path.join(projectPath, file);
-            await ensureDir(path.dirname(destPath));
-            const content = await fetchTemplateFile(`templates/${runtime}/${file}`, effectiveProjectName);
-            await fsp.writeFile(destPath, content);
-            process.stdout.write(".");
-        };
+            log.info("Fetching template list from GitHub...");
+            const files = await fetchTemplateFileList(runtime);
 
-        // Simple concurrency control: divide files into batches and process sequentially.
-        // Batch i contains files[i * CONCURRENCY_LIMIT] through files[(i + 1) * CONCURRENCY_LIMIT - 1].
-        // All files in a batch are downloaded in parallel via Promise.all.
-        for (let i = 0; i < files.length; i += CONCURRENCY_LIMIT) {
-            const batch = files.slice(i, i + CONCURRENCY_LIMIT);
-            await Promise.all(batch.map(downloadFile));
+            if (files.length === 0) {
+                throw new Error("No template files found in the repository.");
+            }
+
+            log.info(`Found ${files.length} files. Downloading templates...`);
+
+            // Downloads are batched with a concurrency limit of 5 to balance:
+            // - GitHub rate limits (avoid overwhelming the API)
+            // - Performance (5 parallel requests is a good practical sweet-spot)
+            // - Memory usage (large repos don't spike memory consumption)
+            // Each batch is awaited fully before proceeding to the next batch.
+            const CONCURRENCY_LIMIT = 5;
+
+            const downloadFile = async (file) => {
+                const destPath = path.join(projectPath, file);
+                await ensureDir(path.dirname(destPath));
+                const content = await fetchTemplateFile(`templates/${runtime}/${file}`, effectiveProjectName);
+                await fsp.writeFile(destPath, content);
+                process.stdout.write(".");
+            };
+
+            // Simple concurrency control: divide files into batches and process sequentially.
+            // Batch i contains files[i * CONCURRENCY_LIMIT] through files[(i + 1) * CONCURRENCY_LIMIT - 1].
+            // All files in a batch are downloaded in parallel via Promise.all.
+            for (let i = 0; i < files.length; i += CONCURRENCY_LIMIT) {
+                const batch = files.slice(i, i + CONCURRENCY_LIMIT);
+                await Promise.all(batch.map(downloadFile));
+            }
+
+            process.stdout.write("\n");
+
+            log.success("Project created!");
+            log.newLine();
+            log.text("Next steps:");
+            if (projectName !== ".") {
+                log.text(`  - cd ${effectiveProjectName}`);
+            }
+            if (runtime === "bun") {
+                log.text("  - bun install");
+                log.text("  - bun run dev");
+            } else {
+                log.text("  - pnpm install");
+                log.text("  - pnpm run dev");
+            }
+        } catch (error) {
+            log.error(`Failed to create project: ${error.message}`);
+            process.exitCode = 1;
+            return;
         }
-
-        process.stdout.write("\n");
-
-        log.success("Project created successfully!");
-        log.info("");
-        log.info("Next steps:");
-        if (projectName !== ".") {
-            log.info(`  cd ${effectiveProjectName}`);
-        }
-        log.info("  pnpm install");
-        log.info("  pnpm run dev");
-    } catch (error) {
-        log.error(`Failed to create project: ${error.message}`);
-        return false;
+    } catch (e) {
+        const msg = e && typeof e === "object" && "message" in e ? e.message : String(e);
+        log.error(`create failed: ${msg}`);
+        process.exitCode = 1;
     }
-
-    return true;
 }

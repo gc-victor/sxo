@@ -7,7 +7,6 @@ import process from "node:process";
 import readline from "node:readline";
 
 import { ROUTES_FILE } from "../constants.js";
-import { log } from "./ui.js";
 
 /**
  * Resolve an absolute path to a script relative to repo root.
@@ -212,18 +211,26 @@ export async function ensureBuiltRoutesJson() {
 }
 
 /**
- * Validate that the pages directory exists; exit(1) with helpful
- * messages if not. Mirrors behavior in original CLI.
- * @param {string} pagesDir
+ * Validates that the pages directory exists and is a directory.
+ * Throws an error if validation fails.
+ *
+ * @param {string} pagesDir - Absolute path to pages directory
+ * @throws {Error} If pages directory doesn't exist or is not a directory
+ * @returns {Promise<void>}
  */
 export async function validatePagesFolder(pagesDir) {
-    const pagesDirExists = (await pathExists(pagesDir)) && (await fsp.stat(pagesDir)).isDirectory();
-    if (!pagesDirExists) {
-        log.error("Prebuild failed:");
-        log.error(`Pages directory does not exist: ${toPosixPath(pagesDir)} (default)`);
-        log.info("Hint: create the folder or use --pages-dir or set PAGES_DIR.");
-        process.exit(1);
-        return;
+    const exists = await pathExists(pagesDir);
+
+    if (!exists) {
+        throw new Error(
+            `Pages directory does not exist: ${toPosixPath(pagesDir)} (default)\n` +
+                `Hint: create the folder or use --pages-dir or set PAGES_DIR.`,
+        );
+    }
+
+    const stat = await fsp.stat(pagesDir);
+    if (!stat.isDirectory()) {
+        throw new Error(`Pages path is not a directory: ${toPosixPath(pagesDir)}`);
     }
 }
 

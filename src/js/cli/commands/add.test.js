@@ -46,8 +46,9 @@ test("add: installs component files from local basecoat to componentsDir", async
         process.chdir(tmp);
 
         try {
-            const success = await handleAddCommand("test-component", { cwd: tmp, componentsDir: "src/components" });
-            assert.equal(success, true);
+            process.exitCode = 0;
+            await handleAddCommand("test-component", { componentsDir: "src/components" });
+            assert.equal(process.exitCode, 0);
 
             // Check files were installed
             const installedJsx = await fsp.readFile(path.join(componentsDir, "test-component.jsx"), "utf8");
@@ -74,8 +75,9 @@ test("add: returns false when component not found", async () => {
         process.chdir(tmp);
 
         try {
-            const success = await handleAddCommand("nonexistent", { cwd: tmp, componentsDir: "src/components" });
-            assert.equal(success, false);
+            process.exitCode = 0;
+            await handleAddCommand("nonexistent", { componentsDir: "src/components" });
+            assert.equal(process.exitCode, 1);
         } finally {
             process.chdir(originalCwd);
         }
@@ -96,8 +98,9 @@ test("add: creates componentsDir if it doesn't exist", async () => {
         process.chdir(tmp);
 
         try {
-            const success = await handleAddCommand("test-component", { cwd: tmp, componentsDir: "src/components" });
-            assert.equal(success, true);
+            process.exitCode = 0;
+            await handleAddCommand("test-component", { componentsDir: "src/components" });
+            assert.equal(process.exitCode, 0);
 
             // Check componentsDir was created and file installed
             const installedJsx = await fsp.readFile(path.join(componentsDir, "test-component.jsx"), "utf8");

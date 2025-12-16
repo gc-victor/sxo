@@ -359,6 +359,15 @@ export const log = {
         const c = makeColors(isTTY && !noColor);
         process.stdout.write(`${c.dim(String(msg))}\n`);
     },
+    text(msg) {
+        if (process.env.NODE_ENV === "test") return;
+        if (msg === undefined || msg === null) return;
+        process.stdout.write(`${String(msg)}\n`);
+    },
+    newLine() {
+        if (process.env.NODE_ENV === "test") return;
+        process.stdout.write("\n");
+    },
 };
 
 /* -------------------------------- export -------------------------------- */
