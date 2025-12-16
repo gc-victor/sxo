@@ -90,7 +90,7 @@ The page will automatically be available at `/blog`.
 ## Main Scripts
 
 - `pnpm run dev` - Start development server with hot reload
-- `pnpm run server` - Start production server
+- `pnpm run start` - Start production server
 - `pnpm run build` - Build for production
 
 ## Learn More

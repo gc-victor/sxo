@@ -5,9 +5,10 @@
     "type": "module",
     "scripts": {
         "dev": "bunx --bun concurrently \"bun:tailwind:watch\" \"bun:sxo:dev\"",
-        "server": "bun run sxo:build && bun run sxo:start",
+        "start": "bun run sxo:build && bun run sxo:start",
         "build": "bun run sxo:clean -y && bun run tailwind && bunx --bun sxo build",
         "sxo:help": "bunx --bun sxo --help",
+        "sxo:build": "bunx --bun sxo build",
         "sxo:dev": "bunx --bun sxo dev",
         "sxo:generate": "bunx --bun sxo generate",
         "sxo:start": "bunx --bun sxo start",

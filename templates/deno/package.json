@@ -5,9 +5,10 @@
     "type": "module",
     "scripts": {
         "dev": "deno task tailwind:watch & deno task sxo:dev",
-        "server": "deno task sxo:build && deno task sxo:start",
+        "start": "deno task sxo:build && deno task sxo:start",
         "build": "deno task sxo:clean -y && deno task tailwind && deno task sxo:build",
         "sxo:help": "deno run -A npm:sxo --help",
+        "sxo:build": "deno run -A npm:sxo build",
         "sxo:dev": "deno run -A npm:sxo dev",
         "sxo:generate": "deno run -A npm:sxo generate",
         "sxo:start": "deno run -A npm:sxo start",

@@ -21,13 +21,13 @@ Development uses the standard SXO dev server:
 pnpm dev
 ```
 
-## Production
+## Local Preview
 
-Build and run with Wrangler:
+Build and preview with Wrangler locally:
 
 ```bash
 pnpm build
-pnpm start
+pnpm run workers:dev
 ```
 
 The build process automatically generates `dist/server/modules.js` with static imports for all SSR modules.
