@@ -3,14 +3,16 @@
  *
  * Provides functionality to fetch and install components from the basecoat library.
  *
- * @module cli/add
+ * @module cli/commands/add
  */
 
 import fsp from "node:fs/promises";
 import path from "node:path";
+import process from "node:process";
 
-import { ensureDir } from "./cli-helpers.js";
-import { log } from "./ui.js";
+import { resolveConfig } from "../../config.js";
+import { ensureDir, prepareFlags } from "../cli-helpers.js";
+import { log } from "../ui.js";
 
 /**
  * Fetches a component from GitHub or local fallback and installs it to the components directory.
@@ -76,24 +78,32 @@ export async function addComponent(component, componentsDir) {
  *
  * @function handleAddCommand
  * @param {string} component - Component name to install
- * @param {object} cfg - Resolved SXO configuration object
- * @param {string} cfg.cwd - Current working directory
- * @param {string} cfg.componentsDir - Components directory path (relative)
- * @returns {Promise<boolean>} True if installation succeeded, false otherwise
+ * @param {object} flags - Command flags
+ * @returns {Promise<void>}
  */
-export async function handleAddCommand(component, cfg) {
-    const destDir = path.resolve(cfg.cwd || process.cwd(), cfg.componentsDir);
-    await ensureDir(destDir);
+export async function handleAddCommand(component, flags) {
+    try {
+        const root = path.resolve(process.cwd());
+        const { flagsForConfig, flagsExplicit } = prepareFlags("add", flags);
+        const cfg = await resolveConfig({ cwd: root, flags: flagsForConfig, flagsExplicit, command: "add" });
 
-    log.info(`Adding component '${component}' to ${cfg.componentsDir}`);
+        const destDir = path.resolve(root, cfg.componentsDir);
+        await ensureDir(destDir);
 
-    const success = await addComponent(component, destDir);
+        log.info(`Adding component '${component}' to ${cfg.componentsDir}`);
 
-    if (!success) {
-        log.error(`Component '${component}' not found in basecoat.`);
-        return false;
+        const success = await addComponent(component, destDir);
+
+        if (!success) {
+            log.error(`Component '${component}' not found in basecoat.`);
+            process.exitCode = 1;
+            return;
+        }
+
+        log.info("Component added successfully.");
+    } catch (e) {
+        const msg = e && typeof e === "object" && "message" in e ? e.message : String(e);
+        log.error(`add failed: ${msg}`);
+        process.exitCode = 1;
     }
-
-    log.info("Component added successfully.");
-    return true;
 }
