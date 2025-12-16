@@ -5,7 +5,7 @@
 **Commands:**
 
 - `pnpm test` - run all tests
-- `pnpm test src/js/path/to/file.test.js` - run single test file
+- `pnpm run test:file src/js/path/to/file.test.js` - run single test file (dedicated script with `NODE_ENV=test`)
 - `npm run check` - lint with Biome
 - `npm run format` - format code
 - `./bin/sxo.js create|add|dev|build|start|clean|generate`
