@@ -8,9 +8,10 @@
     },
     "scripts": {
         "dev": "pnpm run \"/^(tailwind:watch|sxo:dev)$/\"",
-        "server": "pnpm run sxo:build && pnpm run sxo:start",
+        "start": "pnpm run sxo:build && pnpm run sxo:start",
         "build": "pnpm run sxo:clean -y && pnpm run tailwind && sxo build",
         "sxo:help": "sxo --help",
+        "sxo:build": "sxo build",
         "sxo:dev": "sxo dev",
         "sxo:generate": "sxo generate",
         "sxo:start": "sxo start",
