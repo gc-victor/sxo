@@ -1,3 +1,43 @@
+## [0.10.0] - 2025-12-16
+
+### 🚀 Features
+
+- *(components)* Add FormSelect and FormTextarea re-exports
+- *(routing)* Add multi-parameter dynamic route support
+
+### 🐛 Bug Fixes
+
+- *(cli)* Correct template URL construction in create command
+- *(cli)* Improve build error messaging
+
+### 🚜 Refactor
+
+- *(components)* Use shared cn utility in tooltip
+- *(components)* Replace raw HTML with Form components
+- *(middleware)* Remove deprecated Node.js-style middleware runner
+- *(cli)* Remove unused utility functions
+- *(server)* Remove unused constants and utilities
+- *(cli)* Remove unused runtime parameter from fetchTemplateFile
+- *(cli)* Reorganize commands into modular structure
+- *(dev)* Consolidate Bun adapter to use shared module loader
+
+### 📚 Documentation
+
+- *(agents)* Update middleware and platform adapter documentation
+
+### 🧪 Testing
+
+- *(routing)* Add build-time validation tests
+- *(cli)* Add comprehensive error message test suite
+- Improve test reliability and add routing validation
+- *(dev)* Update Bun adapter tests for shared utilities
+
+### ⚙️ Miscellaneous Tasks
+
+- *(templates)* Automate version updates
+- Add dedicated test:file script with NODE_ENV
+- *(templates)* Update dependency versions
+
 ## [0.9.1] - 2025-12-11
 
 ### 🐛 Bug Fixes
