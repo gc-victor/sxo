@@ -52,6 +52,7 @@
         "components:install": "pnpm run --filter ./components install --frozen-lockfile",
         "components:playwright:install": "pnpm run --filter ./components playwright:install",
         "test": "NODE_ENV=test node --test src/js/**/*.test.js",
+        "test:file": "NODE_ENV=test node --test",
         "test:e2e": "pnpm run --filter ./components test:e2e",
         "test:runtimes": "bash scripts/test-runtimes.sh"
     },
