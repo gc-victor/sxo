@@ -32,7 +32,7 @@ describe("Bun dev adapter - structure validation", () => {
 
         // Check for immediate-execution markers
         ok(content.includes("Bun.serve({"), "Should use Bun.serve() at module level");
-        ok(content.includes("await runEsbuild()"), "Should await initial esbuild run");
+        ok(content.includes("await runEsbuild({"), "Should await initial esbuild run with config object");
         ok(content.includes("await reloadRoutesManifest"), "Should await initial route load");
         ok(!content.includes("export function createDevHandler"), "Should NOT export factory function");
         ok(!content.includes("export async function createDevHandler"), "Should NOT export async factory");
@@ -45,9 +45,8 @@ describe("Bun dev adapter - structure validation", () => {
         const content = await fs.readFile(modulePath, "utf-8");
 
         // Middleware should use Web Standard Request/Response
-        ok(content.includes("async function fetch(request)"), "Should use fetch API handler");
-        ok(content.includes("new Response("), "Should use Web Standard Response");
-        ok(content.includes("new ReadableStream("), "Should use ReadableStream for SSE");
+        ok(content.includes("async fetch(request)"), "Should use fetch API handler");
+        ok(content.includes("return handler(request)"), "Should delegate to shared handler");
     });
 
     test("should use Bun-specific APIs", async () => {
@@ -68,10 +67,9 @@ describe("Bun dev adapter - structure validation", () => {
         const modulePath = path.join(import.meta.dirname, "bun.js");
         const content = await fs.readFile(modulePath, "utf-8");
 
-        // Bun supports Node.js fs.watch
+        // Bun supports Node.js fs.watch with recursive option
         ok(content.includes("fs.watch("), "Should use fs.watch for file watching");
-        ok(content.includes("getAllDirs"), "Should recursively find all directories");
-        ok(!content.includes("recursive: true"), "Should not use recursive option");
+        ok(content.includes("recursive: true"), "Should use recursive option");
     });
 
     test("should import core utilities from core.js", async () => {
@@ -80,127 +78,124 @@ describe("Bun dev adapter - structure validation", () => {
         const modulePath = path.join(import.meta.dirname, "bun.js");
         const content = await fs.readFile(modulePath, "utf-8");
 
-        ok(
-            content.includes('import { buildHotReplacePayload, debounce, reloadRoutesManifest } from "./core.js"'),
-            "Should import core utilities",
-        );
+        ok(content.includes('from "./core.js"'), "Should import core utilities from core.js");
+        ok(content.includes("debounce"), "Should import debounce");
+        ok(content.includes("runEsbuild"), "Should import runEsbuild");
+        ok(content.includes("reloadRoutesManifest"), "Should import reloadRoutesManifest");
     });
 });
 
-describe("SSE implementation - pattern validation", () => {
-    test("should use ReadableStream for SSE endpoint", async () => {
+describe("Handler delegation - pattern validation", () => {
+    test("should delegate SSE and hot-reload to shared handler", async () => {
         const fs = await import("node:fs/promises");
         const path = await import("node:path");
         const modulePath = path.join(import.meta.dirname, "bun.js");
         const content = await fs.readFile(modulePath, "utf-8");
 
-        // Check SSE implementation uses ReadableStream
-        ok(content.includes("new ReadableStream({"), "Should create ReadableStream");
-        ok(content.includes("async start(controller)"), "Should use controller in start callback");
-        ok(content.includes("controller.enqueue("), "Should enqueue SSE messages");
-        ok(content.includes("cancel()"), "Should implement cancel for cleanup");
+        // SSE implementation is now in core-handler.js, bun.js just delegates
+        ok(content.includes("createDevHandler"), "Should use shared createDevHandler");
+        ok(content.includes("return handler(request)"), "Should delegate to shared handler");
     });
 
-    test("should support SSE with hot-reload payload", async () => {
+    test("should provide hot-reload client path to handler", async () => {
         const fs = await import("node:fs/promises");
         const path = await import("node:path");
         const modulePath = path.join(import.meta.dirname, "bun.js");
         const content = await fs.readFile(modulePath, "utf-8");
 
-        ok(content.includes('pathname === "/hot-replace"'), "Should handle /hot-replace endpoint");
-        ok(content.includes("id: hot-replace"), "Should use SSE id field");
-        ok(content.includes("data:"), "Should use SSE data field");
-        ok(content.includes("retry: 250"), "Should set SSE retry interval");
+        ok(content.includes("hotReplaceClientPath"), "Should define hot-replace client path");
+        ok(content.includes("../hot-replace.client.js"), "Should resolve shared hot-replace client script path");
     });
 
-    test("should handle SSE client tracking", async () => {
+    test("should call broadcastReload on file changes", async () => {
         const fs = await import("node:fs/promises");
         const path = await import("node:path");
         const modulePath = path.join(import.meta.dirname, "bun.js");
         const content = await fs.readFile(modulePath, "utf-8");
 
-        ok(content.includes("let sseClients = []"), "Should track SSE clients array");
-        ok(content.includes("sseClients.push(client)"), "Should add clients to array");
-        ok(content.includes("sseClients.filter("), "Should remove disconnected clients");
+        ok(content.includes("handler.broadcastReload"), "Should call handler's broadcastReload method");
+        ok(content.includes("await handler.broadcastReload(reloadFilesJson)"), "Should pass reload callback");
     });
 });
 
 describe("Static file serving - pattern validation", () => {
-    test("should use Bun.file() for static serving", async () => {
+    test("should use shared static handler with Bun file reader", async () => {
         const fs = await import("node:fs/promises");
         const path = await import("node:path");
         const modulePath = path.join(import.meta.dirname, "bun.js");
         const content = await fs.readFile(modulePath, "utf-8");
 
         ok(content.includes("const handleStaticRequest = createStaticHandler"), "Should create static handler");
-        ok(content.includes("Bun.file(abs)"), "Should use Bun.file()");
-        ok(content.includes("await file.exists()"), "Should check file existence");
+        ok(content.includes("bunFileReader"), "Should use Bun-specific file reader");
+        ok(content.includes("skipCompression: true"), "Should skip compression in dev");
     });
 
-    test("should include path traversal protection", async () => {
+    test("should check for file extensions before serving static files", async () => {
         const fs = await import("node:fs/promises");
         const path = await import("node:path");
         const modulePath = path.join(import.meta.dirname, "bun.js");
         const content = await fs.readFile(modulePath, "utf-8");
 
-        ok(content.includes("!abs.startsWith(resolvedStaticDir)"), "Should check path prefix");
-        ok(content.includes("Forbidden"), "Should return 403 for traversal attempts");
-    });
-
-    test("should include MIME type mapping", async () => {
-        const fs = await import("node:fs/promises");
-        const path = await import("node:path");
-        const modulePath = path.join(import.meta.dirname, "bun.js");
-        const content = await fs.readFile(modulePath, "utf-8");
-
-        ok(content.includes("const mimeTypes ="), "Should define MIME types object");
-        ok(content.includes('".html"'), "Should map .html");
-        ok(content.includes('".css"'), "Should map .css");
-        ok(content.includes('".js"'), "Should map .js");
+        ok(content.includes("hasFileExtension(pathname)"), "Should check for file extension");
+        ok(content.includes("await handleStaticRequest(request)"), "Should call static handler");
     });
 });
 
 describe("Middleware integration - pattern validation", () => {
-    test("should execute middleware before static files", async () => {
+    test("should load user-defined middlewares", async () => {
         const fs = await import("node:fs/promises");
         const path = await import("node:path");
         const modulePath = path.join(import.meta.dirname, "bun.js");
         const content = await fs.readFile(modulePath, "utf-8");
 
-        // Find positions of middleware and static file code
-        const middlewareIndex = content.indexOf("if (userMiddlewares.length)");
-        const staticIndex = content.indexOf("if (/\\.\\w+$/.test(pathname))");
-
-        ok(middlewareIndex > 0, "Should have middleware execution");
-        ok(staticIndex > 0, "Should have static file serving");
-        ok(middlewareIndex < staticIndex, "Middleware should execute before static files");
+        ok(content.includes("loadUserDefinedMiddlewares"), "Should load user middleware");
+        ok(content.includes("let userMiddlewares ="), "Should store middleware reference");
     });
 
-    test("should support Web Standard middleware signature", async () => {
+    test("should provide middleware getter to handler", async () => {
         const fs = await import("node:fs/promises");
         const path = await import("node:path");
         const modulePath = path.join(import.meta.dirname, "bun.js");
         const content = await fs.readFile(modulePath, "utf-8");
 
-        ok(content.includes("await mw(request)"), "Should pass Web Standard Request to middleware");
-        ok(content.includes("result instanceof Response"), "Should check for Response return");
+        ok(content.includes("getMiddleware: () => userMiddlewares"), "Should provide middleware getter");
+    });
+
+    test("should reload middleware on file changes", async () => {
+        const fs = await import("node:fs/promises");
+        const path = await import("node:path");
+        const modulePath = path.join(import.meta.dirname, "bun.js");
+        const content = await fs.readFile(modulePath, "utf-8");
+
+        ok(content.includes("debouncedReloadMiddleware"), "Should debounce middleware reload");
+        ok(content.includes("isMiddlewareFile(filename)"), "Should check if changed file is middleware");
     });
 });
 
 describe("esbuild integration - pattern validation", () => {
-    test("should use Bun.spawn for esbuild", async () => {
+    test("should define platform-specific esbuild spawner", async () => {
         const fs = await import("node:fs/promises");
         const path = await import("node:path");
         const modulePath = path.join(import.meta.dirname, "bun.js");
         const content = await fs.readFile(modulePath, "utf-8");
 
-        ok(content.includes("function runEsbuild(filename)"), "Should define runEsbuild function");
+        ok(content.includes("const spawnEsbuild = async ()"), "Should define spawnEsbuild function");
         ok(content.includes("Bun.spawn("), "Should use Bun.spawn");
         ok(content.includes("proc.stderr.getReader()"), "Should read stderr stream");
         ok(content.includes("proc.exited.then("), "Should wait for process exit");
     });
 
-    test("should debounce esbuild runs", async () => {
+    test("should call runEsbuild from core with spawner", async () => {
+        const fs = await import("node:fs/promises");
+        const path = await import("node:path");
+        const modulePath = path.join(import.meta.dirname, "bun.js");
+        const content = await fs.readFile(modulePath, "utf-8");
+
+        ok(content.includes("await runEsbuild({"), "Should call runEsbuild with config object");
+        ok(content.includes("spawnEsbuild"), "Should pass spawnEsbuild function");
+    });
+
+    test("should debounce esbuild runs on file changes", async () => {
         const fs = await import("node:fs/promises");
         const path = await import("node:path");
         const modulePath = path.join(import.meta.dirname, "bun.js");
@@ -212,80 +207,38 @@ describe("esbuild integration - pattern validation", () => {
 });
 
 describe("Hot-reload broadcast - pattern validation", () => {
-    test("should broadcast to all SSE clients on src changes", async () => {
+    test("should trigger broadcast on file changes", async () => {
         const fs = await import("node:fs/promises");
         const path = await import("node:path");
         const modulePath = path.join(import.meta.dirname, "bun.js");
         const content = await fs.readFile(modulePath, "utf-8");
 
-        ok(content.includes("for (const client of sseClients)"), "Should iterate over clients");
-        ok(content.includes("client.controller.enqueue("), "Should enqueue to each client stream");
-        ok(content.includes("buildHotReplacePayload"), "Should create hot-replace payload");
-    });
-
-    test("should handle broadcast errors gracefully", async () => {
-        const fs = await import("node:fs/promises");
-        const path = await import("node:path");
-        const modulePath = path.join(import.meta.dirname, "bun.js");
-        const content = await fs.readFile(modulePath, "utf-8");
-
-        const broadcastSection = content.substring(content.indexOf("for (const client of sseClients)"));
-        ok(broadcastSection.includes("try {"), "Should wrap broadcast in try-catch");
-        ok(broadcastSection.includes("catch"), "Should catch broadcast errors");
-        ok(broadcastSection.includes("logger.error"), "Should log broadcast errors");
+        ok(content.includes("await handler.broadcastReload"), "Should call handler's broadcastReload");
+        ok(content.includes("reloadFilesJson"), "Should pass reload callback");
     });
 });
 
 describe("Custom error pages - pattern validation", () => {
-    test("should support custom 404 page", async () => {
+    test("should provide error page resolvers to handler", async () => {
         const fs = await import("node:fs/promises");
         const path = await import("node:path");
         const modulePath = path.join(import.meta.dirname, "bun.js");
         const content = await fs.readFile(modulePath, "utf-8");
 
-        ok(content.includes("resolve404Page()"), "Should resolve custom 404 page");
-        ok(content.includes("const jsx404 = await loadJsxModuleUtil(special404"), "Should load 404 module");
-        ok(content.includes("const page404 = await jsx404({})"), "Should render 404 page");
-    });
-
-    test("should support custom 500 page", async () => {
-        const fs = await import("node:fs/promises");
-        const path = await import("node:path");
-        const modulePath = path.join(import.meta.dirname, "bun.js");
-        const content = await fs.readFile(modulePath, "utf-8");
-
-        ok(content.includes("resolve500Page()"), "Should resolve custom 500 page");
-        ok(content.includes("const jsx500 = await loadJsxModuleUtil(special500"), "Should load 500 module");
-        ok(content.includes("const page500 = await jsx500({ error: err })"), "Should pass error to 500 page");
-    });
-
-    test("should fallback to generic error on custom page failure", async () => {
-        const fs = await import("node:fs/promises");
-        const path = await import("node:path");
-        const modulePath = path.join(import.meta.dirname, "bun.js");
-        const content = await fs.readFile(modulePath, "utf-8");
-
-        // Both 404 and 500 handlers should have try-catch with fallback
-        const custom404Section = content.substring(content.indexOf("resolve404Page()"), content.indexOf('return new Response("Not found"'));
-        ok(custom404Section.includes("try {"), "404 handler should have try block");
-        ok(custom404Section.includes("catch"), "404 handler should catch errors");
-
-        const custom500Section = content.substring(content.indexOf("resolve500Page()"), content.indexOf("renderErrorHtml(err)"));
-        ok(custom500Section.includes("try {"), "500 handler should have try block");
-        ok(custom500Section.includes("catch"), "500 handler should catch errors");
+        ok(content.includes("resolve404Page"), "Should pass resolve404Page to handler");
+        ok(content.includes("resolve500Page"), "Should pass resolve500Page to handler");
     });
 });
 
-describe("HEAD request handling - pattern validation", () => {
-    test("should handle HEAD requests for all routes", async () => {
+describe("Request handling - pattern validation", () => {
+    test("should delegate request handling to shared handler", async () => {
         const fs = await import("node:fs/promises");
         const path = await import("node:path");
         const modulePath = path.join(import.meta.dirname, "bun.js");
         const content = await fs.readFile(modulePath, "utf-8");
 
-        ok(content.includes('const isHead = request.method === "HEAD"'), "Should detect HEAD requests");
-        ok(content.includes("if (isHead)"), "Should have HEAD-specific branches");
-        ok(content.includes("return new Response(null,"), "Should return null body for HEAD");
+        // HEAD and other request methods are handled by core-handler
+        ok(content.includes("return handler(request)"), "Should delegate to shared handler");
     });
 });
 
@@ -296,9 +249,8 @@ describe("File watching - pattern validation", () => {
         const modulePath = path.join(import.meta.dirname, "bun.js");
         const content = await fs.readFile(modulePath, "utf-8");
 
-        ok(content.includes("getAllDirs(resolvedSrcDir)"), "Should get all directories recursively");
-        ok(content.includes("for (const d of allDirs)"), "Should watch each directory individually");
-        ok(content.includes("fs.watch(d,"), "Should use fs.watch on each directory");
+        ok(content.includes("fs.watch(resolvedSrcDir"), "Should watch src directory");
+        ok(content.includes("recursive: true"), "Should use recursive option");
     });
 
     test("should handle watcher errors gracefully", async () => {
@@ -310,64 +262,70 @@ describe("File watching - pattern validation", () => {
         const watcherStart = content.indexOf("// --- Set up file watcher ---");
         strictEqual(watcherStart > 0, true, "Should find file watcher section");
 
-        ok(content.includes("try {"), "Should wrap each fs.watch in try-catch");
+        ok(content.includes("try {"), "Should wrap fs.watch in try-catch");
         ok(content.includes("catch (err)"), "Should catch watcher errors");
         ok(content.includes("logger.warn("), "Should log watcher warnings");
-        ok(!content.includes("setupBunWatchFallback"), "Should not fall back to Bun.watch");
     });
 });
 
 describe("Module cache busting - pattern validation", () => {
-    test("should use Bun-specific module loader with data URL cache busting", async () => {
+    test("should use shared module loader with standard dynamic imports", async () => {
         const fs = await import("node:fs/promises");
         const path = await import("node:path");
         const modulePath = path.join(import.meta.dirname, "bun.js");
         const content = await fs.readFile(modulePath, "utf-8");
 
-        // Bun adapter uses its own loadJsxModuleBun that reads file content via Bun.file()
-        // and imports via data URL to bypass Bun's aggressive ESM module caching
-        ok(content.includes("async function loadJsxModuleBun("), "Should define Bun-specific module loader");
-        ok(content.includes("Bun.file(modulePath)"), "Should use Bun.file() to read module content");
-        ok(content.includes("data:text/javascript;base64,"), "Should use data URL for import");
+        // Bun adapter uses shared module-loader.js with standard dynamic imports.
+        // Cache busting is handled via query strings by the module-loader.
+        ok(content.includes("importer: (url) => import(url)"), "Should use inline arrow function for importer");
 
-        // Should use loadJsxModuleBun instead of loadJsxModuleUtil
-        const loadModuleCalls = content.match(/loadJsxModuleBun\([^)]+\)/g) || [];
-        ok(loadModuleCalls.length >= 5, `Should call loadJsxModuleBun at least 5 times, found ${loadModuleCalls.length}`);
+        // Should NOT use file:// URL pattern
+        ok(!content.includes("file://${"), "Should NOT use file:// protocol");
 
-        // Should NOT use loadJsxModuleUtil (the shared utility that doesn't work well with Bun's caching)
-        ok(!content.includes("loadJsxModuleUtil("), "Should not use loadJsxModuleUtil, use Bun-specific loader instead");
+        // Should NOT use blob URL pattern (old implementation)
+        ok(!content.includes("new Blob([content]"), "Should NOT use Blob pattern");
+        ok(!content.includes("URL.createObjectURL"), "Should NOT use createObjectURL");
+        ok(!content.includes("URL.revokeObjectURL"), "Should NOT use revokeObjectURL");
+
+        // Should use shared loadAllModules with inline importer
+        ok(content.includes("loadAllModules(routes, {"), "Should use shared loadAllModules");
+        ok(content.includes("bustCache: true"), "Should enable cache busting");
+
+        // Should provide loadJsxModuleShared to handler with inline importer
+        ok(content.includes("loadJsxModule: (jsxPath) =>"), "Should pass loader to handler");
+        ok(content.includes("loadJsxModuleShared(jsxPath, {"), "Should use shared loadJsxModuleShared");
     });
 
-    test("should clear module cache on reload", async () => {
+    test("should use shared module cache with loadAllModules", async () => {
         const fs = await import("node:fs/promises");
         const path = await import("node:path");
         const modulePath = path.join(import.meta.dirname, "bun.js");
         const content = await fs.readFile(modulePath, "utf-8");
 
-        ok(content.includes("async function reloadAllModules()"), "Should define reloadAllModules");
-        ok(content.includes("jsxModules.clear()"), "Should clear module cache");
+        // Module cache management is now handled by shared loadAllModules
+        ok(content.includes("const jsxModules = new Map()"), "Should define module cache Map");
+        ok(content.includes("cache: jsxModules"), "Should pass cache to loadAllModules");
+        ok(content.includes("returnErrorStub: true"), "Should use error stubs on load failure");
     });
 });
 
-describe("CSS injection - pattern validation", () => {
-    test("should inject CSS assets into HTML", async () => {
+describe("Handler configuration - pattern validation", () => {
+    test("should configure handler with all required callbacks", async () => {
         const fs = await import("node:fs/promises");
         const path = await import("node:path");
         const modulePath = path.join(import.meta.dirname, "bun.js");
         const content = await fs.readFile(modulePath, "utf-8");
 
-        ok(content.includes("if (route?.assets?.css && isHtml)"), "Should check for CSS assets");
-        ok(content.includes("page = injectCss("), "Should call injectCss utility");
-    });
-
-    test("should inject hot-reload script before </head>", async () => {
-        const fs = await import("node:fs/promises");
-        const path = await import("node:path");
-        const modulePath = path.join(import.meta.dirname, "bun.js");
-        const content = await fs.readFile(modulePath, "utf-8");
-
-        ok(content.includes("const hotReplaceScript ="), "Should define hot-reload script");
-        ok(content.includes('import { hotReplace } from "/hot-replace.js"'), "Should import hotReplace");
-        ok(content.includes("page.replace(/<\\/head>/i"), "Should replace </head> tag");
+        ok(content.includes("const handler = createDevHandler({"), "Should create handler with config");
+        ok(content.includes("getRoutes: () => routes"), "Should provide getRoutes");
+        ok(content.includes("loadJsxModule:"), "Should provide loadJsxModule");
+        ok(content.includes("publicPath"), "Should provide publicPath");
+        ok(content.includes("getEsbuildError: () => esbuildError"), "Should provide getEsbuildError");
+        ok(content.includes("hotReplaceClientPath"), "Should provide hotReplaceClientPath");
+        ok(content.includes("readFile:"), "Should provide readFile");
+        ok(content.includes("getMiddleware: () => userMiddlewares"), "Should provide getMiddleware");
+        ok(content.includes("resolve404Page"), "Should provide resolve404Page");
+        ok(content.includes("resolve500Page"), "Should provide resolve500Page");
+        ok(content.includes("logger"), "Should provide logger");
     });
 });
