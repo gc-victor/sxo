@@ -6,7 +6,7 @@
  * - File watching via fs.watch()
  * - esbuild integration via Bun.spawn()
  * - Static file serving via Bun.file()
- * - Custom JSX module loader using data URL import to bypass Bun's module cache
+ * - Module loading via shared module-loader with standard dynamic imports
  *
  * All request handling logic is delegated to the shared core-handler.
  *
@@ -19,10 +19,10 @@ import { DANGER_OUTPUT_DIR, ESBUILD_CONFIG_FILE, PAGES_DIR, PORT, ROUTES_FILE, S
 import { loadUserDefinedMiddlewares } from "../middleware.js";
 import { CACHE_NO_CACHE } from "../shared/cache.js";
 import { bunFileReader } from "../shared/file-readers.js";
+import { loadAllModules, loadJsxModule as loadJsxModuleShared } from "../shared/module-loader.js";
 import { hasFileExtension } from "../shared/path.js";
 import { createStaticHandler } from "../shared/static-handler.js";
 import { logger, resolve404Page, resolve500Page } from "../utils/index.js";
-import { jsxBundlePath } from "../utils/jsx-bundle-path.js";
 import { debounce, getWatcherErrorHandler, isMiddlewareFile, reloadRoutesManifest, runEsbuild } from "./core.js";
 import { createDevHandler } from "./core-handler.js";
 
@@ -48,70 +48,6 @@ let routes = [];
 
 // Cache for loaded JSX modules
 const jsxModules = new Map();
-
-/**
- * Bun-specific JSX module loader that reads file content and uses data URL import.
- * This bypasses Bun's aggressive ESM module caching which ignores query params.
- *
- * @param {string} jsxPath - Source path to the page module
- * @param {object} [options]
- * @param {boolean} [options.bustCache=false] - If true, force a fresh import
- * @param {Map<string, Function>} [options.cache=jsxModules] - Cache map
- * @param {boolean} [options.returnErrorStub=false] - Return stub on error
- * @returns {Promise<Function>} The resolved SSR render function
- */
-async function loadJsxModuleBun(jsxPath, { bustCache = false, cache = jsxModules, returnErrorStub = false } = {}) {
-    const modulePath = jsxBundlePath(jsxPath);
-
-    if (bustCache) {
-        cache.delete(jsxPath);
-    }
-
-    if (cache.has(jsxPath)) {
-        return cache.get(jsxPath);
-    }
-
-    try {
-        // Read file content directly using Bun.file() to bypass module cache
-        const file = Bun.file(modulePath);
-        const content = await file.text();
-
-        // Create a data URL with the module content
-        // This ensures Bun treats each import as a unique module
-        const dataUrl = `data:text/javascript;base64,${btoa(content)}`;
-        const mod = await import(dataUrl);
-
-        const fn = mod.default || mod.jsx;
-        if (typeof fn !== "function") {
-            throw new Error(`No valid export found in ${modulePath}`);
-        }
-        cache.set(jsxPath, fn);
-        return fn;
-    } catch (err) {
-        if (returnErrorStub) {
-            const stub = () => `<pre style="color:red;">Error loading ${jsxPath}: ${err?.message || String(err)}</pre>`;
-            cache.set(jsxPath, stub);
-            return stub;
-        }
-        throw err;
-    }
-}
-
-/**
- * Reload all JSX modules after manifest update.
- */
-async function reloadAllModules() {
-    jsxModules.clear();
-    for (const route of routes) {
-        if (route.jsx) {
-            try {
-                await loadJsxModuleBun(route.jsx, { bustCache: true, returnErrorStub: true, cache: jsxModules });
-            } catch (err) {
-                logger.error(`Failed to reload module ${route.jsx}: ${err.message}`);
-            }
-        }
-    }
-}
 
 // Platform-specific esbuild spawner
 const spawnEsbuild = async () => {
@@ -155,7 +91,13 @@ const reloadFilesJson = async () => {
         logger,
         retries: 3,
     });
-    await reloadAllModules();
+    await loadAllModules(routes, {
+        importer: (url) => import(url),
+        bustCache: true,
+        cache: jsxModules,
+        returnErrorStub: true,
+        onError: (msg) => logger.error(msg),
+    });
 };
 
 // --- Initial esbuild run and module load ---
@@ -169,7 +111,13 @@ let userMiddlewares = await loadUserDefinedMiddlewares();
 
 const handler = createDevHandler({
     getRoutes: () => routes,
-    loadJsxModule: (jsxPath) => loadJsxModuleBun(jsxPath, { bustCache: true, returnErrorStub: true, cache: jsxModules }),
+    loadJsxModule: (jsxPath) =>
+        loadJsxModuleShared(jsxPath, {
+            importer: (url) => import(url),
+            bustCache: true,
+            cache: jsxModules,
+            returnErrorStub: true,
+        }),
     publicPath,
     getEsbuildError: () => esbuildError,
     hotReplaceClientPath,
