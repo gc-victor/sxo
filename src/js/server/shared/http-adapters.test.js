@@ -10,6 +10,7 @@
  */
 
 import assert from "node:assert/strict";
+import { Buffer } from "node:buffer";
 import { EventEmitter } from "node:events";
 import { Readable } from "node:stream"; // Used in createMockReq
 import { describe, test } from "node:test";
@@ -59,6 +60,7 @@ function createMockReq(options = {}) {
 function createMockRes() {
     let status = 200;
     let headers = {};
+    /** @type {Buffer[]} */
     const chunks = [];
     let ended = false;
 
@@ -74,11 +76,11 @@ function createMockRes() {
     };
 
     res.write = (chunk) => {
-        chunks.push(chunk);
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
     };
 
     res.end = (chunk) => {
-        if (chunk) chunks.push(chunk);
+        if (chunk) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
         ended = true;
     };
 
@@ -87,11 +89,15 @@ function createMockRes() {
         get: () => ended,
     });
 
-    const getOutput = () => ({
-        status,
-        headers,
-        body: chunks.join(""),
-    });
+    const getOutput = () => {
+        const buffer = Buffer.concat(chunks);
+        return {
+            status,
+            headers,
+            body: buffer.toString("utf8"),
+            bytes: buffer,
+        };
+    };
 
     return { res, getOutput };
 }
@@ -449,6 +455,30 @@ describe("fromWebResponse", () => {
 
             // Assert
             assert.strictEqual(getOutput().body, "chunk1chunk2");
+        });
+
+        test("should not corrupt binary ReadableStream bodies", async () => {
+            // Arrange
+            const bytes = new Uint8Array([0x77, 0x4f, 0x46, 0x32, 0x00, 0x01, 0x02, 0xff]); // "wOF2" ...
+            const stream = new ReadableStream({
+                start(controller) {
+                    controller.enqueue(bytes);
+                    controller.close();
+                },
+            });
+
+            const webResponse = new Response(stream, {
+                status: 200,
+                headers: { "Content-Type": "font/woff2" },
+            });
+            const req = createMockReq({ method: "GET" });
+            const { res, getOutput } = createMockRes();
+
+            // Act
+            await fromWebResponse(webResponse, req, res);
+
+            // Assert
+            assert.deepStrictEqual(new Uint8Array(getOutput().bytes), bytes);
         });
     });
 

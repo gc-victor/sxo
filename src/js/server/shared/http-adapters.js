@@ -14,6 +14,7 @@
  * @module server/shared/http-adapters
  */
 
+import { Buffer } from "node:buffer";
 import { Readable } from "node:stream";
 import { CACHE_404, CACHE_500 } from "./cache.js";
 import {
@@ -124,22 +125,19 @@ export async function fromWebResponse(webResponse, req, res) {
 
     // Stream the response body
     const reader = webResponse.body.getReader();
-    const decoder = new TextDecoder();
     try {
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
-            // Decode Uint8Array chunks to string for Node.js response
-            res.write(decoder.decode(value, { stream: true }));
-        }
-        // Flush any remaining bytes in the decoder
-        const remaining = decoder.decode();
-        if (remaining) {
-            res.write(remaining);
+
+            // `value` is a Uint8Array; write bytes directly.
+            // Using TextDecoder here corrupts binary assets (e.g. .woff2).
+            res.write(Buffer.from(value));
         }
     } finally {
         reader.releaseLock();
     }
+
     res.end();
 }
 
