@@ -8,6 +8,7 @@
     "scripts": {
         "check": "biome check src/ e2e/",
         "check:fix": "biome check --write --unsafe src/ e2e/",
+        "copy:public": "cp -r src/public dist/client",
         "dev": "pnpm run \"/^(tailwind:watch|sxo:dev)$/\"",
         "server": "pnpm run sxo:clean -y && pnpm run sxo:build && pnpm run sxo:start",
         "sxo:help": "node ../bin/sxo.js --help",
