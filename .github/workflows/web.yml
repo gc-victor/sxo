@@ -38,7 +38,7 @@ jobs:
         run: pnpm build
 
       - name: Copy public folder
-        run: cp -r components/src/public web/dist/client
+        run: cp -r components/src/public web/public
 
       - name: Deploy to Cloudflare Workers via CLI
         working-directory: web
