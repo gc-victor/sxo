@@ -6,7 +6,7 @@
     "scripts": {
         "build": "pnpm run build:sxo && pnpm run build:copy",
         "build:sxo": "../bin/sxo.js build && ../bin/sxo.js generate",
-        "build:copy": "mkdir -p ./public && cp -r ./dist/client/* ./public/",
+        "build:copy": "mkdir -p ./public && cp -r ./dist/client/* ./public/ && cp -r ../components/src/public ./public/",
         "deploy": "wrangler deploy",
         "dev": "wrangler dev",
         "start": "wrangler dev"
