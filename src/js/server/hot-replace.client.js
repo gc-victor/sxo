@@ -74,8 +74,6 @@ function onHotMessage(e) {
         return;
     }
 
-    console.log(`${logTimer()}::[hot-replace] - received message`, JSON.stringify(data));
-
     // Capture scroll + reactive state BEFORE mutation.
     const scrollInfo = captureScrollPositions();
     const preservedStates = preserveReactiveComponentsState();
@@ -83,7 +81,6 @@ function onHotMessage(e) {
     // Stash globally for custom element rehydration after scripts execute.
     if (preservedStates.size) {
         globalThis[HRC_STATE_GLOBAL_KEY] = preservedStates;
-        console.log(`${logTimer()}::[hot-replace] - preserved reactive states:`, preservedStates.size);
     }
 
     // Replace body content
