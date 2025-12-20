@@ -1,3 +1,21 @@
+## [0.10.1] - 2025-12-20
+
+### 🚀 Features
+
+- *(components)* Add custom fonts support with static assets
+
+### 🐛 Bug Fixes
+
+- *(server)* Correct binary streaming in Node.js adapter
+
+### 🚜 Refactor
+
+- *(dev)* Remove debug logging from hot-replace client
+
+### ⚙️ Miscellaneous Tasks
+
+- *(components)* Regenerate Tailwind CSS output
+
 ## [0.10.0] - 2025-12-16
 
 ### 🚀 Features
