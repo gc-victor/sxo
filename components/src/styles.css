@@ -4,6 +4,8 @@
 @import "tailwindcss";
 @import "basecoat-css";
 
+@import "./fonts.css";
+
 @custom-variant dark (&:is(.dark *));
 
 /* Defaults */

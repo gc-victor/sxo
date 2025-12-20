@@ -1,0 +1,79 @@
+/* Webfonts - Served as static asset (not bundled by esbuild) */
+
+/* Cal Sans - Display font for headings */
+@font-face {
+    font-family: "Cal Sans";
+    font-style: normal;
+    font-display: block;
+    font-weight: 800;
+    src:
+        url("/public/fonts/CalSans-SemiBold.woff2") format("woff2"),
+        url("/public/fonts/CalSans-SemiBold.woff") format("woff"),
+        url("/public/fonts/CalSans-SemiBold.ttf") format("truetype");
+}
+
+.font-cal {
+    font-family: "Cal Sans", sans-serif;
+}
+
+/* Geist Sans - Primary sans-serif font */
+@font-face {
+    font-family: "Geist";
+    font-style: normal;
+    font-display: swap;
+    font-weight: 400;
+    src: url("/public/fonts/Geist-Regular.woff2") format("woff2");
+}
+
+@font-face {
+    font-family: "Geist";
+    font-style: normal;
+    font-display: swap;
+    font-weight: 500;
+    src: url("/public/fonts/Geist-Medium.woff2") format("woff2");
+}
+
+@font-face {
+    font-family: "Geist";
+    font-style: normal;
+    font-display: swap;
+    font-weight: 600;
+    src: url("/public/fonts/Geist-SemiBold.woff2") format("woff2");
+}
+
+@font-face {
+    font-family: "Geist";
+    font-style: normal;
+    font-display: swap;
+    font-weight: 700;
+    src: url("/public/fonts/Geist-Bold.woff2") format("woff2");
+}
+
+/* Geist Mono - Monospace font */
+@font-face {
+    font-family: "Geist Mono";
+    font-style: normal;
+    font-display: swap;
+    font-weight: 400;
+    src: url("/public/fonts/GeistMono-Regular.woff2") format("woff2");
+}
+
+@font-face {
+    font-family: "Geist Mono";
+    font-style: normal;
+    font-display: swap;
+    font-weight: 500;
+    src: url("/public/fonts/GeistMono-Medium.woff2") format("woff2");
+}
+
+@font-face {
+    font-family: "Geist Mono";
+    font-style: normal;
+    font-display: swap;
+    font-weight: 600;
+    src: url("/public/fonts/GeistMono-SemiBold.woff2") format("woff2");
+}
+
+body {
+    font-family: Geist, sans-serif;
+}

@@ -13,4 +13,13 @@ export default {
     port: 3000,
     clientDir: "client",
     publicPath: "/",
+    build: {
+        loader: {
+            ".woff": "file",
+            ".woff2": "file",
+            ".ttf": "file",
+            ".jpg": "file",
+        },
+        external: ["/public/*"],
+    },
 };
