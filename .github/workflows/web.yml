@@ -2,7 +2,7 @@ name: Deploy Web
 
 on:
   push:
-    branches: [main]
+    branches: [main, release/0.10.1]
 
 concurrency:
   group: web-${{ github.ref }}
@@ -36,6 +36,9 @@ jobs:
       - name: Build web
         working-directory: web
         run: pnpm build
+
+      - name: Copy public folder
+        run: cp -r components/src/public web/dist/client
 
       - name: Deploy to Cloudflare Workers via CLI
         working-directory: web
