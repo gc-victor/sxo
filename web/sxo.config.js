@@ -14,4 +14,13 @@ export default {
     publicPath: "/",
     pagesDir: "../components/src/pages",
     outDir: "./dist",
+    build: {
+        loader: {
+            ".woff": "file",
+            ".woff2": "file",
+            ".ttf": "file",
+            ".jpg": "file",
+        },
+        external: ["/public/*"],
+    },
 };
