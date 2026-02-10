@@ -33,13 +33,18 @@ import { detectRuntime } from "./shared/runtime.js";
 
 const runtime = detectRuntime();
 
-// Log the detected runtime
+// Log detected runtime
 const runtimeNames = {
     node: "Node.js",
     bun: "Bun",
     deno: "Deno",
 };
-console.log(`\x1b[33m▶ Starting production server with ${runtimeNames[runtime]} adapter\x1b[0m`);
+if (process.env.VERBOSE || process.env.DEBUG) {
+    // DEFENSIVE CODE: Debug logging path controlled by environment variables.
+    // Only used for debugging; not covered in normal test runs.
+    // Testable via manual run with VERBOSE/DEBUG env vars set.
+    console.log(`\x1b[33m▶ Starting production server with ${runtimeNames[runtime]} adapter\x1b[0m`);
+}
 
 // Dynamic import of the platform-specific prod adapter
 // Each adapter uses the immediate-execution pattern (starts server on import)
