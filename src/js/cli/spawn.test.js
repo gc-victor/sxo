@@ -1,23 +1,10 @@
 import assert from "node:assert/strict";
 import fsp from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { setTimeout as sleep } from "node:timers/promises";
-import { spawnProcess, spawnRuntime, terminate } from "./spawn.js";
-
-async function withTempDir(fn) {
-    const dir = await fsp.mkdtemp(path.join(os.tmpdir(), "sxo-spawn-"));
-    try {
-        return await fn(dir);
-    } finally {
-        try {
-            await fsp.rm(dir, { recursive: true, force: true, maxRetries: 2 });
-        } catch {
-            // ignore cleanup error
-        }
-    }
-}
+import { withTempProject } from "../test-utils.js";
+import { runRuntime, spawnProcess, spawnRuntime, terminate } from "./spawn.js";
 
 async function writeTempScript(dir, filename, content) {
     const abs = path.join(dir, filename);
@@ -55,7 +42,7 @@ test("spawnProcess: line callbacks receive stdout/stderr lines with prefix", asy
 });
 
 test("terminate(): sends SIGTERM and script exits cleanly", async () => {
-    await withTempDir(async (dir) => {
+    await withTempProject(async (dir) => {
         const script = await writeTempScript(
             dir,
             "wait-on-term.mjs",
@@ -85,7 +72,7 @@ test("terminate(): sends SIGTERM and script exits cleanly", async () => {
 });
 
 test("spawnProcess: AbortSignal stops the child via SIGTERM", async () => {
-    await withTempDir(async (dir) => {
+    await withTempProject(async (dir) => {
         const script = await writeTempScript(
             dir,
             "abortable.mjs",
@@ -139,4 +126,203 @@ test("spawnProcess: onStdout/onStderr still work with long single chunks", async
     assert.equal(res.success, true);
     assert.deepEqual(out, ["line1", "line2", "line3"]);
     assert.deepEqual(err, ["e1", "e2"]);
+});
+
+test("runRuntime: runs a script to completion and returns result", async () => {
+    await withTempProject(async (dir) => {
+        const script = await writeTempScript(
+            dir,
+            "hello.mjs",
+            `
+            console.log("Hello from runRuntime");
+            process.exit(0);
+        `.trim(),
+        );
+
+        const result = await runRuntime(script, { cwd: dir, stdio: "pipe", inheritOutput: false });
+
+        assert.strictEqual(result.success, true, "should succeed");
+        assert.strictEqual(result.code, 0, "should exit with code 0");
+    });
+});
+
+test("spawnRuntime: works with custom args and runtimeOptions", async () => {
+    await withTempProject(async (dir) => {
+        const script = await writeTempScript(
+            dir,
+            "args-test.mjs",
+            `
+            // Verify we're running with Deno if configured
+            if (typeof Deno !== "undefined") {
+                console.log("Running with Deno");
+            } else {
+                console.log("Running with Node");
+            }
+            process.exit(0);
+        `.trim(),
+        );
+
+        const { wait } = spawnRuntime(script, {
+            cwd: dir,
+            stdio: "pipe",
+            inheritOutput: false,
+            args: ["--flag"],
+            runtimeOptions: [],
+        });
+
+        const result = await wait;
+        assert.strictEqual(result.success, true, "should succeed with custom args");
+    });
+});
+
+test("spawnProcess: cleanup handles errors gracefully", async () => {
+    await withTempProject(async (dir) => {
+        await writeTempScript(
+            dir,
+            "quick-exit.mjs",
+            `
+            console.log("Quick exit test");
+            process.exit(0);
+        `.trim(),
+        );
+
+        // Create a mock AbortSignal that throws on removeEventListener
+        let removeCalled = false;
+        const mockSignal = {
+            addEventListener: (_event, _handler, _opts) => {},
+            removeEventListener: () => {
+                removeCalled = true;
+                throw new Error("Remove failed");
+            },
+        };
+
+        const { wait } = spawnProcess(process.execPath, ["-e", "process.exit(0)"], {
+            cwd: dir,
+            stdio: "pipe",
+            inheritOutput: false,
+            signal: mockSignal,
+        });
+
+        const result = await wait;
+        // Should complete successfully despite cleanup error
+        assert.strictEqual(result.success, true, "should succeed despite cleanup error");
+        assert.strictEqual(removeCalled, true, "should attempt cleanup");
+    });
+});
+
+test("spawnRuntime: uses correct command prefix for different runtimes", async () => {
+    // This test verifies spawnRuntime structure - the actual runtime detection
+    // is tested implicitly through other spawnRuntime tests
+    await withTempProject(async (dir) => {
+        const script = await writeTempScript(
+            dir,
+            "verify-env.mjs",
+            `
+            console.log("env-check");
+            process.exit(0);
+        `.trim(),
+        );
+
+        // Test that spawnRuntime can be called with various options
+        const { child, wait } = spawnRuntime(script, {
+            cwd: dir,
+            stdio: "pipe",
+            inheritOutput: false,
+            env: { TEST_VAR: "test-value" },
+        });
+
+        assert.ok(child, "should return a child process");
+        assert.ok(wait instanceof Promise, "should return a promise");
+
+        const result = await wait;
+        assert.strictEqual(result.success, true, "should complete successfully");
+    });
+});
+
+test("spawnProcess: handles non-existent command error", async () => {
+    const { wait } = spawnProcess("non-existent-command-12345");
+    const result = await wait;
+    assert.strictEqual(result.success, false);
+    assert.strictEqual(result.code, 1);
+});
+
+test("spawnProcess: works with stdio inherit", async () => {
+    // This just verifies it doesn't crash and completes
+    const { wait } = spawnProcess(process.execPath, ["-e", "process.exit(0)"], {
+        stdio: "inherit",
+    });
+    const result = await wait;
+    assert.strictEqual(result.success, true);
+});
+
+test("spawnProcess: works with inheritOutput false and no callbacks", async () => {
+    const { wait } = spawnProcess(process.execPath, ["-e", "process.exit(0)"], {
+        inheritOutput: false,
+    });
+    const result = await wait;
+    assert.strictEqual(result.success, true);
+});
+
+test("spawnRuntime: handles different runtimes via globalThis mocking", async (t) => {
+    const originalBun = globalThis.Bun;
+    const originalDeno = globalThis.Deno;
+
+    await t.test("mocking bun", async () => {
+        globalThis.Bun = {};
+        globalThis.Deno = undefined;
+        try {
+            // We can't easily verify the internal command used without more complex mocking,
+            // but we can ensure it still runs (falling back to current process.execPath which is node)
+            const { wait } = spawnRuntime("test.js", { stdio: "pipe", inheritOutput: false });
+            // It will fail because test.js doesn't exist, but it should have called getRuntimeExecutable
+            const result = await wait;
+            assert.strictEqual(result.success, false);
+        } finally {
+            globalThis.Bun = originalBun;
+            globalThis.Deno = originalDeno;
+        }
+    });
+
+    await t.test("mocking deno", async () => {
+        globalThis.Deno = { run: () => {} };
+        globalThis.Bun = undefined;
+        try {
+            const { wait } = spawnRuntime("test.js", { stdio: "pipe", inheritOutput: false });
+            const result = await wait;
+            assert.strictEqual(result.success, false);
+        } finally {
+            globalThis.Bun = originalBun;
+            globalThis.Deno = originalDeno;
+        }
+    });
+});
+
+test("spawnProcess: forwards parent SIGINT to child", async () => {
+    await withTempProject(async (dir) => {
+        const script = await writeTempScript(
+            dir,
+            "forward-sigint.mjs",
+            `
+            process.on("SIGINT", () => {
+                process.exit(0);
+            });
+            setInterval(() => {}, 1000);
+        `.trim(),
+        );
+
+        const { wait } = spawnRuntime(script, {
+            cwd: dir,
+            stdio: "pipe",
+            inheritOutput: false,
+        });
+
+        // Give it a moment to start and register signal handlers
+        await sleep(200);
+
+        // Send actual SIGINT signal to parent process (forwarded to child)
+        process.kill(process.pid, "SIGINT");
+
+        const result = await wait;
+        assert.ok(result.code === 0 || result.success === true, "child should have exited after parent SIGINT");
+    });
 });

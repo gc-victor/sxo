@@ -13,7 +13,14 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
 import process from "node:process";
+import { pathToFileURL } from "node:url";
+
 import { detectRuntime } from "../server/shared/runtime.js";
+import { wireOutput } from "./output-handler.js";
+import { forwardSignals, terminate as terminateProcess } from "./signal-handler.js";
+
+// Re-export terminate for backward compatibility
+export { forwardSignals, terminateProcess as terminate, wireOutput };
 
 /**
  * @typedef {Object} SpawnOptions
@@ -26,7 +33,6 @@ import { detectRuntime } from "../server/shared/runtime.js";
  * @property {string} [prefix]          - Optional prefix to add to each output line
  * @property {AbortSignal} [signal]     - AbortSignal to cancel the process
  * @property {number} [forceKillAfterMs]- Force SIGKILL after this many ms on shutdown (default: 5000)
-
  */
 
 /**
@@ -40,8 +46,8 @@ import { detectRuntime } from "../server/shared/runtime.js";
 /**
  * Spawn a child process with robust handling.
  * - For stdio="pipe", output is line-buffered and streamed to callbacks and optionally to parent stdio.
- * - For stdio="inherit", output is handled by the terminal directly (no callbacks).
- * - Signals SIGINT/SIGTERM from the parent are forwarded to the child; forced kill after timeout.
+ * - For stdio="inherit", output is handled by terminal directly (no callbacks).
+ * - Signals SIGINT/SIGTERM from parent are forwarded to child; forced kill after timeout.
  *
  * @param {string} command
  * @param {string[]} [args]
@@ -61,6 +67,7 @@ export function spawnProcess(command, args = [], options = {}) {
         stdio: usePipe ? ["inherit", "pipe", "pipe"] : "inherit",
     });
 
+    /** @type {Array<() => void>} */
     const removeFns = [];
     const cleanup = () => {
         while (removeFns.length) {
@@ -76,14 +83,20 @@ export function spawnProcess(command, args = [], options = {}) {
     // Wire abort signal -> terminate child
     if (signal && typeof signal.addEventListener === "function") {
         const onAbort = () => {
-            terminate(child, "SIGTERM", forceKillAfterMs);
+            terminateProcess(child, "SIGTERM", forceKillAfterMs);
         };
         signal.addEventListener("abort", onAbort, { once: true });
         removeFns.push(() => signal.removeEventListener("abort", onAbort));
     }
 
     // Forward parent SIGINT/SIGTERM to child
-    const stopHandlers = forwardSignals(child, forceKillAfterMs);
+    const stopHandlers = forwardSignals(
+        child,
+        (/** @type {NodeJS.Signals | number} */ sig, /** @type {number} */ timeout) => {
+            terminateProcess(child, sig, timeout);
+        },
+        forceKillAfterMs,
+    );
     removeFns.push(...stopHandlers);
 
     // Output wiring (line-buffered) if not inheriting stdio
@@ -96,10 +109,11 @@ export function spawnProcess(command, args = [], options = {}) {
         }
     }
 
+    /** @type {Promise<SpawnResult>} */
     const wait = new Promise((resolve) => {
         let settled = false;
 
-        const onExit = (code, sig) => {
+        const onExit = (/** @type {number | null} */ code, /** @type {NodeJS.Signals | null} */ sig) => {
             if (settled) return;
             settled = true;
             cleanup();
@@ -120,7 +134,7 @@ export function spawnProcess(command, args = [], options = {}) {
 }
 
 /**
- * Get the runtime-appropriate command and prefix args for spawning scripts.
+ * Get runtime-appropriate command and prefix args for spawning scripts.
  * Detects Node.js, Bun, or Deno and returns the correct executable configuration.
  *
  * @returns {{ command: string, prefix: string[] }}
@@ -143,10 +157,10 @@ function getRuntimeExecutable() {
 }
 
 /**
- * Spawn a script using the current runtime (Node.js, Bun, or Deno).
- * Automatically detects the runtime and uses the appropriate executable and flags.
+ * Spawn a script using current runtime (Node.js, Bun, or Deno).
+ * Automatically detects runtime and uses appropriate executable and flags.
  *
- * @param {string} scriptPath - Path to the script entry point
+ * @param {string} scriptPath - Path to script entry point
  * @param {SpawnOptions & { args?: string[], runtimeOptions?: string[] }} [options]
  * @returns {{ child: import('node:child_process').ChildProcess, wait: Promise<SpawnResult> }}
  */
@@ -154,146 +168,21 @@ export function spawnRuntime(scriptPath, options = {}) {
     const { command, prefix } = getRuntimeExecutable();
     const { args = [], runtimeOptions = [], ...rest } = options;
     const resolved = path.resolve(scriptPath);
-    const finalArgs = [...prefix, ...(runtimeOptions || []), resolved, ...(args || [])];
-    return spawnProcess(command, finalArgs, rest);
-}
+    const runtime = detectRuntime();
 
-/**
- * Forward SIGINT and SIGTERM from parent to child with an optional forced kill timeout.
- * @param {import('node:child_process').ChildProcess} child
- * @param {number} forceKillAfterMs
- * @returns {Array<() => void>} cleanup functions
- */
-function forwardSignals(child, forceKillAfterMs) {
-    const cleanups = [];
-
-    const makeHandler = (sig) => {
-        return () => {
-            terminate(child, sig, forceKillAfterMs);
-        };
-    };
-
-    const onSigint = makeHandler("SIGINT");
-    const onSigterm = makeHandler("SIGTERM");
-
-    process.on("SIGINT", onSigint);
-    process.on("SIGTERM", onSigterm);
-
-    cleanups.push(() => process.off("SIGINT", onSigint));
-    cleanups.push(() => process.off("SIGTERM", onSigterm));
-
-    // Also clean these on child exit
-    const onChildExit = () => {
-        try {
-            process.off("SIGINT", onSigint);
-            process.off("SIGTERM", onSigterm);
-        } catch {}
-    };
-    child.once("exit", onChildExit);
-    cleanups.push(() => child.off("exit", onChildExit));
-
-    return cleanups;
-}
-
-/**
- * Line-buffered wiring for a Readable stream.
- * - Invokes onLine(line, rawChunk) on each line
- * - Optionally tees raw chunk to a tee stream (like process.stdout)
- *
- * @param {import('node:stream').Readable} readable
- * @param {(line: string, chunk: Buffer) => void} [onLine]
- * @param {import('node:stream').Writable|null} tee
- * @param {string} prefix
- */
-function wireOutput(readable, onLine, tee, prefix = "") {
-    // Keep raw tee behavior, and provide clean line-buffered callbacks
-    let buffer = "";
-    readable.on("data", (chunk) => {
-        try {
-            const raw = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-
-            // Tee first to preserve terminal behavior
-            if (tee) {
-                if (prefix) {
-                    const text = raw.toString("utf8");
-                    const parts = text.split(/\r?\n/);
-                    for (let i = 0; i < parts.length; i++) {
-                        const part = parts[i];
-                        if (i < parts.length - 1 || part.length > 0) {
-                            const out = `${prefix}${part}`;
-                            tee.write(`${out}\n`);
-                        }
-                    }
-                } else {
-                    tee.write(raw);
-                }
-            }
-
-            // Accumulate and emit complete lines to callback
-            buffer += raw.toString("utf8");
-            const lines = buffer.split(/\r?\n/);
-            buffer = lines.pop() ?? "";
-            if (onLine) {
-                for (const line of lines) {
-                    try {
-                        onLine(prefix ? prefix + line : line, raw);
-                    } catch {
-                        // ignore callback errors
-                    }
-                }
-            }
-        } catch {
-            // ignore stream errors
-        }
-    });
-
-    const flush = () => {
-        if (buffer.length > 0 && onLine) {
-            try {
-                onLine(prefix ? prefix + buffer : buffer, Buffer.from(buffer));
-            } catch {
-                // ignore callback errors
-            }
-        }
-    };
-
-    readable.on("close", flush);
-    readable.on("end", flush);
-}
-
-/**
- * Attempt graceful termination, then force kill after timeout.
- * Works cross-platform; on Windows, signals are emulated by Node.
- *
- * @param {import('node:child_process').ChildProcess} child
- * @param {NodeJS.Signals|string} signal
- * @param {number} forceAfterMs
- */
-export function terminate(child, signal = "SIGTERM", forceAfterMs = 5000) {
-    if (!child || child.killed) return;
-
-    try {
-        child.kill(signal);
-    } catch {
-        // ignore kill errors
+    // Deno requires file:// URLs and proper directory for import resolution
+    let scriptArg;
+    if (runtime === "deno") {
+        const scriptUrl = pathToFileURL(resolved).href;
+        // Set working directory to script's directory for proper relative import resolution
+        rest.cwd = rest.cwd || path.dirname(resolved);
+        scriptArg = scriptUrl;
+    } else {
+        scriptArg = resolved;
     }
 
-    // If the process doesn't exit in time, force kill
-    const timer = setTimeout(
-        () => {
-            if (!child.killed) {
-                try {
-                    child.kill("SIGKILL");
-                } catch {
-                    // ignore
-                }
-            }
-        },
-        Math.max(0, forceAfterMs),
-    );
-
-    // Clear the timer when the child exits
-    child.once("exit", () => clearTimeout(timer));
+    const finalArgs = [...prefix, ...(runtimeOptions || []), scriptArg, ...(args || [])];
+    return spawnProcess(command, finalArgs, rest);
 }
 
 /**
