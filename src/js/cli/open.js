@@ -28,13 +28,13 @@ export function buildUrl(opts = {}) {
         throw new Error(`Invalid protocol: ${protocol}. Must be http or https.`);
     }
     const host = opts.host || "localhost";
-    const port = opts.port ? String(opts.port) : "";
+    const port = opts.port || "";
     let pathname = opts.pathname || "/";
     if (!pathname.startsWith("/")) pathname = `/${pathname}`;
     const u = new URL(`${protocol}://${host}${port ? `:${port}` : ""}${pathname}`);
     if (opts.search) {
-        const s = String(opts.search);
-        u.search = s.startsWith("?") ? s : `?${s}`;
+        const search = String(opts.search);
+        u.search = search.startsWith("?") ? search : `?${search}`;
     }
     return u.toString();
 }
@@ -45,29 +45,25 @@ export function buildUrl(opts = {}) {
  * @param {AbortSignal} [signal]
  */
 function sleep(ms, signal) {
-    return new Promise((resolve, reject) => {
-        if (signal?.aborted) {
-            const err = new Error("Aborted");
-            err.name = "AbortError";
-            reject(err);
-            return;
-        }
-        const t = setTimeout(() => {
-            cleanup();
-            resolve();
-        }, ms);
-        const onAbort = () => {
-            clearTimeout(t);
-            cleanup();
-            const err = new Error("Aborted");
-            err.name = "AbortError";
-            reject(err);
-        };
-        const cleanup = () => {
-            if (signal) signal.removeEventListener("abort", onAbort);
-        };
-        if (signal) signal.addEventListener("abort", onAbort, { once: true });
-    });
+    return /** @type {Promise<void>} */ (
+        new Promise((resolve) => {
+            if (signal?.aborted) {
+                resolve();
+                return;
+            }
+            const t = setTimeout(resolve, ms);
+            if (signal) {
+                signal.addEventListener(
+                    "abort",
+                    () => {
+                        clearTimeout(t);
+                        resolve();
+                    },
+                    { once: true },
+                );
+            }
+        })
+    );
 }
 
 /**
@@ -78,22 +74,11 @@ function sleep(ms, signal) {
  */
 function anySignal(a, b) {
     const ctrl = new AbortController();
-    const onAbort = () => {
-        try {
-            ctrl.abort();
-        } catch {}
-        cleanup();
-    };
-    const cleanup = () => {
-        a?.removeEventListener("abort", onAbort);
-        b?.removeEventListener("abort", onAbort);
-    };
     if (a?.aborted || b?.aborted) {
-        try {
-            ctrl.abort();
-        } catch {}
+        ctrl.abort();
         return ctrl.signal;
     }
+    const onAbort = () => ctrl.abort();
     a?.addEventListener("abort", onAbort, { once: true });
     b?.addEventListener("abort", onAbort, { once: true });
     return ctrl.signal;
@@ -117,7 +102,6 @@ function anySignal(a, b) {
 export async function waitForHttp(url, opts = {}) {
     const timeoutMs = Math.max(1, opts.timeoutMs ?? 10000);
     const headFirst = opts.headFirst ?? true;
-    const verbose = !!opts.verbose;
 
     const started = Date.now();
     const deadline = started + timeoutMs;
@@ -127,18 +111,19 @@ export async function waitForHttp(url, opts = {}) {
     const factor = Math.max(1.01, opts.backoffFactor ?? 1.7);
 
     // Helper to get per-attempt timeout signal
-    const attemptSignal = (ms) => {
-        const ctrl = AbortSignal.timeout
-            ? AbortSignal.timeout(ms)
-            : (() => {
-                  const c = new AbortController();
-                  setTimeout(() => c.abort(), ms);
-                  return c.signal;
-              })();
-        return anySignal(opts.signal, ctrl);
+    const attemptSignal = (/** @type {number} */ ms) => {
+        let timeoutSignal;
+        if (AbortSignal.timeout) {
+            timeoutSignal = AbortSignal.timeout(ms);
+        } else {
+            const c = new AbortController();
+            setTimeout(() => c.abort(), ms);
+            timeoutSignal = c.signal;
+        }
+        return anySignal(opts.signal, timeoutSignal);
     };
 
-    const isReadyStatus = (status) => status >= 200 && status < 500;
+    const isReadyStatus = (/** @type {number} */ status) => status >= 200 && status < 500;
 
     while (Date.now() < deadline) {
         const remaining = Math.max(0, deadline - Date.now());
@@ -149,24 +134,17 @@ export async function waitForHttp(url, opts = {}) {
             if (headFirst) {
                 res = await fetch(url, { method: "HEAD", redirect: "manual", signal: attemptSignal(perAttempt) });
                 if (isReadyStatus(res.status)) return true;
-                // Some servers don't support HEAD; fall through to GET if 405/501
-                if (res.status !== 405 && res.status !== 501) {
-                    // If the server responded but not ready (e.g., 503), keep retrying
-                }
+                // If HEAD returns 405/501, fall through to GET (server may not support HEAD)
             }
             // GET attempt
             res = await fetch(url, { method: "GET", redirect: "manual", signal: attemptSignal(perAttempt) });
             if (isReadyStatus(res.status)) return true;
-        } catch (e) {
+        } catch {
             // Network error or timeout -> retry
-            if (verbose && e && typeof e === "object" && "name" in e) {
-                // Optional debug logging; keep quiet by default
-                // console.error(`[waitForHttp] attempt failed: ${e.name}`);
-            }
         }
 
-        // Backoff with light jitter
-        const jitter = 1 + (Math.random() - 0.5) * 0.2; // +/-10%
+        // Backoff with light jitter (+/-10%)
+        const jitter = 1 + (Math.random() - 0.5) * 0.2;
         delay = Math.min(maxDelay, Math.ceil(delay * factor * jitter));
         const sleepMs = Math.min(delay, Math.max(0, deadline - Date.now()));
         if (sleepMs <= 0) break;
@@ -181,16 +159,16 @@ export async function waitForHttp(url, opts = {}) {
  * Cross-platform URL opener (zero-dependency).
  * Returns when the opener process exits if wait=true, otherwise returns immediately.
  * @param {string} url
- * @param {{ wait?: boolean, app?: { name?: string, arguments?: string[] } }} [opts]
+ * @param {{ wait?: boolean, app?: { name?: string, arguments?: string[] }, spawnFn?: typeof import("node:child_process").spawn }} [opts]
  */
-async function openURL(url, opts = {}) {
-    const { wait = false, app } = opts;
+export async function openURL(url, opts = {}) {
+    const { wait = false, app, spawnFn = spawn } = opts;
     const platform = process.platform;
     let cmd;
     let args = [];
 
     // Validate URL to prevent command injection vectors
-    if (typeof url !== "string" || (!url.startsWith("http:") && !url.startsWith("https"))) {
+    if (typeof url !== "string" || (!url.startsWith("http:") && !url.startsWith("https:"))) {
         throw new Error("Invalid URL: must be an http or https URL.");
     }
     if (/[\r\n]/.test(url)) {
@@ -211,12 +189,14 @@ async function openURL(url, opts = {}) {
         args = [url];
     }
 
-    const child = spawn(cmd, args, { stdio: "ignore", detached: !wait });
+    const child = spawnFn(cmd, args, { stdio: "ignore", detached: !wait });
     if (wait) {
-        await new Promise((resolve, reject) => {
-            child.once("error", reject);
-            child.once("exit", () => resolve());
-        });
+        await /** @type {Promise<void>} */ (
+            new Promise((resolve, reject) => {
+                child.once("error", reject);
+                child.once("exit", () => resolve());
+            })
+        );
     } else {
         child.unref?.();
     }
@@ -236,6 +216,7 @@ async function openURL(url, opts = {}) {
  * @param {boolean} [options.verbose=false]
  * @param {boolean} [options.wait=false] - whether to wait for the opened app to exit (browser)
  * @param {{name?: string, arguments?: string[]}} [options.app] - app override for `open`
+ * @param {Function} [options.opener] - internal override for opener function
  * @returns {Promise<{ opened: boolean, url: string, timedOut?: boolean, error?: string }>}
  */
 export async function openWhenReady(options) {
@@ -249,6 +230,7 @@ export async function openWhenReady(options) {
         verbose = false,
         wait = false,
         app,
+        opener = openURL,
     } = options || {};
 
     const url = buildUrl({ protocol, host, port, pathname });
@@ -260,9 +242,9 @@ export async function openWhenReady(options) {
 
     const ready = await waitForHttp(url, {
         timeoutMs,
-        signal,
         verbose,
         headFirst: true,
+        signal: /** @type {AbortSignal} */ (signal),
     });
 
     if (!ready) {
@@ -270,10 +252,11 @@ export async function openWhenReady(options) {
     }
 
     try {
-        await openURL(url, { wait, app });
+        await opener(url, { wait, app });
         return { opened: true, url };
     } catch (e) {
-        const msg = e && typeof e === "object" && "message" in e ? String(e.message) : "failed to open";
+        const error = /** @type {Error} */ (e);
+        const msg = error?.message ? String(error.message) : "failed to open";
         return { opened: false, url, error: msg };
     }
 }

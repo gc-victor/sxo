@@ -6,7 +6,7 @@ import path from "node:path";
 import process from "node:process";
 import readline from "node:readline";
 
-import { ROUTES_FILE } from "../constants.js";
+import { convertToPosixSlashes } from "../shared/path-utils.js";
 
 /**
  * Resolve an absolute path to a script relative to repo root.
@@ -25,15 +25,6 @@ export function absoluteScript(root, rel) {
  */
 export function getUrl(port) {
     return `http://localhost:${port}/`;
-}
-
-/**
- * Normalize a path to POSIX separators (useful for logs and route keys).
- * @param {string} p
- * @returns {string}
- */
-export function toPosixPath(p) {
-    return String(p).replace(/\\/g, "/");
 }
 
 /**
@@ -61,12 +52,11 @@ export async function pathExists(p) {
 /**
  * Register common CLI options shared by all subcommands.
  * (Mutates and returns the provided cac command.)
- * @param {import('cac').CACCommand} cmd
- * @returns {import('cac').CACCommand}
+ * @param {import('cac').Command} cmd
+ * @returns {import('cac').Command}
  */
 export function registerCommonOptions(cmd) {
     return cmd
-        .option("--config <file>", "Path to sxo.config.(mjs|js|cjs|json)")
         .option("--port <number>", "Port")
         .option("--pages-dir <dir>", "Pages directory (default: src/pages)")
         .option("--out-dir <dir>", "Output directory (default: dist)")
@@ -109,38 +99,42 @@ export function camelToDash(s) {
 }
 
 /**
- * Restore empty string for a dashed flag when the parser coerced it to 0.
- * Handles both assignment (--flag=) and separated value (--flag "") forms.
- * @param {Record<string,any>} flagsForConfig
- * @param {Record<string,boolean>} flagsExplicit
- * @param {string[]} argv
- * @param {string} flagName dashed flag name (without leading --)
+ * Restore empty string flag value.
+ *
+ * Cac parser may coerce an empty string "" to 0.
+ * This function checks if a flag was explicitly set and restores the empty string value.
+ *
+ * @param {Record<string,any>} flagsForConfig - Copy of raw flags from config
+ * @param {Record<string,boolean>} flagsExplicit - Map of which flags are explicitly set
+ * @param {string[]} argv - Command line arguments
+ * @param {string} flagName - Dashed flag name (without leading --)
  */
 function restoreEmptyStringFlag(flagsForConfig, flagsExplicit, argv, flagName) {
     const camelName = dashToCamel(flagName);
-    if (flagsForConfig[camelName] === 0 && flagsExplicit[camelName]) {
-        const dashedName = `--${flagName}`;
-        const index = argv.findIndex((a) => a === dashedName || a.startsWith(`${dashedName}=`));
-        if (index !== -1) {
-            const arg = argv[index];
-            const nextArg = argv[index + 1];
-            let isEmptyValue = false;
-            if (arg.includes("=")) {
-                const val = arg.split("=", 2)[1] ?? "";
-                const trimmed = val.trim();
-                // Treat assignment with empty value or quoted empty value as empty
-                if (trimmed === "" || trimmed === '""' || trimmed === "''") {
-                    isEmptyValue = true;
-                }
-            } else {
-                if (nextArg === "") {
-                    isEmptyValue = true;
-                }
-            }
-            if (isEmptyValue) {
-                flagsForConfig[camelName] = "";
-            }
-        }
+    if (flagsForConfig[camelName] !== 0 || !flagsExplicit[camelName]) {
+        return;
+    }
+
+    const dashedName = `--${flagName}`;
+    const index = argv.findIndex((a) => a === dashedName || a.startsWith(`${dashedName}=`));
+    if (index === -1) {
+        return;
+    }
+
+    const arg = argv[index];
+    const nextArg = argv[index + 1];
+    let isEmptyValue = false;
+
+    if (arg.includes("=")) {
+        const val = arg.split("=", 2)[1] ?? "";
+        const trimmed = val.trim();
+        isEmptyValue = trimmed === "" || trimmed === '""' || trimmed === "''";
+    } else if (nextArg === "") {
+        isEmptyValue = true;
+    }
+
+    if (isEmptyValue) {
+        flagsForConfig[camelName] = "";
     }
 }
 
@@ -149,7 +143,7 @@ function restoreEmptyStringFlag(flagsForConfig, flagsExplicit, argv, flagName) {
  * Returns { flagsForConfig, flagsExplicit } where:
  *  - flagsExplicit: { normalizedKey: boolean }
  *  - flagsForConfig: copy of rawFlags with non-explicit keys removed
- * @param {"dev"|"build"|"start"|"clean"|"add"} command
+ * @param {"dev"|"build"|"start"|"clean"|"add"|"generate"} command
  * @param {Record<string,any>} rawFlags
  */
 export function prepareFlags(command, rawFlags) {
@@ -161,8 +155,10 @@ export function prepareFlags(command, rawFlags) {
         start: ["open", "verbose", "color", "port", "pages-dir", "out-dir", "public-path", "client-dir"],
         clean: ["verbose", "color", "port", "pages-dir", "out-dir"],
         add: ["verbose", "color", "components-dir"],
+        generate: ["verbose", "color", "out-dir", "public-path", "client-dir"],
     };
     const relevant = commandFlagMap[command] || [];
+    /** @type {Record<string, boolean>} */
     const flagsExplicit = {};
     for (const dashed of relevant) {
         const camel = dashToCamel(dashed);
@@ -192,7 +188,7 @@ export async function askYesNo(question) {
     if (!process.stdout.isTTY) return false;
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
     return new Promise((resolve) => {
-        rl.question(`${question} ${"(y/N)"} `, (answer) => {
+        rl.question(`${question} (y/N) `, (answer) => {
             rl.close();
             const s = String(answer || "")
                 .trim()
@@ -200,14 +196,6 @@ export async function askYesNo(question) {
             resolve(s === "y" || s === "yes");
         });
     });
-}
-
-/**
- * Check that the build produced the expected routes manifest.
- * @returns {Promise<boolean>}
- */
-export async function ensureBuiltRoutesJson() {
-    return await pathExists(ROUTES_FILE);
 }
 
 /**
@@ -223,14 +211,14 @@ export async function validatePagesFolder(pagesDir) {
 
     if (!exists) {
         throw new Error(
-            `Pages directory does not exist: ${toPosixPath(pagesDir)} (default)\n` +
-                `Hint: create the folder or use --pages-dir or set PAGES_DIR.`,
+            `Pages directory does not exist: ${convertToPosixSlashes(pagesDir)} (default)\n` +
+                `Hint: create folder or use --pages-dir or set PAGES_DIR.`,
         );
     }
 
     const stat = await fsp.stat(pagesDir);
     if (!stat.isDirectory()) {
-        throw new Error(`Pages path is not a directory: ${toPosixPath(pagesDir)}`);
+        throw new Error(`Pages path is not a directory: ${convertToPosixSlashes(pagesDir)}`);
     }
 }
 
@@ -242,20 +230,16 @@ export async function validatePagesFolder(pagesDir) {
 export async function printBuildSummary(outDir, pagesDir) {
     const summary = { routes: 0 };
     try {
-        const txt = await fsp.readFile(ROUTES_FILE, "utf8");
+        const routesFile = path.join(outDir, "server", "routes.json");
+        const txt = await fsp.readFile(routesFile, "utf8");
         const arr = JSON.parse(txt);
         summary.routes = Array.isArray(arr) ? arr.length : 0;
     } catch {
         // ignore JSON parse / fs errors; treat as zero
     }
 
-    const label = (s) => String(s);
-    const val = (s) => String(s);
-    const infoLines = [
-        [label("Output"), val(toPosixPath(path.relative(process.cwd(), outDir)))],
-        [label("Pages"), val(toPosixPath(pagesDir))],
-        [label("Routes"), val(summary.routes)],
-    ].map(([l, v]) => `  - ${l}: ${v}`);
+    const relativeOut = convertToPosixSlashes(path.relative(process.cwd(), outDir));
+    const infoLines = [`  - Output: ${relativeOut}`, `  - Pages: ${convertToPosixSlashes(pagesDir)}`, `  - Routes: ${summary.routes}`];
 
     process.stdout.write(`${infoLines.join("\n")}\n`);
 }

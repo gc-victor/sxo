@@ -23,7 +23,6 @@ process.env.SXO_RESOLVED_CONFIG = JSON.stringify({
 const {
     absoluteScript,
     getUrl,
-    toPosixPath,
     ensureDir,
     pathExists,
     registerCommonOptions,
@@ -32,23 +31,11 @@ const {
     camelToDash,
     prepareFlags,
     askYesNo,
-    ensureBuiltRoutesJson,
     printBuildSummary,
+    validatePagesFolder,
 } = await import("./cli-helpers.js");
 
-import { ROUTES_FILE } from "../constants.js";
-
-/* --------------- helpers --------------- */
-async function withTempDir(fn) {
-    const dir = await fsp.mkdtemp(path.join(os.tmpdir(), "sxo-clihelpers-"));
-    try {
-        return await fn(dir);
-    } finally {
-        await fsp.rm(dir, { recursive: true, force: true }).catch(() => {});
-    }
-}
-
-/* --------------- tests --------------- */
+import { withTempProject } from "../test-utils.js";
 
 test("absoluteScript resolves relative to root", () => {
     const root = "/tmp/root-example";
@@ -61,13 +48,8 @@ test("getUrl builds localhost URL", () => {
     assert.equal(getUrl("4010"), "http://localhost:4010/");
 });
 
-test("toPosixPath converts backslashes", () => {
-    const mixed = "some\\windows\\path\\file.js";
-    assert.equal(toPosixPath(mixed), "some/windows/path/file.js");
-});
-
 test("ensureDir + pathExists round trip", async () => {
-    await withTempDir(async (dir) => {
+    await withTempProject(async (dir) => {
         const nested = path.join(dir, "a/b/c");
         assert.equal(await pathExists(nested), false);
         await ensureDir(nested);
@@ -82,6 +64,14 @@ test("registerCommonOptions returns same command instance", () => {
     const cli = cac("prog");
     const res = registerCommonOptions(cli);
     assert.equal(res, cli);
+});
+
+test("registerCommonOptions does not include inert --config flag", () => {
+    const cli = cac("prog");
+    registerCommonOptions(cli);
+    // --config was previously registered but never implemented; ensure it stays removed
+    const configOption = cli.globalCommand.options.find((o) => o.name === "config");
+    assert.equal(configOption, undefined, "--config flag should not be registered (not implemented)");
 });
 
 test("wasFlagExplicit detects long, assignment, and negated flags", () => {
@@ -131,18 +121,11 @@ test("prepareFlags filters out non-explicit flags per command map", () => {
     }
 });
 
-test("ensureBuiltRoutesJson false before file exists, true after create", async () => {
-    await fsp.rm(ROUTES_FILE, { force: true }).catch(() => {});
-    assert.equal(await ensureBuiltRoutesJson(), false);
-    await ensureDir(path.dirname(ROUTES_FILE));
-    await fsp.writeFile(ROUTES_FILE, "[]");
-    assert.equal(await ensureBuiltRoutesJson(), true);
-});
-
 test("printBuildSummary outputs expected lines with route count", async () => {
-    await ensureDir(path.dirname(ROUTES_FILE));
+    const routesFile = path.join(tempOutDir, "server", "routes.json");
+    await ensureDir(path.dirname(routesFile));
     await fsp.writeFile(
-        ROUTES_FILE,
+        routesFile,
         JSON.stringify(
             [
                 { filename: "index.html", jsx: "src/pages/index.jsx" },
@@ -229,8 +212,6 @@ test("prepareFlags fixes cac's conversion of empty string to 0 for --public-path
     }
 });
 
-// validatePagesFolder tests removed due to intermittent serialization failure during test runner cloning.
-
 test("prepareFlags honors --client-dir explicitness", () => {
     const originalArgv = process.argv.slice();
     try {
@@ -261,6 +242,161 @@ test("prepareFlags filters out non-explicit clientDir", () => {
         const { flagsForConfig, flagsExplicit } = prepareFlags("start", rawFlags);
         assert.equal(flagsExplicit.clientDir, false);
         assert.ok(!("clientDir" in flagsForConfig));
+    } finally {
+        process.argv = originalArgv;
+    }
+});
+
+test("validatePagesFolder throws when folder does not exist", async () => {
+    const missingFolder = path.join(os.tmpdir(), `sxo-missing-${Date.now()}`);
+
+    await assert.rejects(
+        async () => validatePagesFolder(missingFolder),
+        (e) => e instanceof Error && e.message.includes("does not exist"),
+        "should throw when path does not exist",
+    );
+});
+
+test("validatePagesFolder throws when path is not a directory", async () => {
+    await withTempProject(async (dir) => {
+        const filePath = path.join(dir, "not-a-dir.txt");
+        await fsp.writeFile(filePath, "content");
+
+        await assert.rejects(
+            async () => validatePagesFolder(filePath),
+            (e) => e instanceof Error && e.message.includes("is not a directory"),
+            "should throw when path is not a directory",
+        );
+    });
+});
+
+test("printBuildSummary handles read errors gracefully", async () => {
+    // Force a read error by using a non-existent output directory
+    const nonExistentDir = path.join(tempOutDir, "does-not-exist");
+
+    let captured = "";
+    const originalWrite = process.stdout.write.bind(process.stdout);
+    process.stdout.write = (chunk, encoding, cb) => {
+        captured += typeof chunk === "string" ? chunk : chunk.toString(encoding || "utf8");
+        return originalWrite(chunk, encoding, cb);
+    };
+    try {
+        await printBuildSummary(nonExistentDir, "src/pages");
+    } finally {
+        process.stdout.write = originalWrite;
+    }
+
+    assert.match(captured, /Routes:\s*0/);
+});
+
+test("prepareFlags: handles unknown command", () => {
+    const { flagsForConfig, flagsExplicit } = prepareFlags("unknown", { someFlag: true });
+    assert.deepEqual(flagsExplicit, {});
+    assert.deepEqual(flagsForConfig, { someFlag: true });
+});
+
+test("prepareFlags: exercises different commands", () => {
+    const originalArgv = process.argv;
+    try {
+        process.argv = ["node", "script", "add", "--components-dir", "my-comps", "--color"];
+        const { flagsForConfig, flagsExplicit } = prepareFlags("add", { componentsDir: "my-comps", color: true, verbose: false });
+
+        assert.strictEqual(flagsExplicit.componentsDir, true);
+        assert.strictEqual(flagsExplicit.color, true);
+        assert.strictEqual(flagsExplicit.verbose, false);
+
+        assert.strictEqual(flagsForConfig.componentsDir, "my-comps");
+        assert.strictEqual(flagsForConfig.color, true);
+        assert.ok(!("verbose" in flagsForConfig));
+
+        process.argv = ["node", "script", "clean", "--out-dir", "dist", "--verbose"];
+        const { flagsForConfig: fClean, flagsExplicit: eClean } = prepareFlags("clean", { outDir: "dist", verbose: true, color: false });
+        assert.strictEqual(eClean.outDir, true);
+        assert.strictEqual(eClean.verbose, true);
+        assert.strictEqual(fClean.outDir, "dist");
+        assert.strictEqual(fClean.verbose, true);
+        assert.ok(!("color" in fClean));
+
+        process.argv = ["node", "script", "generate", "--public-path", "/static"];
+        const { flagsForConfig: fGen, flagsExplicit: eGen } = prepareFlags("generate", { publicPath: "/static", clientDir: "client" });
+        assert.strictEqual(eGen.publicPath, true);
+        assert.strictEqual(eGen.clientDir, false);
+        assert.strictEqual(fGen.publicPath, "/static");
+        assert.ok(!("clientDir" in fGen));
+    } finally {
+        process.argv = originalArgv;
+    }
+});
+
+test("prepareFlags handles negated and zero-valued flags", () => {
+    const originalArgv = process.argv.slice();
+    try {
+        // Negated flag
+        process.argv = ["node", "script", "dev", "--no-open"];
+        const rawFlags1 = { open: false };
+        const { flagsForConfig: f1, flagsExplicit: e1 } = prepareFlags("dev", rawFlags1);
+        assert.equal(e1.open, true);
+        assert.equal(f1.open, false);
+
+        // Zero flag value (not from empty string)
+        process.argv = ["node", "script", "dev", "--port", "0"];
+        const rawFlags2 = { port: 0 };
+        const { flagsForConfig: f2, flagsExplicit: e2 } = prepareFlags("dev", rawFlags2);
+        assert.equal(e2.port, true);
+        assert.equal(f2.port, 0);
+    } finally {
+        process.argv = originalArgv;
+    }
+});
+
+test("prepareFlags restores empty string from space-separated arg", () => {
+    const originalArgv = process.argv.slice();
+    try {
+        // Space-separated empty string (not using =)
+        process.argv = ["node", "script", "build", "--public-path", ""];
+        const rawFlags = { publicPath: 0 }; // cac coerces to 0
+        const { flagsForConfig } = prepareFlags("build", rawFlags);
+        assert.equal(flagsForConfig.publicPath, "");
+    } finally {
+        process.argv = originalArgv;
+    }
+});
+
+test("prepareFlags restores empty string from quoted args", () => {
+    const originalArgv = process.argv.slice();
+    try {
+        // Double quotes
+        process.argv = ["node", "script", "build", '--public-path=""'];
+        const rawFlags1 = { publicPath: 0 };
+        const { flagsForConfig: f1 } = prepareFlags("build", rawFlags1);
+        assert.equal(f1.publicPath, "");
+
+        // Single quotes
+        process.argv = ["node", "script", "build", "--public-path=''"];
+        const rawFlags2 = { publicPath: 0 };
+        const { flagsForConfig: f2 } = prepareFlags("build", rawFlags2);
+        assert.equal(f2.publicPath, "");
+    } finally {
+        process.argv = originalArgv;
+    }
+});
+
+test("prepareFlags ignores empty string when flag not in argv or is negated", () => {
+    const originalArgv = process.argv.slice();
+    try {
+        // case 1: flag not in argv at all
+        process.argv = ["node", "script", "build", "--port=3000"];
+        const rawFlags1 = { publicPath: 0, port: 3000 };
+        const { flagsForConfig: f1 } = prepareFlags("build", rawFlags1);
+        assert.ok(!("publicPath" in f1));
+
+        // case 2: flag is negated (--no-public-path)
+        // wasFlagExplicit will be true, but index will be -1 in restoreEmptyStringFlag
+        process.argv = ["node", "script", "build", "--no-public-path"];
+        const rawFlags2 = { publicPath: 0 };
+        const { flagsForConfig: f2 } = prepareFlags("build", rawFlags2);
+        // It should return early at line 123 and NOT restore to ""
+        assert.equal(f2.publicPath, 0);
     } finally {
         process.argv = originalArgv;
     }
