@@ -7,6 +7,10 @@
             "correctness": {
                 "useJsxKeyInIterable": "off"
             },
+            "performance": {
+                "noBarrelFile": "error",
+                "noReExportAll": "error"
+            },
             "suspicious": {
                 "noUnknownAtRules": "off"
             }

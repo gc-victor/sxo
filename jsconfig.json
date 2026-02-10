@@ -1,0 +1,39 @@
+{
+    "compilerOptions": {
+        "checkJs": true,
+        "allowJs": true,
+        "lib": ["ESNext", "DOM"],
+        "types": ["node", "deno", "bun"],
+        "paths": {
+            "#cli/*": ["./src/js/cli/*"],
+            "#config": ["./src/js/config/*"],
+            "#server/*": ["./src/js/server/*"],
+            "#runtime/*": ["./src/js/runtime/*"],
+            "#esbuild/*": ["./src/js/esbuild/*"],
+            "#utils/*": ["./src/js/utils/*"]
+        },
+        "module": "esnext",
+        "target": "esnext",
+        "moduleDetection": "force",
+        "noImplicitAny": true,
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
+        "exactOptionalPropertyTypes": true,
+        "strictNullChecks": true,
+        "strictFunctionTypes": false,
+        "strictPropertyInitialization": false,
+        "strictBindCallApply": false,
+        "strict": true,
+        "noEmit": true,
+        "composite": true,
+        "skipLibCheck": true,
+        "jsx": "preserve",
+        "jsxFactory": "jsx",
+        "jsxFragmentFactory": "Fragment",
+        "allowSyntheticDefaultImports": true,
+        "forceConsistentCasingInFileNames": true,
+        "typeRoots": ["./node_modules/@types", "./src/js/types"]
+    },
+    "include": ["src/js/**/*", "src/lib.rs", "src/middleware.js", "src/js/types/index.d.ts"],
+    "exclude": ["node_modules", "dist/**/*", "**/*.test.js"]
+}

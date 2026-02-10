@@ -5,6 +5,7 @@ jsx-transformer/
 **/dist/
 *.local
 .env
+*.tsbuildinfo
 
 .vscode/*
 .idea
