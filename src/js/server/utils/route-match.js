@@ -1,3 +1,5 @@
+import { decodeURIComponentSafe } from "../../shared/url-validator.js";
+
 /** Safe slug validation used by route matching (keep synchronized with legacy utils). */
 export const SLUG_REGEX = /^[A-Za-z0-9._-]{1,200}$/;
 
@@ -83,9 +85,9 @@ function normalizeIncoming(url) {
     // Decode URI components safely
     let decoded;
     try {
-        decoded = decodeURIComponent(pathname);
+        decoded = decodeURIComponentSafe(pathname);
     } catch {
-        return null;
+        return null; // Fail gracefully
     }
 
     // Remove leading/trailing slashes
@@ -111,7 +113,7 @@ const patternCache = new Map();
  * @param {string} rawPattern
  * @returns {{regex: RegExp, paramNames: string[]}}
  */
-function buildPatternRegex(rawPattern) {
+export function buildPatternRegex(rawPattern) {
     // Check cache first
     const cached = patternCache.get(rawPattern);
     if (cached) {
@@ -119,37 +121,40 @@ function buildPatternRegex(rawPattern) {
     }
 
     const paramRegex = /\[([^\]]+)\]/g;
-    /** @type {string[]} */
-    const srcParts = ["^"];
-    /** @type {string[]} */
-    const paramNames = [];
 
-    let lastIndex = 0;
-    for (const match of rawPattern.matchAll(paramRegex)) {
-        const index = match.index ?? 0;
-        const full = match[0];
-        const name = match[1];
+    // Use reduce to build regex source parts and collect parameter names
+    const result = [...rawPattern.matchAll(paramRegex)].reduce(
+        (/** @type {{srcParts: string[], paramNames: string[], lastIndex: number}} */ acc, match, _matchIndex, _matches) => {
+            const index = match.index ?? 0;
+            const full = match[0];
+            const name = match[1];
 
-        // Escape static part before this parameter token
-        if (index > lastIndex) {
-            srcParts.push(escapeRegexLiteral(rawPattern.slice(lastIndex, index)));
-        }
+            // Escape static part before this parameter token
+            if (index > acc.lastIndex) {
+                acc.srcParts.push(escapeRegexLiteral(rawPattern.slice(acc.lastIndex, index)));
+            }
 
-        // Add capture group for dynamic parameter
-        srcParts.push("([^/]+)");
-        paramNames.push(name);
+            // Add capture group for dynamic parameter
+            acc.srcParts.push("([^/]+)");
+            acc.paramNames.push(name);
 
-        lastIndex = index + full.length;
-    }
+            acc.lastIndex = index + full.length;
+
+            return acc;
+        },
+        { srcParts: ["^"], paramNames: [], lastIndex: 0 },
+    );
 
     // Escape any trailing static part
-    if (lastIndex < rawPattern.length) {
-        srcParts.push(escapeRegexLiteral(rawPattern.slice(lastIndex)));
+    if (result.lastIndex < rawPattern.length) {
+        result.srcParts.push(escapeRegexLiteral(rawPattern.slice(result.lastIndex)));
     }
-    srcParts.push("$");
+    result.srcParts.push("$");
 
-    const regex = new RegExp(srcParts.join(""));
-    const result = { regex, paramNames };
+    const regex = new RegExp(result.srcParts.join(""));
+
+    // Return just regex and paramNames for caching
+    const cacheResult = { regex, paramNames: result.paramNames };
 
     // Bounded cache eviction (FIFO)
     if (patternCache.size >= MAX_PATTERN_CACHE) {
@@ -158,9 +163,9 @@ function buildPatternRegex(rawPattern) {
             patternCache.delete(firstKey);
         }
     }
-    patternCache.set(rawPattern, result);
+    patternCache.set(rawPattern, cacheResult);
 
-    return result;
+    return cacheResult;
 }
 
 /**

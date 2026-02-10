@@ -44,7 +44,8 @@ export async function loadJsxModule(jsxPath, { bustCache = false, cache = jsxMod
     }
 
     if (cache.has(jsxPath)) {
-        return cache.get(jsxPath);
+        const cached = cache.get(jsxPath);
+        if (cached) return cached;
     }
 
     try {
@@ -58,8 +59,9 @@ export async function loadJsxModule(jsxPath, { bustCache = false, cache = jsxMod
         return fn;
     } catch (err) {
         if (returnErrorStub) {
+            const error = /** @type {Error | { message?: string }} */ (err);
             const stub = () =>
-                `<pre style="color:red;">Error loading ${escapeHtmlLite(String(jsxPath))}: ${escapeHtmlLite(err?.message || String(err))}</pre>`;
+                `<pre style="color:red;">Error loading ${escapeHtmlLite(String(jsxPath))}: ${escapeHtmlLite(error.message || String(error))}</pre>`;
             cache.set(jsxPath, stub);
             return stub;
         }

@@ -1,17 +1,15 @@
-import { deepStrictEqual, strictEqual } from "node:assert";
+import { deepStrictEqual, ok, strictEqual } from "node:assert";
 import { test } from "node:test";
-import { routeMatch } from "../index.js";
+import { routeMatch } from "../route-match.js";
 
 // This file isolates routeMatch-focused tests split out from the original aggregated utils test.
 
-// --- Fixtures ---
 const filesFixture = [
     { path: "", filename: "index.html", jsx: "src/pages/index.jsx" },
     { path: "about", filename: "about.html", jsx: "src/pages/about/index.jsx" },
     { path: "blog/[slug]", filename: "blog-slug.html", jsx: "src/pages/blog/[slug]/index.jsx" },
 ];
 
-// --- Basic matching (root + static) ---
 test("routeMatch matches root and static routes", () => {
     deepStrictEqual(routeMatch("/", filesFixture), {
         route: filesFixture[0],
@@ -31,7 +29,6 @@ test("routeMatch matches root and static routes", () => {
     });
 });
 
-// --- Dynamic slug routes ---
 test("routeMatch matches dynamic [slug] routes", () => {
     const params1 = Object.create(null);
     params1.slug = "hello-world";
@@ -49,8 +46,6 @@ test("routeMatch matches dynamic [slug] routes", () => {
     strictEqual(routeMatch("/blog/hello-world/index.html", filesFixture), null);
 });
 
-// --- Slug validation ---
-
 test("routeMatch can disable slug validation via option", () => {
     const res = routeMatch("/blog/hello world", filesFixture, { validateSlug: false });
     const expectedParams = Object.create(null);
@@ -61,7 +56,6 @@ test("routeMatch can disable slug validation via option", () => {
     });
 });
 
-// --- Normalization (query/hash + full URL forms) ---
 test("routeMatch normalizes full URL and strips query/hash", () => {
     const res1 = routeMatch("http://localhost:3000/about?ref=1#hash", filesFixture);
     deepStrictEqual(res1, { route: filesFixture[1], params: Object.create(null) });
@@ -70,19 +64,14 @@ test("routeMatch normalizes full URL and strips query/hash", () => {
     deepStrictEqual(res2, { route: filesFixture[0], params: Object.create(null) });
 });
 
-// --- Encoded paths & decoding behavior ---
-
 test("routeMatch returns null for malformed percent-encoding", () => {
     // Invalid (truncated) UTF-8 / percent sequence should cause decode failure -> null
     const res = routeMatch("/blog/%E0%A4%A", filesFixture);
     strictEqual(res, null);
 });
 
-// --- Edge cases ---
-
-// --- Parameter name validation ---
 test("validateRoutePattern accepts valid parameter names", async () => {
-    const { validateRoutePattern } = await import("../index.js");
+    const { validateRoutePattern } = await import("../route-match.js");
 
     deepStrictEqual(validateRoutePattern("blog/[slug]"), { valid: true });
     deepStrictEqual(validateRoutePattern("shop/[category]/[product]"), { valid: true });
@@ -92,7 +81,7 @@ test("validateRoutePattern accepts valid parameter names", async () => {
 });
 
 test("validateRoutePattern rejects duplicate parameter names", async () => {
-    const { validateRoutePattern } = await import("../index.js");
+    const { validateRoutePattern } = await import("../route-match.js");
 
     const result = validateRoutePattern("blog/[category]/[category]");
     strictEqual(result.valid, false);
@@ -100,11 +89,8 @@ test("validateRoutePattern rejects duplicate parameter names", async () => {
     strictEqual(result.error.toLowerCase().includes("duplicate"), true);
 });
 
-// --- Edge case tests ---
-
-// --- Task 1.1: Cache bounds test ---
 test("patternCache does not grow unbounded", async () => {
-    const { routeMatch } = await import("../index.js");
+    const { routeMatch } = await import("../route-match.js");
 
     // Generate many unique patterns to stress the cache
     const files = [];
@@ -125,18 +111,14 @@ test("patternCache does not grow unbounded", async () => {
     // This test passes if no memory explosion occurs
 });
 
-// --- Task 2.1: Placeholder collision test ---
-
-// --- Task 6.1: Empty bracket validation test ---
 test("validateRoutePattern rejects empty brackets", async () => {
-    const { validateRoutePattern } = await import("../index.js");
+    const { validateRoutePattern } = await import("../route-match.js");
 
     const result = validateRoutePattern("blog/[]");
     strictEqual(result.valid, false);
     strictEqual(result.error.toLowerCase().includes("empty"), true);
 });
 
-// --- Task 3: Parameter length validation tests ---
 test("routeMatch rejects slug values exceeding 200 character limit", () => {
     const longSlug = "a".repeat(201);
     const result = routeMatch(`/blog/${longSlug}`, filesFixture);
@@ -156,7 +138,6 @@ test("routeMatch accepts slug values under 200 character limit", () => {
     deepStrictEqual(result?.params?.slug, shortSlug, "Short slug should be accepted");
 });
 
-// --- Task 4: Regex escaping stress tests ---
 test("routeMatch handles special regex characters in static paths", () => {
     const filesWithDots = [{ path: "api/v1.0", filename: "api-v1.0.html", jsx: "src/pages/api/v1.0/index.jsx" }];
     // Should match literal "v1.0", not "v1" followed by any char
@@ -215,4 +196,104 @@ test("routeMatch handles backslashes in static paths", () => {
 // Note: Question marks in static paths are not tested because '?' starts URL query string parsing.
 // The routeMatch function correctly strips query strings, so '/faq/what?' becomes '/faq/what'.
 
-// --- Task 6.2: Route precedence test ---
+test("buildPatternRegex builds regex for static pattern with no parameters", async () => {
+    const { buildPatternRegex } = await import("../route-match.js");
+
+    const result = buildPatternRegex("about");
+
+    ok(result.regex instanceof RegExp);
+    strictEqual(result.paramNames.length, 0);
+    ok(result.regex.test("about"));
+    ok(!result.regex.test("about/extra"));
+});
+
+test("buildPatternRegex builds regex for single parameter pattern", async () => {
+    const { buildPatternRegex } = await import("../route-match.js");
+
+    const result = buildPatternRegex("blog/[slug]");
+
+    ok(result.regex instanceof RegExp);
+    deepStrictEqual(result.paramNames, ["slug"]);
+    ok(result.regex.test("blog/hello-world"));
+    ok(result.regex.test("blog/test-123"));
+    ok(!result.regex.test("blog"));
+});
+
+test("buildPatternRegex builds regex for multiple parameter pattern", async () => {
+    const { buildPatternRegex } = await import("../route-match.js");
+
+    const result = buildPatternRegex("shop/[category]/[product]");
+
+    ok(result.regex instanceof RegExp);
+    deepStrictEqual(result.paramNames, ["category", "product"]);
+    ok(result.regex.test("shop/electronics/laptop"));
+    ok(result.regex.test("shop/books/guide"));
+    ok(!result.regex.test("shop/electronics"));
+});
+
+test("buildPatternRegex memoizes regex results", async () => {
+    const { buildPatternRegex } = await import("../route-match.js");
+
+    const pattern = "test/[param]";
+
+    // First call should compute
+    const result1 = buildPatternRegex(pattern);
+    // Second call should return cached result (same object reference)
+    const result2 = buildPatternRegex(pattern);
+
+    strictEqual(result1, result2, "Should return memoized result");
+});
+
+test("buildPatternRegex extracts parameter names in correct order", async () => {
+    const { buildPatternRegex } = await import("../route-match.js");
+
+    const result = buildPatternRegex("[first]/[second]/[third]");
+
+    deepStrictEqual(result.paramNames, ["first", "second", "third"]);
+});
+
+test("buildPatternRegex handles patterns with underscores in parameter names", async () => {
+    const { buildPatternRegex } = await import("../route-match.js");
+
+    const result = buildPatternRegex("users/[user_id]/profile");
+
+    deepStrictEqual(result.paramNames, ["user_id"]);
+    ok(result.regex.test("users/123/profile"));
+});
+
+test("buildPatternRegex handles trailing static segments", async () => {
+    const { buildPatternRegex } = await import("../route-match.js");
+
+    const result = buildPatternRegex("blog/[slug]/comments");
+
+    ok(result.regex instanceof RegExp);
+    deepStrictEqual(result.paramNames, ["slug"]);
+    ok(result.regex.test("blog/post/comments"));
+    ok(!result.regex.test("blog/post"));
+});
+
+test("routeMatch prefers static routes over dynamic siblings when properly ordered", () => {
+    // Static route must come before dynamic for correct matching
+    // This ordering is guaranteed by entryPointsConfig sorting
+    const properlyOrderedRoutes = [
+        { path: "blog/new", filename: "blog-new.html", jsx: "src/pages/blog/new/index.jsx" },
+        { path: "blog/[slug]", filename: "blog-slug.html", jsx: "src/pages/blog/[slug]/index.jsx" },
+    ];
+
+    // Request to /blog/new should match static route, not dynamic
+    const result = routeMatch("/blog/new", properlyOrderedRoutes);
+    strictEqual(result?.route?.path, "blog/new", "Static route /blog/new should win over /blog/[slug]");
+    deepStrictEqual(result?.params, Object.create(null), "Static route should have no params");
+});
+
+test("routeMatch dynamic route catches non-matching siblings", () => {
+    const properlyOrderedRoutes = [
+        { path: "blog/new", filename: "blog-new.html", jsx: "src/pages/blog/new/index.jsx" },
+        { path: "blog/[slug]", filename: "blog-slug.html", jsx: "src/pages/blog/[slug]/index.jsx" },
+    ];
+
+    // Request to /blog/other should match dynamic route
+    const result = routeMatch("/blog/other", properlyOrderedRoutes);
+    strictEqual(result?.route?.path, "blog/[slug]", "Dynamic route should match /blog/other");
+    strictEqual(result?.params?.slug, "other", "Should capture slug param");
+});

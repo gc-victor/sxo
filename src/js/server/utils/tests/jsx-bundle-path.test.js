@@ -2,7 +2,7 @@ import { strict as assert } from "node:assert";
 import path from "node:path";
 import { test } from "node:test";
 import { OUTPUT_DIR_SERVER, PAGES_DIR, PAGES_RELATIVE_DIR } from "../../../constants.js";
-import { jsxBundlePath } from "../index.js";
+import { jsxBundlePath } from "../jsx-bundle-path.js";
 
 // Tests for jsxBundlePath split out from original aggregated utils test (original-utils.test.js)
 
@@ -23,6 +23,12 @@ test("jsxBundlePath maps relative JSX page path to dist/server .js bundle path",
 
 test("jsxBundlePath maps relative TSX page path to dist/server .js bundle path", () => {
     const input = `${PAGES_RELATIVE_DIR}/blog/index.tsx`;
+    const out = jsxBundlePath(input);
+    assert.equal(out, expected("blog/index.js"));
+});
+
+test("jsxBundlePath maps relative TS page path to dist/server .js bundle path", () => {
+    const input = `${PAGES_RELATIVE_DIR}/blog/index.ts`;
     const out = jsxBundlePath(input);
     assert.equal(out, expected("blog/index.js"));
 });
@@ -85,6 +91,15 @@ test("jsxBundlePath honors PAGES_DIR env for relative and absolute inputs", () =
             process.env.PAGES_DIR = previous;
         }
     }
+});
+
+test("jsxBundlePath resolves index.jsx to index.js (not index.jsx.js)", () => {
+    // P1.4 Regression test: ensure index.jsx pages resolve to .js bundles
+    // after the esbuildJsxPlugin onEnd fix that consolidates hashed files
+    const input = `${PAGES_RELATIVE_DIR}/contact/index.jsx`;
+    const out = jsxBundlePath(input);
+    assert.equal(out, expected("contact/index.js"));
+    assert.doesNotMatch(out, /\.jsx\.js$/);
 });
 
 test("jsxBundlePath with PAGES_DIR env validates prefix and root mapping", () => {

@@ -25,6 +25,8 @@ export function jsxBundlePath(jsxPath) {
     const pagesDirEnv = process.env.PAGES_DIR;
     const pagesAbs = pagesDirEnv ? path.resolve(process.cwd(), pagesDirEnv) : PAGES_DIR;
     const pagesRel = pagesDirEnv ? path.relative(process.cwd(), pagesAbs) : PAGES_RELATIVE_DIR;
+    const outDirServerEnv = process.env.OUTPUT_DIR_SERVER;
+    const outRoot = outDirServerEnv ? path.resolve(process.cwd(), outDirServerEnv) : path.resolve(OUTPUT_DIR_SERVER);
     const absInput = path.resolve(jsxPath);
 
     // Accept either already-absolute path inside pagesAbs or a relative path
@@ -39,10 +41,9 @@ export function jsxBundlePath(jsxPath) {
     // Derive the relative path from pages root (always from absolute anchor)
     const relFromPages = path.relative(pagesAbs, absInput).replace(/\\/g, "/"); // normalize Windows separators
 
-    // Replace .jsx / .tsx with .js (other extensions pass through unchanged)
-    const relJs = relFromPages.replace(/\.(jsx|tsx)$/i, ".js");
+    // Replace .jsx / .tsx / .ts with .js (other extensions pass through unchanged)
+    const relJs = relFromPages.replace(/\.(jsx|tsx|ts)$/i, ".js");
 
-    const outRoot = path.resolve(OUTPUT_DIR_SERVER);
     const candidate = path.resolve(outRoot, relJs);
 
     // Escape guard: ensure final absolute candidate stays within the intended root.

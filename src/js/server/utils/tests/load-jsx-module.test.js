@@ -2,23 +2,10 @@ import { strict as assert } from "node:assert";
 import fsp from "node:fs/promises";
 import path from "node:path";
 import { test } from "node:test";
-import { OUTPUT_DIR_SERVER, PAGES_RELATIVE_DIR } from "../../../constants.js";
-import { loadJsxModule } from "../index.js";
+import { withEnvCapture, withTempProject } from "../../../test-utils.js";
+import { loadJsxModule } from "../load-jsx-module.js";
 
 /* helpers */
-
-async function writeServerModule(relPath, source) {
-    const abs = path.join(OUTPUT_DIR_SERVER, relPath);
-    await fsp.mkdir(path.dirname(abs), { recursive: true });
-    await fsp.writeFile(abs, source, "utf8");
-    return abs;
-}
-
-function sourcePathFor(relJsPath) {
-    // Convert "foo/bar/index.js" under OUTPUT_DIR_SERVER to source JSX path under PAGES_RELATIVE_DIR
-    const withoutExt = relJsPath.replace(/\.js$/i, "");
-    return `${PAGES_RELATIVE_DIR}/${withoutExt}.jsx`;
-}
 
 function escapeRegExp(str) {
     return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -27,115 +14,199 @@ function escapeRegExp(str) {
 /* tests */
 
 test("loadJsxModule: loads default export function", async () => {
-    const rel = "load-jsx-module/default/index.js";
-    await writeServerModule(
-        rel,
-        `
-        export default function () {
-            return "<html><head><title>t</title></head><body>default-ok</body></html>";
-        }
-    `,
-    );
-    const srcPath = sourcePathFor(rel);
-    const cache = new Map();
+    await withTempProject(async (tmpDir) => {
+        const serverDir = path.join(tmpDir, "server");
+        await fsp.mkdir(serverDir, { recursive: true });
+        const pagesDir = path.join(tmpDir, "pages");
+        await fsp.mkdir(pagesDir, { recursive: true });
 
-    const fn = await loadJsxModule(srcPath, { cache });
-    assert.equal(typeof fn, "function", "Should return a function");
+        await withEnvCapture(async () => {
+            process.env.OUTPUT_DIR_SERVER = serverDir;
+            process.env.PAGES_DIR = pagesDir;
 
-    const html = await fn({});
-    assert.match(html, /default-ok/, "Rendered output should come from default export");
+            const rel = "load-jsx-module/default/index.js";
+            const modPath = path.join(serverDir, rel);
+            await fsp.mkdir(path.dirname(modPath), { recursive: true });
+            await fsp.writeFile(
+                modPath,
+                `
+                export default function () {
+                    return "<html><head><title>t</title></head><body>default-ok</body></html>";
+                }
+            `,
+                "utf8",
+            );
+
+            const pagesRel = path.relative(process.cwd(), pagesDir);
+            const srcPath = `${pagesRel}/load-jsx-module/default/index.jsx`;
+            const cache = new Map();
+
+            const fn = await loadJsxModule(srcPath, { cache });
+            assert.equal(typeof fn, "function", "Should return a function");
+
+            const html = await fn({});
+            assert.match(html, /default-ok/, "Rendered output should come from default export");
+        });
+    });
 });
 
 test("loadJsxModule: falls back to named export 'jsx' when default missing", async () => {
-    const rel = "load-jsx-module/named/index.js";
-    await writeServerModule(
-        rel,
-        `
-        export function jsx() {
-            return "<html><head><title>t</title></head><body>named-ok</body></html>";
-        }
-    `,
-    );
-    const srcPath = sourcePathFor(rel);
-    const cache = new Map();
+    await withTempProject(async (tmpDir) => {
+        const serverDir = path.join(tmpDir, "server");
+        await fsp.mkdir(serverDir, { recursive: true });
+        const pagesDir = path.join(tmpDir, "pages");
+        await fsp.mkdir(pagesDir, { recursive: true });
 
-    const fn = await loadJsxModule(srcPath, { cache });
-    assert.equal(typeof fn, "function");
+        await withEnvCapture(async () => {
+            process.env.OUTPUT_DIR_SERVER = serverDir;
+            process.env.PAGES_DIR = pagesDir;
 
-    const html = await fn({});
-    assert.match(html, /named-ok/, "Rendered output should come from named 'jsx' export");
+            const rel = "load-jsx-module/named/index.js";
+            const modPath = path.join(serverDir, rel);
+            await fsp.mkdir(path.dirname(modPath), { recursive: true });
+            await fsp.writeFile(
+                modPath,
+                `
+                export function jsx() {
+                    return "<html><head><title>t</title></head><body>named-ok</body></html>";
+                }
+            `,
+                "utf8",
+            );
+
+            const pagesRel = path.relative(process.cwd(), pagesDir);
+            const srcPath = `${pagesRel}/load-jsx-module/named/index.jsx`;
+            const cache = new Map();
+
+            const fn = await loadJsxModule(srcPath, { cache });
+            assert.equal(typeof fn, "function");
+
+            const html = await fn({});
+            assert.match(html, /named-ok/, "Rendered output should come from named 'jsx' export");
+        });
+    });
 });
 
 test("loadJsxModule: throws when no valid export is present (returnErrorStub=false)", async () => {
-    const rel = "load-jsx-module/invalid/index.js";
-    await writeServerModule(
-        rel,
-        `
-        export const nope = 1;
-    `,
-    );
-    const srcPath = sourcePathFor(rel);
-    const cache = new Map();
+    await withTempProject(async (tmpDir) => {
+        const serverDir = path.join(tmpDir, "server");
+        await fsp.mkdir(serverDir, { recursive: true });
+        const pagesDir = path.join(tmpDir, "pages");
+        await fsp.mkdir(pagesDir, { recursive: true });
 
-    let threw = false;
-    try {
-        await loadJsxModule(srcPath, { cache });
-    } catch (e) {
-        threw = true;
-        assert.match(String(e?.message ?? e), /No valid export found/, "Error should mention missing valid export");
-    }
-    assert.equal(threw, true, "Expected loadJsxModule to throw for invalid module");
+        await withEnvCapture(async () => {
+            process.env.OUTPUT_DIR_SERVER = serverDir;
+            process.env.PAGES_DIR = pagesDir;
+
+            const rel = "load-jsx-module/invalid/index.js";
+            const modPath = path.join(serverDir, rel);
+            await fsp.mkdir(path.dirname(modPath), { recursive: true });
+            await fsp.writeFile(
+                modPath,
+                `
+                export const nope = 1;
+            `,
+                "utf8",
+            );
+
+            const pagesRel = path.relative(process.cwd(), pagesDir);
+            const srcPath = `${pagesRel}/load-jsx-module/invalid/index.jsx`;
+            const cache = new Map();
+
+            let threw = false;
+            try {
+                await loadJsxModule(srcPath, { cache });
+            } catch (e) {
+                threw = true;
+                assert.match(String(e?.message ?? e), /No valid export found/, "Error should mention missing valid export");
+            }
+            assert.equal(threw, true, "Expected loadJsxModule to throw for invalid module");
+        });
+    });
 });
 
 test("loadJsxModule: returns error stub when no valid export and returnErrorStub=true", async () => {
-    const rel = "load-jsx-module/error-stub/index.js";
-    await writeServerModule(
-        rel,
-        `
-        // no valid exports on purpose
-        export const foo = 42;
-    `,
-    );
-    const srcPath = sourcePathFor(rel);
-    const cache = new Map();
+    await withTempProject(async (tmpDir) => {
+        const serverDir = path.join(tmpDir, "server");
+        await fsp.mkdir(serverDir, { recursive: true });
+        const pagesDir = path.join(tmpDir, "pages");
+        await fsp.mkdir(pagesDir, { recursive: true });
 
-    const fn = await loadJsxModule(srcPath, { returnErrorStub: true, cache });
-    assert.equal(typeof fn, "function", "Should return a stub function instead of throwing");
+        await withEnvCapture(async () => {
+            process.env.OUTPUT_DIR_SERVER = serverDir;
+            process.env.PAGES_DIR = pagesDir;
 
-    const html = await fn({});
-    assert.match(html, /<pre/i, "Stub should render a <pre> block");
-    assert.match(html, /Error loading/i, "Stub should mention error loading");
-    assert.match(html, new RegExp(escapeRegExp(srcPath)), "Stub should include the requested source path");
+            const rel = "load-jsx-module/error-stub/index.js";
+            const modPath = path.join(serverDir, rel);
+            await fsp.mkdir(path.dirname(modPath), { recursive: true });
+            await fsp.writeFile(
+                modPath,
+                `
+                // no valid exports on purpose
+                export const foo = 42;
+            `,
+                "utf8",
+            );
+
+            const pagesRel = path.relative(process.cwd(), pagesDir);
+            const srcPath = `${pagesRel}/load-jsx-module/error-stub/index.jsx`;
+            const cache = new Map();
+
+            const fn = await loadJsxModule(srcPath, { returnErrorStub: true, cache });
+            assert.equal(typeof fn, "function", "Should return a stub function instead of throwing");
+
+            const html = await fn({});
+            assert.match(html, /<pre/i, "Stub should render a <pre> block");
+            assert.match(html, /Error loading/i, "Stub should mention error loading");
+            assert.match(html, new RegExp(escapeRegExp(srcPath)), "Stub should include the requested source path");
+        });
+    });
 });
 
 test("loadJsxModule: caches results and respects bustCache to force re-import", async () => {
-    const rel = "load-jsx-module/cache-bust/index.js";
-    const mkModule = (value) => `
-        export default function () {
-            return "<html><head></head><body>${value}</body></html>";
-        }
-    `;
+    await withTempProject(async (tmpDir) => {
+        const serverDir = path.join(tmpDir, "server");
+        await fsp.mkdir(serverDir, { recursive: true });
+        const pagesDir = path.join(tmpDir, "pages");
+        await fsp.mkdir(pagesDir, { recursive: true });
 
-    // initial module
-    await writeServerModule(rel, mkModule("v1"));
-    const srcPath = sourcePathFor(rel);
-    const cache = new Map();
+        await withEnvCapture(async () => {
+            process.env.OUTPUT_DIR_SERVER = serverDir;
+            process.env.PAGES_DIR = pagesDir;
 
-    // first load -> v1
-    let fn = await loadJsxModule(srcPath, { cache });
-    let html = await fn({});
-    assert.match(html, /v1/, "Initial render should be v1");
+            const rel = "load-jsx-module/cache-bust/index.js";
+            const mkModule = (value) => `
+                export default function () {
+                    return "<html><head></head><body>${value}</body></html>";
+                }
+            `;
 
-    // overwrite built module with v2
-    await writeServerModule(rel, mkModule("v2"));
+            // initial module
+            const modPath = path.join(serverDir, rel);
+            await fsp.mkdir(path.dirname(modPath), { recursive: true });
+            await fsp.writeFile(modPath, mkModule("v1"), "utf8");
 
-    // load without bustCache should return cached fn (v1)
-    fn = await loadJsxModule(srcPath, { cache });
-    html = await fn({});
-    assert.match(html, /v1/, "Without bustCache, should use cached function (v1)");
+            const pagesRel = path.relative(process.cwd(), pagesDir);
+            const srcPath = `${pagesRel}/load-jsx-module/cache-bust/index.jsx`;
+            const cache = new Map();
 
-    // load with bustCache should re-import and return v2
-    fn = await loadJsxModule(srcPath, { cache, bustCache: true });
-    html = await fn({});
-    assert.match(html, /v2/, "With bustCache, should pick up new module (v2)");
+            // first load -> v1
+            let fn = await loadJsxModule(srcPath, { cache });
+            let html = await fn({});
+            assert.match(html, /v1/, "Initial render should be v1");
+
+            // overwrite built module with v2
+            await fsp.writeFile(modPath, mkModule("v2"), "utf8");
+
+            // load without bustCache should return cached fn (v1)
+            fn = await loadJsxModule(srcPath, { cache });
+            html = await fn({});
+            assert.match(html, /v1/, "Without bustCache, should use cached function (v1)");
+
+            // load with bustCache should re-import and return v2
+            fn = await loadJsxModule(srcPath, { cache, bustCache: true });
+            html = await fn({});
+            assert.match(html, /v2/, "With bustCache, should pick up new module (v2)");
+        });
+    });
 });
