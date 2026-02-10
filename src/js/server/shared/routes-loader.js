@@ -13,17 +13,22 @@
  * @module server/shared/routes-loader
  */
 
-import fs from "node:fs";
+import { logger } from "../utils/logger.js";
+import { createFileReader } from "./file-readers.js";
+
+// Create default file reader
+const defaultFileReader = createFileReader();
 
 /**
  * Route manifest entry.
  * @typedef {object} Route
  * @property {string} filename - Output filename (e.g., "index.html")
+ * @property {string[]} entryPoints - Client entry points
  * @property {string} jsx - Source JSX path
  * @property {string} [path] - Route path pattern
  * @property {boolean} [generated] - Whether route is pre-rendered
- * @property {{ css?: string[], js?: string[] }} [assets] - Built assets
- * @property {boolean} [hash] - Whether assets are hashed
+ * @property {{ css: string[], js: string[] }} assets - Built assets
+ * @property {boolean} hash - Whether assets are hashed
  */
 
 /**
@@ -74,7 +79,6 @@ export function validateRoutes(data, source = "routes.json") {
  * @param {object} [options] - Load options
  * @param {number} [options.retries=3] - Number of retry attempts on parse errors
  * @param {(path: string) => Promise<string> | string} [options.readFile] - Platform-specific file reader (defaults to fs.readFileSync)
- * @param {object} [options.logger] - Logger instance with error/warn methods
  * @param {string} [options.source] - Source name for error messages (defaults to routesPath)
  * @param {(err: Error, attempt: number) => void} [options.onError] - Error callback for retry attempts
  * @returns {Promise<Route[]>} Validated routes array
@@ -86,13 +90,11 @@ export function validateRoutes(data, source = "routes.json") {
  * // Node.js with default reader
  * const routes = await loadRoutesManifest("/path/to/routes.json", {
  *   retries: 3,
- *   logger,
  * });
  *
  * // Custom file reader (Bun)
  * const routes = await loadRoutesManifest("/path/to/routes.json", {
  *   readFile: async (path) => await Bun.file(path).text(),
- *   logger,
  * });
  *
  * // With error callback (dev mode)
@@ -103,32 +105,35 @@ export function validateRoutes(data, source = "routes.json") {
  * ```
  */
 export async function loadRoutesManifest(routesPath, options = {}) {
-    const { retries = 3, readFile, logger, source = routesPath, onError } = options;
+    const { retries = 3, readFile, source = routesPath, onError } = options;
 
     for (let i = 0; i < retries; i++) {
         try {
-            // Use custom reader if provided, otherwise default to Node.js fs
+            // Use custom reader if provided, otherwise default to unified fileReader
             let content;
             if (readFile) {
                 content = await readFile(routesPath);
             } else {
-                content = fs.readFileSync(routesPath, "utf-8");
+                const text = await defaultFileReader.readText(routesPath);
+                if (text === null) {
+                    throw new Error(`Failed to read routes file: ${routesPath}`);
+                }
+                content = text;
             }
 
             const data = JSON.parse(content);
             return validateRoutes(data, source);
         } catch (err) {
+            const error = err instanceof Error ? err : new Error(String(err));
             // Invoke error callback if provided
             if (onError) {
-                onError(err, i + 1);
+                onError(error, i + 1);
             }
 
             // On last retry, throw the error
             if (i === retries - 1) {
-                const msg = `Failed to load routes after ${retries} attempts: ${err.message}`;
-                if (logger?.error) {
-                    logger.error(msg);
-                }
+                const msg = `Failed to load routes after ${retries} attempts: ${error.message}`;
+                logger.error(msg);
                 throw new Error(msg);
             }
 

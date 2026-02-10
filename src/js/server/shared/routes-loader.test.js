@@ -73,7 +73,8 @@ describe("loadRoutesManifest", () => {
         assert.deepEqual(routes, mockRoutes);
     });
 
-    test("retries on JSON parse error", async () => {
+    test("retries on JSON parse error", async (t) => {
+        t.mock.timers.enable({ apis: ["setTimeout"] });
         let attempts = 0;
         const mockRoutes = [{ filename: "index.html", jsx: "src/pages/index.jsx" }];
 
@@ -85,28 +86,39 @@ describe("loadRoutesManifest", () => {
             return JSON.stringify(mockRoutes);
         };
 
-        const routes = await loadRoutesManifest("/fake/path.json", {
+        const promise = loadRoutesManifest("/fake/path.json", {
             readFile,
             retries: 3,
         });
+
+        for (let i = 0; i < 10; i++) {
+            await Promise.resolve();
+            t.mock.timers.tick(50);
+        }
+
+        const routes = await promise;
 
         assert.equal(attempts, 3);
         assert.deepEqual(routes, mockRoutes);
     });
 
-    test("throws after exhausting retries", async () => {
+    test("throws after exhausting retries", async (t) => {
+        t.mock.timers.enable({ apis: ["setTimeout"] });
         const readFile = async () => {
             throw new Error("Persistent error");
         };
 
-        await assert.rejects(
-            async () =>
-                await loadRoutesManifest("/fake/path.json", {
-                    readFile,
-                    retries: 2,
-                }),
-            { message: /Failed to load routes after 2 attempts/ },
-        );
+        const promise = loadRoutesManifest("/fake/path.json", {
+            readFile,
+            retries: 2,
+        });
+
+        for (let i = 0; i < 10; i++) {
+            await Promise.resolve();
+            t.mock.timers.tick(50);
+        }
+
+        await assert.rejects(async () => await promise, { message: /Failed to load routes after 2 attempts/ });
     });
 
     test("validates routes after loading", async () => {
@@ -123,7 +135,8 @@ describe("loadRoutesManifest", () => {
         );
     });
 
-    test("calls onError callback on retry attempts", async () => {
+    test("calls onError callback on retry attempts", async (t) => {
+        t.mock.timers.enable({ apis: ["setTimeout"] });
         const errors = [];
         let attempts = 0;
         const mockRoutes = [{ filename: "index.html", jsx: "src/pages/index.jsx" }];
@@ -136,7 +149,7 @@ describe("loadRoutesManifest", () => {
             return JSON.stringify(mockRoutes);
         };
 
-        await loadRoutesManifest("/fake/path.json", {
+        const promise = loadRoutesManifest("/fake/path.json", {
             readFile,
             retries: 3,
             onError: (err, attempt) => {
@@ -144,40 +157,38 @@ describe("loadRoutesManifest", () => {
             },
         });
 
+        for (let i = 0; i < 10; i++) {
+            await Promise.resolve();
+            t.mock.timers.tick(50);
+        }
+
+        await promise;
+
         assert.equal(errors.length, 1);
         assert.equal(errors[0].message, "Attempt 1");
         assert.equal(errors[0].attempt, 1);
     });
 
-    test("uses custom source name in errors", async () => {
-        const readFile = async () => {
-            throw new Error("Read error");
-        };
-
-        const logger = {
-            error: (msg) => {
-                assert.match(msg, /custom\/source\.json/);
-            },
-        };
+    test("uses custom source name in validation errors", async () => {
+        const readFile = async () => JSON.stringify({ not: "an array" });
 
         await assert.rejects(
             async () =>
                 await loadRoutesManifest("/fake/path.json", {
                     readFile,
                     retries: 1,
-                    logger,
                     source: "custom/source.json",
                 }),
+            { message: /custom\/source\.json is not an array/ },
         );
     });
 
-    test("waits 100ms between retry attempts", async () => {
+    test("waits 100ms between retry attempts", async (t) => {
+        t.mock.timers.enable({ apis: ["setTimeout"] });
         let attempts = 0;
-        const timestamps = [];
         const mockRoutes = [{ filename: "index.html", jsx: "src/pages/index.jsx" }];
 
         const readFile = async () => {
-            timestamps.push(Date.now());
             attempts++;
             if (attempts < 3) {
                 throw new Error("Retry");
@@ -185,15 +196,79 @@ describe("loadRoutesManifest", () => {
             return JSON.stringify(mockRoutes);
         };
 
-        await loadRoutesManifest("/fake/path.json", {
+        const promise = loadRoutesManifest("/fake/path.json", {
             readFile,
             retries: 3,
         });
 
-        // Check that at least 100ms passed between attempts
-        const delay1 = timestamps[1] - timestamps[0];
-        const delay2 = timestamps[2] - timestamps[1];
-        assert.ok(delay1 >= 90, `First delay was ${delay1}ms, expected >= 90ms`);
-        assert.ok(delay2 >= 90, `Second delay was ${delay2}ms, expected >= 90ms`);
+        // Flush microtasks so first readFile() rejects and setTimeout(100) is scheduled
+        for (let i = 0; i < 5; i++) await Promise.resolve();
+        assert.equal(attempts, 1, "First attempt happened synchronously");
+
+        // Tick 99ms — second attempt should not have fired yet
+        t.mock.timers.tick(99);
+        for (let i = 0; i < 5; i++) await Promise.resolve();
+        assert.equal(attempts, 1, "Should not retry before 100ms");
+
+        // Tick 1ms more — triggers second attempt, which fails and schedules another 100ms
+        t.mock.timers.tick(1);
+        for (let i = 0; i < 5; i++) await Promise.resolve();
+        assert.equal(attempts, 2, "Should retry after 100ms");
+
+        // Tick another 100ms — third attempt fires and succeeds
+        t.mock.timers.tick(100);
+        for (let i = 0; i < 5; i++) await Promise.resolve();
+
+        const routes = await promise;
+        assert.equal(attempts, 3);
+        assert.deepEqual(routes, mockRoutes);
+    });
+
+    test("uses custom reader when provided", async () => {
+        const mockRoutes = [{ filename: "index.html", jsx: "src/pages/index.jsx" }];
+
+        const readFile = async () => JSON.stringify(mockRoutes);
+
+        const routes = await loadRoutesManifest("/fake/path.json", {
+            readFile,
+        });
+
+        assert.deepEqual(routes, mockRoutes);
+    });
+
+    test("handles non-Error objects thrown by reader", async () => {
+        const readFile = async () => {
+            throw "string error";
+        };
+
+        await assert.rejects(
+            async () =>
+                await loadRoutesManifest("/fake/path.json", {
+                    readFile,
+                    retries: 1,
+                }),
+            { message: /Failed to load routes after 1 attempts/ },
+        );
+    });
+
+    test("handles retries = 1 (single attempt)", async () => {
+        let attempts = 0;
+
+        const readFile = async () => {
+            attempts++;
+            throw new Error("Persistent error");
+        };
+
+        await assert.rejects(
+            async () =>
+                await loadRoutesManifest("/fake/path.json", {
+                    readFile,
+                    retries: 1,
+                }),
+            { message: /Failed to load routes after 1 attempts/ },
+        );
+
+        // Should only try once with retries=1
+        assert.strictEqual(attempts, 1);
     });
 });

@@ -16,21 +16,21 @@
 
 import { Buffer } from "node:buffer";
 import { Readable } from "node:stream";
-import { CACHE_404, CACHE_500 } from "./cache.js";
 import {
+    HTTP_HEADER_CONTENT_TYPE,
     HTTP_METHOD_GET,
     HTTP_METHOD_HEAD,
-    HTTP_STATUS_BAD_REQUEST,
+    HTTP_METHOD_OPTIONS,
+    HTTP_STATUS_NO_CONTENT,
     HTTP_STATUS_NOT_FOUND,
-    HTTP_STATUS_SERVER_ERROR,
-    HTTP_STATUS_URI_TOO_LONG,
+    MIME_TYPE_PLAIN,
 } from "./http-constants.js";
 
 /**
  * HTTP methods that should not have a request body.
  * @type {Set<string>}
  */
-const BODYLESS_METHODS = new Set([HTTP_METHOD_GET, HTTP_METHOD_HEAD, "OPTIONS"]);
+const BODYLESS_METHODS = new Set([HTTP_METHOD_GET, HTTP_METHOD_HEAD, HTTP_METHOD_OPTIONS]);
 
 /**
  * Convert a Node.js IncomingMessage to a Web Standard Request.
@@ -41,7 +41,9 @@ const BODYLESS_METHODS = new Set([HTTP_METHOD_GET, HTTP_METHOD_HEAD, "OPTIONS"])
  * @returns {Request} Web Standard Request object
  */
 export function toWebRequest(req, port) {
-    const protocol = req.socket?.encrypted ? "https" : "http";
+    // Check if socket is encrypted (TLS) by checking if it's a TLSSocket
+    const isEncrypted = req.socket && "encrypted" in req.socket && req.socket.encrypted;
+    const protocol = isEncrypted ? "https" : "http";
     const host = req.headers.host || `localhost:${port}`;
     const url = `${protocol}://${host}${req.url}`;
 
@@ -70,6 +72,7 @@ export function toWebRequest(req, port) {
     // Only include body for methods that can have a body
     if (!BODYLESS_METHODS.has(method.toUpperCase())) {
         // Convert Node.js Readable stream to Web ReadableStream
+        // @ts-expect-error Readable.toWeb returns a compatible stream for Request body
         init.body = Readable.toWeb(req);
         // Required for streaming body
         // @ts-expect-error duplex is a valid option for streaming requests
@@ -97,16 +100,24 @@ export function toWebRequest(req, port) {
 export async function fromWebResponse(webResponse, req, res) {
     // Handle null response as 404
     if (webResponse === null) {
-        res.writeHead(HTTP_STATUS_NOT_FOUND, { "Content-Type": "text/plain" });
+        res.writeHead(HTTP_STATUS_NOT_FOUND, { [HTTP_HEADER_CONTENT_TYPE]: MIME_TYPE_PLAIN });
         res.end("Not found");
         return;
     }
 
     // Convert headers from Web Standard to plain object
+    // Use getSetCookie() for Set-Cookie to preserve multiple values;
+    // Headers.forEach() incorrectly joins them with commas.
+    const setCookieValues = webResponse.headers.getSetCookie();
+    /** @type {{[key: string]: string|string[]}} */
     const headers = {};
     webResponse.headers.forEach((value, key) => {
+        if (key.toLowerCase() === "set-cookie") return;
         headers[key] = value;
     });
+    if (setCookieValues.length > 0) {
+        headers["set-cookie"] = setCookieValues.length === 1 ? setCookieValues[0] : setCookieValues;
+    }
 
     // Write status and headers
     res.writeHead(webResponse.status, headers);
@@ -182,7 +193,7 @@ export function toHeadResponse(response) {
 /**
  * Conditionally strip body for HEAD requests.
  *
- * Returns the original response for non-HEAD requests, or a HEAD-stripped
+ * Returns to original response for non-HEAD requests, or a HEAD-stripped
  * response (null body, same headers/status) for HEAD requests.
  *
  * @public
@@ -207,139 +218,6 @@ export function maybeHeadResponse(response, request) {
 }
 
 /**
- * Create a 404 Not Found response with appropriate headers.
- *
- * Returns a plain text "Not Found" response with:
- * - Status: 404
- * - Content-Type: text/plain; charset=utf-8
- * - Cache-Control: public, max-age=0, must-revalidate
- *
- * If a request is provided, automatically handles HEAD requests by stripping the body.
- *
- * @public
- * @param {Request | import("node:http").IncomingMessage | {method: string}} [request] - Optional request for HEAD handling
- * @returns {Response} 404 response
- *
- * @example
- * ```javascript
- * // Simple 404
- * return notFoundResponse();
- *
- * // 404 with HEAD request handling
- * return notFoundResponse(request);
- * ```
- */
-export function notFoundResponse(request = null) {
-    const response = new Response("Not Found", {
-        status: HTTP_STATUS_NOT_FOUND,
-        headers: {
-            "Content-Type": "text/plain; charset=utf-8",
-            "Cache-Control": CACHE_404,
-        },
-    });
-    return request ? maybeHeadResponse(response, request) : response;
-}
-
-/**
- * Create a 500 Internal Server Error response with appropriate headers.
- *
- * Returns a plain text "Internal Server Error" response with:
- * - Status: 500
- * - Content-Type: text/plain; charset=utf-8
- * - Cache-Control: no-store
- *
- * If a request is provided, automatically handles HEAD requests by stripping the body.
- *
- * @public
- * @param {Request | import("node:http").IncomingMessage | {method: string}} [request] - Optional request for HEAD handling
- * @returns {Response} 500 response
- *
- * @example
- * ```javascript
- * // Simple 500
- * return serverErrorResponse();
- *
- * // 500 with HEAD request handling
- * return serverErrorResponse(request);
- * ```
- */
-export function serverErrorResponse(request = null) {
-    const response = new Response("Internal Server Error", {
-        status: HTTP_STATUS_SERVER_ERROR,
-        headers: {
-            "Content-Type": "text/plain; charset=utf-8",
-            "Cache-Control": CACHE_500,
-        },
-    });
-    return request ? maybeHeadResponse(response, request) : response;
-}
-
-/**
- * Create a 400 Bad Request response with appropriate headers.
- *
- * Returns a plain text "Bad Request" response with:
- * - Status: 400
- * - Content-Type: text/plain; charset=utf-8
- *
- * If a request is provided, automatically handles HEAD requests by stripping the body.
- *
- * @public
- * @param {Request | import("node:http").IncomingMessage | {method: string}} [request] - Optional request for HEAD handling
- * @param {string} [message="Bad Request"] - Custom error message
- * @returns {Response} 400 response
- *
- * @example
- * ```javascript
- * // Simple 400
- * return badRequestResponse();
- *
- * // 400 with custom message
- * return badRequestResponse(request, "Invalid parameters");
- * ```
- */
-export function badRequestResponse(request = null, message = "Bad Request") {
-    const response = new Response(message, {
-        status: HTTP_STATUS_BAD_REQUEST,
-        headers: {
-            "Content-Type": "text/plain; charset=utf-8",
-        },
-    });
-    return request ? maybeHeadResponse(response, request) : response;
-}
-
-/**
- * Create a 414 URI Too Long response with appropriate headers.
- *
- * Returns a plain text "URI Too Long" response with:
- * - Status: 414
- * - Content-Type: text/plain; charset=utf-8
- *
- * If a request is provided, automatically handles HEAD requests by stripping the body.
- *
- * @public
- * @param {Request | import("node:http").IncomingMessage | {method: string}} [request] - Optional request for HEAD handling
- * @returns {Response} 414 response
- *
- * @example
- * ```javascript
- * // Simple 414
- * return uriTooLongResponse();
- *
- * // 414 with HEAD request handling
- * return uriTooLongResponse(request);
- * ```
- */
-export function uriTooLongResponse(request = null) {
-    const response = new Response("URI Too Long", {
-        status: HTTP_STATUS_URI_TOO_LONG,
-        headers: {
-            "Content-Type": "text/plain; charset=utf-8",
-        },
-    });
-    return request ? maybeHeadResponse(response, request) : response;
-}
-
-/**
  * Create a 204 No Content response for OPTIONS preflight requests.
  *
  * Returns an empty response with:
@@ -357,5 +235,5 @@ export function uriTooLongResponse(request = null) {
  * ```
  */
 export function optionsResponse() {
-    return new Response(null, { status: 204 });
+    return new Response(null, { status: HTTP_STATUS_NO_CONTENT });
 }

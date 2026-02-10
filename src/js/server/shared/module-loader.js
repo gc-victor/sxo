@@ -35,9 +35,15 @@ function escapeHtmlLite(s) {
  * @param {Map<string, Function>} [options.cache] - Cache map (required)
  * @param {boolean} [options.returnErrorStub=false] - Return error HTML stub instead of throwing
  * @param {(msg: string) => void} [options.onError] - Optional error callback
+ * @param {boolean} [options.isDev=false] - Development mode flag for error message detail
+ * - Controls error message verbosity when `returnErrorStub` is true
+ * - isDev=true: Shows detailed error with file path and error message (e.g., "Error loading path/to/page.jsx: TypeError: ...")
+ * - isDev=false: Shows generic "Failed to load page" message (production-safe)
+ * - This distinguishes the build-time DEV flag (from config resolution) from runtime NODE_ENV
+ * - Use DEV flag to control build-time behavior (sourcemaps, minification) and isDev for runtime error detail
  * @returns {Promise<Function>} The resolved SSR render function
  */
-export async function loadJsxModule(jsxPath, { importer, bustCache = false, cache, returnErrorStub = false, onError } = {}) {
+export async function loadJsxModule(jsxPath, { importer, bustCache = false, cache, returnErrorStub = false, onError, isDev = false }) {
     if (!importer) {
         throw new Error("loadJsxModule: importer function is required");
     }
@@ -53,7 +59,8 @@ export async function loadJsxModule(jsxPath, { importer, bustCache = false, cach
     }
 
     if (cache.has(jsxPath)) {
-        return cache.get(jsxPath);
+        const cached = cache.get(jsxPath);
+        if (cached) return cached;
     }
 
     try {
@@ -66,12 +73,15 @@ export async function loadJsxModule(jsxPath, { importer, bustCache = false, cach
         cache.set(jsxPath, fn);
         return fn;
     } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : String(err);
         if (onError) {
-            onError(`Failed to load module ${jsxPath}: ${err?.message || String(err)}`);
+            onError(`Failed to load module ${jsxPath}: ${errorMessage}`);
         }
         if (returnErrorStub) {
-            const stub = () =>
-                `<pre style="color:red;">Error loading ${escapeHtmlLite(String(jsxPath))}: ${escapeHtmlLite(err?.message || String(err))}</pre>`;
+            const displayMessage = isDev
+                ? `Error loading ${escapeHtmlLite(String(jsxPath))}: ${escapeHtmlLite(errorMessage)}`
+                : "Failed to load page";
+            const stub = () => `<pre style="color:red;">${displayMessage}</pre>`;
             cache.set(jsxPath, stub);
             return stub;
         }
@@ -89,9 +99,14 @@ export async function loadJsxModule(jsxPath, { importer, bustCache = false, cach
  * @param {Map<string, Function>} [options.cache] - Cache map (required)
  * @param {boolean} [options.returnErrorStub=false] - Return error HTML stubs instead of throwing
  * @param {(msg: string) => void} [options.onError] - Optional error callback
+ * @param {boolean} [options.isDev=false] - Development mode flag for error message detail
+ * - Passed through to loadJsxModule() to control error message verbosity
+ * - isDev=true: Shows detailed error with file path and error message
+ * - isDev=false: Shows generic "Failed to load page" message
+ * - This distinguishes the build-time DEV flag from runtime NODE_ENV
  * @returns {Promise<void>}
  */
-export async function loadAllModules(routes, { importer, bustCache = false, cache, returnErrorStub = false, onError } = {}) {
+export async function loadAllModules(routes, { importer, bustCache = false, cache, returnErrorStub = false, onError, isDev = false }) {
     if (!cache) {
         throw new Error("loadAllModules: cache Map is required");
     }
@@ -105,13 +120,17 @@ export async function loadAllModules(routes, { importer, bustCache = false, cach
     await Promise.all(
         routes.map((route) => {
             if (route.jsx) {
-                return loadJsxModule(route.jsx, {
+                const opts = {
                     importer,
                     bustCache,
                     cache,
                     returnErrorStub,
-                    onError,
-                });
+                    isDev,
+                };
+                /** @type {any} */
+                const optsWithOptional = opts;
+                if (onError) optsWithOptional.onError = onError;
+                return loadJsxModule(route.jsx, optsWithOptional);
             }
             return Promise.resolve();
         }),
@@ -130,9 +149,14 @@ export async function loadAllModules(routes, { importer, bustCache = false, cach
  * @param {(url: string) => Promise<any>} options.importer - Platform-specific import function
  * @param {(msg: string) => void} [options.onWarn] - Optional warning callback
  * @param {(msg: string) => void} [options.onError] - Optional error callback
+ * @param {boolean} [options.isDev=false] - Development mode flag for error message detail
+ * - Passed through to loadJsxModule() to control error message verbosity
+ * - isDev=true: Shows detailed error with file path and error message
+ * - isDev=false: Shows generic "Failed to load page" message
+ * - This distinguishes the build-time DEV flag from runtime NODE_ENV
  * @returns {Promise<Record<string, {default?: Function, jsx?: Function}>>} Modules object keyed by jsx path
  */
-export async function loadModulesWithFallback({ modulesPath, routes, importer, onWarn, onError } = {}) {
+export async function loadModulesWithFallback({ modulesPath, routes, importer, onWarn, onError, isDev = false }) {
     if (!importer) {
         throw new Error("loadModulesWithFallback: importer function is required");
     }
@@ -140,6 +164,7 @@ export async function loadModulesWithFallback({ modulesPath, routes, importer, o
         throw new Error("loadModulesWithFallback: routes array is required");
     }
 
+    /** @type {Record<string, {default?: Function, jsx?: Function}>} */
     let modules = {};
 
     // Try to load from modules.js bundle first
@@ -161,12 +186,14 @@ export async function loadModulesWithFallback({ modulesPath, routes, importer, o
                         importer,
                         cache,
                         returnErrorStub: false,
-                        // Don't pass onError here since we handle errors in the catch block below
+                        isDev,
+                        // Don't pass onError here since we handle errors in catch block below
                     });
                     modules[route.jsx] = { default: fn };
                 } catch (e) {
+                    const errorMessage = e instanceof Error ? e.message : String(e);
                     if (onError) {
-                        onError(`Failed to load SSR module ${route.jsx}: ${e?.message || String(e)}`);
+                        onError(`Failed to load SSR module ${route.jsx}: ${errorMessage}`);
                     }
                 }
             }
@@ -182,7 +209,5 @@ export async function loadModulesWithFallback({ modulesPath, routes, importer, o
  * @param {Map<string, Function>} cache - Cache map to clear
  */
 export function clearModuleCache(cache) {
-    if (cache && typeof cache.clear === "function") {
-        cache.clear();
-    }
+    cache.clear();
 }
