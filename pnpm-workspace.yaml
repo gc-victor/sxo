@@ -1,0 +1,7 @@
+packages:
+  - components
+  - components/e2e
+  - components/src
+
+allowBuilds:
+  esbuild: true

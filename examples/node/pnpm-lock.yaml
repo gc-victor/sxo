@@ -196,10 +196,6 @@ packages:
   dateformat@4.6.3:
     resolution: {integrity: sha512-2P0p0pFGzHS5EMnhdxQi7aJN+iMheud0UhG4dlE1DLAlvL8JHjJJTX/CSm4JXwV0Ka5nGk3zC5mcb5bUQUxxMA==}
 
-  dotenv@17.2.3:
-    resolution: {integrity: sha512-JVUnt+DUIzu87TABbhPmNfVdBDt18BLOWjMUFJMSi/Qqg7NTYtabbvSNJGOJ7afbRuv9D/lngizHtP7QyLQ+9w==}
-    engines: {node: '>=12'}
-
   end-of-stream@1.4.5:
     resolution: {integrity: sha512-ooEGc6HP26xXq/N+GCGOT0JKCLDGrq2bQUZrQ7gyrJiZANJ/8YDTxTpQBXGMn+WbIQXNVpyWymm7KYVICQnyOg==}
 
@@ -393,8 +389,6 @@ snapshots:
 
   dateformat@4.6.3: {}
 
-  dotenv@17.2.3: {}
-
   end-of-stream@1.4.5:
     dependencies:
       once: 1.4.0
@@ -518,9 +512,7 @@ snapshots:
 
   sxo@file:../..:
     dependencies:
-      '@qery/reactive-component': 0.8.0
       cac: 6.7.14
-      dotenv: 17.2.3
       esbuild: 0.27.1
       pino: 10.1.0
       pino-http: 11.0.0
