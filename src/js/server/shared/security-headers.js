@@ -8,6 +8,14 @@
  * @module server/shared/security-headers
  */
 
+import {
+    HTTP_HEADER_REFERRER_POLICY,
+    HTTP_HEADER_X_CONTENT_TYPE_OPTIONS,
+    HTTP_HEADER_X_FRAME_OPTIONS,
+    SECURITY_VALUE_DENY,
+    SECURITY_VALUE_NOSNIFF,
+} from "./http-constants.js";
+
 /**
  * Default security headers applied to all responses.
  *
@@ -30,9 +38,9 @@
  * @type {Record<string, string>}
  */
 export const SECURITY_HEADERS = {
-    "X-Content-Type-Options": "nosniff",
-    "X-Frame-Options": "DENY",
-    "Referrer-Policy": "strict-origin-when-cross-origin",
+    [HTTP_HEADER_X_CONTENT_TYPE_OPTIONS]: SECURITY_VALUE_NOSNIFF,
+    [HTTP_HEADER_X_FRAME_OPTIONS]: SECURITY_VALUE_DENY,
+    [HTTP_HEADER_REFERRER_POLICY]: "strict-origin-when-cross-origin",
 };
 
 /**
@@ -40,26 +48,26 @@ export const SECURITY_HEADERS = {
  * User headers take precedence over both security and default headers.
  *
  * @param {Record<string, string>} userHeaders - User-provided headers
- * @param {Record<string, string>} [customSecurityHeaders] - Custom security headers (overrides defaults)
+ * @param {Record<string, string> | null} [customSecurityHeaders] - Custom security headers (overrides defaults)
  * @returns {Record<string, string>} Merged headers
  *
  * @example
  * ```javascript
  * // Use default security headers
- * withSecurityHeaders({ "Content-Type": "text/html" })
+ * withSecurityHeaders({ [HTTP_HEADER_CONTENT_TYPE]: MIME_TYPE_HTML })
  * // { "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY", "Referrer-Policy": "...", "Content-Type": "text/html" }
  *
  * // Override specific security header
  * withSecurityHeaders(
- *   { "Content-Type": "text/html" },
- *   { "X-Frame-Options": "SAMEORIGIN" }
+ *   { [HTTP_HEADER_CONTENT_TYPE]: MIME_TYPE_HTML },
+ *   { [HTTP_HEADER_X_FRAME_OPTIONS]: SECURITY_VALUE_SAMEORIGIN }
  * )
  * // { "X-Content-Type-Options": "nosniff", "X-Frame-Options": "SAMEORIGIN", "Referrer-Policy": "...", "Content-Type": "text/html" }
  *
  * // User headers take final precedence
  * withSecurityHeaders(
- *   { "Content-Type": "text/html", "X-Frame-Options": "ALLOW" },
- *   { "X-Frame-Options": "SAMEORIGIN" }
+ *   { [HTTP_HEADER_CONTENT_TYPE]: MIME_TYPE_HTML, [HTTP_HEADER_X_FRAME_OPTIONS]: SECURITY_VALUE_ALLOW },
+ *   { [HTTP_HEADER_X_FRAME_OPTIONS]: SECURITY_VALUE_SAMEORIGIN }
  * )
  * // { "X-Content-Type-Options": "nosniff", "X-Frame-Options": "ALLOW", "Referrer-Policy": "...", "Content-Type": "text/html" }
  * ```

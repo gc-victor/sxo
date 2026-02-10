@@ -7,12 +7,8 @@
  * @module server/shared/cache
  */
 
-// =============================================================================
-// Cache-Control Header Constants
-// =============================================================================
-
 /**
- * Cache-Control for immutable hashed assets (1 year).
+ * Cache-Control for immutable hashed assets (365 days).
  * Used for files with content hashes in their names (e.g., app.abc123.js).
  * @type {string}
  */
@@ -24,13 +20,6 @@ export const CACHE_IMMUTABLE = "public, max-age=31536000, immutable";
  * @type {string}
  */
 export const CACHE_SHORT = "public, max-age=300";
-
-/**
- * Cache-Control for development mode (no caching).
- * Forces browser to always fetch fresh content.
- * @type {string}
- */
-export const CACHE_NO_CACHE = "no-cache";
 
 /**
  * Cache-Control for error responses (no caching).
@@ -45,38 +34,6 @@ export const CACHE_NO_STORE = "no-store";
  * @type {string}
  */
 export const CACHE_MUST_REVALIDATE = "public, max-age=0, must-revalidate";
-
-// =============================================================================
-// Semantic Aliases (for clarity in usage context)
-// =============================================================================
-
-/**
- * Cache-Control for SSR responses (same as must-revalidate).
- * @type {string}
- */
-export const CACHE_SSR = CACHE_MUST_REVALIDATE;
-
-/**
- * Cache-Control for generated/pre-rendered routes (same as short).
- * @type {string}
- */
-export const CACHE_GENERATED = CACHE_SHORT;
-
-/**
- * Cache-Control for 404 responses (same as must-revalidate).
- * @type {string}
- */
-export const CACHE_404 = CACHE_MUST_REVALIDATE;
-
-/**
- * Cache-Control for 500 responses (same as no-store).
- * @type {string}
- */
-export const CACHE_500 = CACHE_NO_STORE;
-
-// =============================================================================
-// ETag Utilities
-// =============================================================================
 
 /**
  * Generate a weak ETag from file size and modification time.

@@ -12,6 +12,9 @@ import { MAX_PATH_LEN } from "./mime-types.js";
 /**
  * Check if a path has a file extension.
  *
+ * Leading-dot final segments are treated as dotfiles, not extension-based
+ * static asset paths.
+ *
  * @param {string} pathname - URL pathname
  * @returns {boolean} True if path has an extension
  *
@@ -92,7 +95,7 @@ export function getBasename(pathname) {
 }
 
 /**
- * Normalize a pathname: decode URI and validate path segments.
+ * Validate and normalize a pathname: decode URI and validate path segments.
  *
  * Returns null for invalid paths (too long, null bytes, traversal attempts).
  *
@@ -101,19 +104,19 @@ export function getBasename(pathname) {
  *
  * @example
  * ```javascript
- * normalizePath("/hello%20world.txt")
+ * validateAndNormalizePath("/hello%20world.txt")
  * // { normalized: "/hello world.txt", rel: "hello world.txt" }
  *
- * normalizePath("/../etc/passwd")
+ * validateAndNormalizePath("/../etc/passwd")
  * // null (traversal attempt)
  * ```
  */
-export function normalizePath(pathname) {
+export function validateAndNormalizePath(pathname) {
     // Check length
     if (pathname.length > MAX_PATH_LEN) return null;
 
-    // Check for null bytes, newlines, carriage returns
-    if (pathname.includes("\0") || /[\r\n]/.test(pathname)) return null;
+    // Check for newlines, carriage returns (before decoding)
+    if (/[\r\n]/.test(pathname)) return null;
 
     // Decode URI
     let decodedPath;
@@ -123,12 +126,21 @@ export function normalizePath(pathname) {
         return null;
     }
 
+    // Check for null bytes (after decoding to catch encoded null bytes)
+    if (decodedPath.includes("\0")) return null;
+
     // Split and filter path segments
     const segments = decodedPath.split("/").filter(Boolean);
 
-    // Check for path traversal
+    // Check for path traversal (literal and encoded)
     for (const seg of segments) {
+        // Check for literal "." or ".." segments
         if (seg === ".." || seg === ".") {
+            return null;
+        }
+        // Check for encoded ".." patterns (e.g., %2e%2e, %2E%2e, etc.)
+        // This catches double-encoded traversal attempts like %252e%252e
+        if (/^%2[eE]%2[eE]$/.test(seg)) {
             return null;
         }
     }
@@ -156,26 +168,16 @@ export function normalizePath(pathname) {
  * ```
  */
 export function resolveSafePath(base, relative) {
-    // Normalize base: remove trailing slashes
-    const normalizedBase = base.replace(/\/+$/, "");
+    // Defense-in-depth: validate and normalize relative path
+    const validated = validateAndNormalizePath(relative);
+    if (!validated) return null;
 
-    // Normalize relative: remove leading slashes
-    const normalizedRelative = relative.replace(/^\/+/, "");
+    // Ensure base has exactly one trailing slash for safe confinement check
+    const root = `${base.replace(/\/+$/, "")}/`;
+    const resolved = root + validated.rel;
 
-    // Build the path
-    const resolved = `${normalizedBase}/${normalizedRelative}`;
-
-    // Check for traversal by looking for ..
-    // Split and check each segment
-    const segments = normalizedRelative.split("/");
-    for (const seg of segments) {
-        if (seg === ".." || seg === ".") {
-            return null;
-        }
-    }
-
-    // Final check: resolved path should start with base
-    if (!resolved.startsWith(`${normalizedBase}/`) && resolved !== normalizedBase) {
+    // Confinement check: resolved path must remain under root
+    if (!resolved.startsWith(root)) {
         return null;
     }
 
