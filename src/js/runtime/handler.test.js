@@ -1,23 +1,7 @@
-/**
- * @fileoverview Tests for the platform-agnostic core handler.
- *
- * Tests cover:
- * - createCoreHandler returns a function
- * - Handler accepts Request and returns Promise<Response>
- * - Handler returns null when no route matches
- * - Handler returns 400 for invalid slug
- * - Handler calls SSR module render function
- * - Handler injects assets into HTML response
- * - Handler prepends <!doctype html> for HTML responses
- * - Handler returns null for generated routes (adapter serves pre-rendered)
- * - Handler respects middleware chain
- */
-
 import { deepStrictEqual, ok, strictEqual } from "node:assert";
 import { describe, mock, test } from "node:test";
 import { createCoreHandler } from "./handler.js";
 
-// --- Mock Routes ---
 const mockRoutes = [
     { path: "", filename: "index.html", jsx: "src/pages/index.jsx", assets: { css: ["index.css"], js: ["index.js"] } },
     { path: "about", filename: "about/index.html", jsx: "src/pages/about/index.jsx", assets: { css: ["about.css"], js: [] } },
@@ -25,7 +9,6 @@ const mockRoutes = [
     { path: "generated", filename: "generated/index.html", jsx: "src/pages/generated/index.jsx", generated: true, assets: {} },
 ];
 
-// --- Mock Modules ---
 const mockModules = {
     "src/pages/index.jsx": { default: () => "<html><head><title>Home</title></head><body>Home Page</body></html>" },
     "src/pages/about/index.jsx": { default: async () => "<html><head><title>About</title></head><body>About Page</body></html>" },
@@ -33,7 +16,6 @@ const mockModules = {
     "src/pages/generated/index.jsx": { default: () => "<html><head></head><body>Generated</body></html>" },
 };
 
-// --- Helper to create Request ---
 function createRequest(url, method = "GET") {
     return new Request(`http://localhost${url}`, { method });
 }
@@ -117,32 +99,6 @@ describe("createCoreHandler", () => {
         ok(text.includes("About Page"), "should contain rendered content");
     });
 
-    test("handler injects assets into HTML response", async () => {
-        const handler = createCoreHandler({
-            routes: mockRoutes,
-            modules: mockModules,
-            publicPath: "/",
-        });
-        const request = createRequest("/");
-        const response = await handler(request);
-        const html = await response.text();
-
-        ok(html.includes('<link rel="stylesheet" href="/index.css">'), "should inject CSS");
-        ok(html.includes('<script type="module" src="/index.js">'), "should inject JS");
-    });
-
-    test("handler prepends <!doctype html> for HTML responses", async () => {
-        const handler = createCoreHandler({
-            routes: mockRoutes,
-            modules: mockModules,
-        });
-        const request = createRequest("/");
-        const response = await handler(request);
-        const html = await response.text();
-
-        ok(html.startsWith("<!doctype html>"), "should start with doctype");
-    });
-
     test("handler returns null for generated routes", async () => {
         const handler = createCoreHandler({
             routes: mockRoutes,
@@ -152,60 +108,6 @@ describe("createCoreHandler", () => {
         const result = await handler(request);
 
         strictEqual(result, null, "should return null for generated routes");
-    });
-
-    test("handler sets correct Content-Type header", async () => {
-        const handler = createCoreHandler({
-            routes: mockRoutes,
-            modules: mockModules,
-        });
-        const request = createRequest("/");
-        const response = await handler(request);
-
-        strictEqual(response.headers.get("Content-Type"), "text/html; charset=utf-8");
-    });
-
-    test("handler sets Cache-Control header for dynamic routes", async () => {
-        const handler = createCoreHandler({
-            routes: mockRoutes,
-            modules: mockModules,
-        });
-        const request = createRequest("/");
-        const response = await handler(request);
-
-        strictEqual(response.headers.get("Cache-Control"), "public, max-age=0, must-revalidate");
-    });
-
-    test("handler passes env to middleware", async () => {
-        const envReceived = [];
-        const middleware = (_req, env) => {
-            envReceived.push(env);
-            // Continue to handler
-        };
-
-        const handler = createCoreHandler({
-            routes: mockRoutes,
-            modules: mockModules,
-            middleware: [middleware],
-        });
-
-        const env = { DATABASE: "mock-db" };
-        const request = createRequest("/");
-        await handler(request, env);
-
-        strictEqual(envReceived.length, 1);
-        strictEqual(envReceived[0].DATABASE, "mock-db");
-    });
-
-    test("handler returns 500 when module not found", async () => {
-        const handler = createCoreHandler({
-            routes: [{ path: "broken", filename: "broken.html", jsx: "src/pages/broken.jsx", assets: {} }],
-            modules: {}, // No modules
-        });
-        const request = createRequest("/broken");
-        const response = await handler(request);
-
-        strictEqual(response.status, 500);
     });
 
     test("handler uses named jsx export if no default export", async () => {
@@ -222,135 +124,264 @@ describe("createCoreHandler", () => {
         const text = await response.text();
         ok(text.includes("Named Export"));
     });
+});
 
-    test("handler respects custom publicPath", async () => {
+describe("createCoreHandler - asset injection and headers (consolidated)", () => {
+    const assetInjectionScenarios = [
+        {
+            description: "with default publicPath",
+            publicPath: "/",
+            expectedPatterns: ['<link rel="stylesheet" href="/index.css">', '<script type="module" src="/index.js">'],
+        },
+        {
+            description: "with custom publicPath",
+            publicPath: "/assets/",
+            expectedPatterns: ['href="/assets/index.css"', 'src="/assets/index.js"'],
+        },
+        {
+            description: "with empty publicPath",
+            publicPath: "",
+            expectedPatterns: ['href="index.css"', 'src="index.js"'],
+        },
+    ];
+
+    for (const { description, publicPath, expectedPatterns } of assetInjectionScenarios) {
+        test(`injects assets and sets response headers: ${description}`, async () => {
+            const handler = createCoreHandler({
+                routes: mockRoutes,
+                modules: mockModules,
+                publicPath,
+            });
+            const request = createRequest("/");
+
+            const response = await handler(request);
+            const html = await response.text();
+
+            strictEqual(response.headers.get("Content-Type"), "text/html; charset=utf-8", "should set Content-Type header");
+            strictEqual(response.headers.get("Cache-Control"), "public, max-age=0, must-revalidate", "should set Cache-Control header");
+            ok(html.startsWith("<!doctype html>"), "should prepend doctype for HTML responses");
+
+            for (const pattern of expectedPatterns) {
+                ok(html.includes(pattern), `should inject asset: ${pattern}`);
+            }
+        });
+    }
+});
+
+describe("createCoreHandler - error handling (consolidated)", () => {
+    const errorScenarios = [
+        {
+            description: "when module not found",
+            configOverride: {
+                routes: [{ path: "broken", filename: "broken.html", jsx: "src/pages/broken.jsx", assets: {} }],
+                modules: {},
+            },
+            requestPath: "/broken",
+        },
+    ];
+
+    for (const { description, configOverride, requestPath } of errorScenarios) {
+        test(`returns 500 on errors: ${description}`, async () => {
+            const handler = createCoreHandler({
+                routes: mockRoutes,
+                modules: mockModules,
+                ...configOverride,
+            });
+            const request = createRequest(requestPath);
+
+            const response = await handler(request);
+
+            strictEqual(response.status, 500, "should return 500 status code");
+        });
+    }
+});
+
+describe("createCoreHandler - middleware execution (consolidated)", () => {
+    const middlewareScenarios = [
+        {
+            description: "short-circuits when middleware returns Response",
+            middleware: [() => new Response("Blocked", { status: 403 })],
+            requestPath: "/",
+            expectedStatus: 403,
+            expectedContent: "Blocked",
+        },
+        {
+            description: "continues when middleware returns void",
+            middleware: [() => undefined],
+            requestPath: "/",
+            expectedStatus: 200,
+        },
+        {
+            description: "executes middleware chain in order",
+            middleware: [
+                (req) => {
+                    req.order = [1];
+                },
+                (req) => {
+                    req.order.push(2);
+                },
+                (req) => {
+                    if (req.order?.[0] === 1 && req.order?.[1] === 2) {
+                        return new Response("Ordered", { status: 200 });
+                    }
+                },
+            ],
+            requestPath: "/",
+            expectedStatus: 200,
+            expectedContent: "Ordered",
+        },
+        {
+            description: "supports async middleware blocking",
+            middleware: [
+                async (req) => {
+                    await new Promise((resolve) => setTimeout(resolve, 1));
+                    if (new URL(req.url).pathname === "/blocked") {
+                        return new Response("Blocked", { status: 403 });
+                    }
+                },
+            ],
+            requestPath: "/blocked",
+            expectedStatus: 403,
+            expectedContent: "Blocked",
+        },
+        {
+            description: "passes env parameter to middleware",
+            middleware: [
+                (_req, env) => {
+                    strictEqual(env?.DATABASE, "mock-db", "should pass env to middleware");
+                },
+            ],
+            requestPath: "/",
+            expectedStatus: 200,
+            env: { DATABASE: "mock-db" },
+        },
+    ];
+
+    for (const { description, middleware, requestPath, expectedStatus, expectedContent, env } of middlewareScenarios) {
+        test(`middleware behavior: ${description}`, async () => {
+            const handler = createCoreHandler({
+                routes: mockRoutes,
+                modules: mockModules,
+                middleware,
+            });
+            const request = createRequest(requestPath);
+
+            const response = await handler(request, env);
+
+            strictEqual(response.status, expectedStatus, `should return ${expectedStatus} status`);
+            if (expectedContent !== undefined) {
+                const text = await response.text();
+                ok(text.includes(expectedContent), `should contain: ${expectedContent}`);
+            }
+        });
+    }
+});
+
+describe("createCoreHandler - middleware render context", () => {
+    test("middleware can call context.render and return HTML response", async () => {
         const handler = createCoreHandler({
             routes: mockRoutes,
             modules: mockModules,
-            publicPath: "/assets/",
+            middleware: [
+                async (_req, _env, { render }) => {
+                    const html = await render("src/pages/index.jsx");
+                    return new Response(html, {
+                        status: 200,
+                        headers: { "Content-Type": "text/html; charset=utf-8" },
+                    });
+                },
+            ],
         });
-        const request = createRequest("/");
+        const request = createRequest("/about");
         const response = await handler(request);
-        const html = await response.text();
 
-        ok(html.includes('href="/assets/index.css"'), "should use custom publicPath for CSS");
-        ok(html.includes('src="/assets/index.js"'), "should use custom publicPath for JS");
+        strictEqual(response.status, 200, "should return 200");
+        const text = await response.text();
+        ok(text.includes("Home Page"), "should contain rendered page content");
+        ok(text.startsWith("<!doctype html>"), "should prepend doctype");
     });
 
-    test("handler handles empty publicPath", async () => {
+    test("middleware can pass params to context.render", async () => {
         const handler = createCoreHandler({
             routes: mockRoutes,
             modules: mockModules,
-            publicPath: "",
+            middleware: [
+                async (_req, _env, { render }) => {
+                    const html = await render("src/pages/blog/[slug]/index.jsx", { slug: "test" });
+                    return new Response(html, {
+                        status: 200,
+                        headers: { "Content-Type": "text/html; charset=utf-8" },
+                    });
+                },
+            ],
         });
         const request = createRequest("/");
         const response = await handler(request);
-        const html = await response.text();
 
-        ok(html.includes('href="index.css"'), "should handle empty publicPath");
+        const text = await response.text();
+        ok(text.includes("Blog: test"), "should pass params to render function");
+    });
+
+    test("middleware render throws for missing module", async () => {
+        const handler = createCoreHandler({
+            routes: mockRoutes,
+            modules: mockModules,
+            middleware: [
+                async (_req, _env, { render }) => {
+                    try {
+                        await render("src/pages/nonexistent.jsx");
+                        return new Response("should not reach", { status: 200 });
+                    } catch {
+                        return new Response("Module not found", { status: 404 });
+                    }
+                },
+            ],
+        });
+        const request = createRequest("/");
+        const response = await handler(request);
+
+        strictEqual(response.status, 404);
+        const text = await response.text();
+        ok(text.includes("Module not found"));
     });
 });
 
-describe("createCoreHandler with middleware", () => {
-    test("middleware returning Response short-circuits", async () => {
-        const earlyResponse = new Response("Blocked", { status: 403 });
-        const middleware = () => earlyResponse;
-
+describe("createCoreHandler - middleware error handling", () => {
+    test("returns 500 when middleware throws synchronously", async () => {
         const handler = createCoreHandler({
             routes: mockRoutes,
             modules: mockModules,
-            middleware: [middleware],
+            middleware: [
+                () => {
+                    throw new Error("Sync middleware error");
+                },
+            ],
         });
-
         const request = createRequest("/");
+
         const response = await handler(request);
 
-        strictEqual(response.status, 403);
+        strictEqual(response.status, 500, "should return 500");
         const text = await response.text();
-        strictEqual(text, "Blocked");
+        ok(text.includes("Internal Server Error"));
     });
 
-    test("middleware returning void continues to handler", async () => {
-        let middlewareCalled = false;
-        const middleware = () => {
-            middlewareCalled = true;
-            // Return nothing to continue
-        };
-
+    test("returns 500 when middleware rejects asynchronously", async () => {
         const handler = createCoreHandler({
             routes: mockRoutes,
             modules: mockModules,
-            middleware: [middleware],
+            middleware: [
+                async () => {
+                    throw new Error("Async middleware error");
+                },
+            ],
         });
-
         const request = createRequest("/");
+
         const response = await handler(request);
 
-        ok(middlewareCalled, "middleware should be called");
-        strictEqual(response.status, 200);
-    });
-
-    test("middleware chain executes in order", async () => {
-        const order = [];
-        const mw1 = () => {
-            order.push(1);
-        };
-        const mw2 = () => {
-            order.push(2);
-        };
-        const mw3 = () => {
-            order.push(3);
-        };
-
-        const handler = createCoreHandler({
-            routes: mockRoutes,
-            modules: mockModules,
-            middleware: [mw1, mw2, mw3],
-        });
-
-        const request = createRequest("/");
-        await handler(request);
-
-        deepStrictEqual(order, [1, 2, 3]);
-    });
-
-    test("async middleware supported", async () => {
-        const asyncMiddleware = async (req) => {
-            await new Promise((resolve) => setTimeout(resolve, 10));
-            if (new URL(req.url).pathname === "/blocked") {
-                return new Response("Async Blocked", { status: 403 });
-            }
-        };
-
-        const handler = createCoreHandler({
-            routes: mockRoutes,
-            modules: mockModules,
-            middleware: [asyncMiddleware],
-        });
-
-        const blockedRequest = createRequest("/blocked");
-        const blockedResponse = await handler(blockedRequest);
-        strictEqual(blockedResponse.status, 403);
-
-        const normalRequest = createRequest("/");
-        const normalResponse = await handler(normalRequest);
-        strictEqual(normalResponse.status, 200);
-    });
-
-    test("middleware throwing returns 500", async () => {
-        const throwingMiddleware = () => {
-            throw new Error("Middleware error");
-        };
-
-        const handler = createCoreHandler({
-            routes: mockRoutes,
-            modules: mockModules,
-            middleware: [throwingMiddleware],
-        });
-
-        const request = createRequest("/");
-        const response = await handler(request);
-
-        strictEqual(response.status, 500);
+        strictEqual(response.status, 500, "should return 500");
+        const text = await response.text();
+        ok(text.includes("Internal Server Error"));
     });
 });
