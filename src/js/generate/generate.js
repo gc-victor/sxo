@@ -24,40 +24,61 @@ import process from "node:process";
 import { pathToFileURL } from "node:url";
 
 import { OUTPUT_DIR_CLIENT, ROUTES_FILE } from "../constants.js";
+import { createFileReader } from "../server/shared/file-readers.js";
+
 import { injectAssets, normalizePublicPath } from "../server/utils/inject-assets.js";
 import { loadJsxModule } from "../server/utils/load-jsx-module.js";
-
-/* ------------------------------ helpers ------------------------------ */
-
-/**
- * Read and parse JSON from a file.
- * @param {string} file
- * @returns {Promise<any>}
- */
-async function readJson(file) {
-    const txt = await fs.readFile(file, "utf8");
-    return JSON.parse(txt);
-}
 
 /**
  * Determine if a route is dynamic (contains [param] segments).
  * @param {{ path?: string, filename: string }} route
+ * @returns {boolean}
  */
-function isDynamicRoute(route) {
+export function isDynamicRoute(route) {
     const inPath = typeof route.path === "string" ? route.path : "";
-    // Consider both the route path and the html filename (defensive).
     return /\[[^/]+?\]/.test(inPath) || /\[[^/]+?\]/.test(route.filename);
 }
 
-/* ------------------------------- main ------------------------------- */
+/**
+ * @typedef {object} GenerateDeps
+ * @property {string} routesFile - Absolute path to routes.json manifest
+ * @property {string} outputDirClient - Absolute path to client output directory
+ * @property {string} publicPath - PUBLIC_PATH value (raw, will be normalized)
+ * @property {(file: string) => Promise<string | null>} readText - Read a file as UTF-8 text
+ * @property {(file: string, content: string) => Promise<void>} writeFile - Write a file
+ * @property {(dir: string) => Promise<void>} mkdirp - Ensure directory exists
+ * @property {(jsxPath: string) => Promise<Function>} loadModule - Load an SSR module and return its render function
+ */
 
-export async function generate() {
-    // Validate manifest
+/**
+ * @typedef {object} GenerateResult
+ * @property {boolean} ok
+ * @property {number} generated
+ * @property {number} skipped
+ * @property {number} [failed]
+ * @property {number} total
+ * @property {string | null} [writeError]
+ */
+
+/**
+ * Core generate logic with explicit dependencies (no module-level side effects).
+ *
+ * @param {GenerateDeps} deps
+ * @returns {Promise<GenerateResult>}
+ */
+export async function generateCore(deps) {
+    const { routesFile, outputDirClient, publicPath: rawPublicPath, readText, writeFile, mkdirp, loadModule } = deps;
+
+    // Read and validate manifest
     let routes;
     try {
-        routes = await readJson(ROUTES_FILE);
+        const txt = await readText(routesFile);
+        if (txt === null) {
+            throw new Error(`Failed to read file: ${routesFile}`);
+        }
+        routes = JSON.parse(txt);
     } catch {
-        console.error(`generate: Missing or invalid manifest. Did you run "build"? Expected: ${ROUTES_FILE}`);
+        console.error(`generate: Missing or invalid manifest. Did you run "build"? Expected: ${routesFile}`);
         return { ok: false, generated: 0, skipped: 0, total: 0 };
     }
 
@@ -86,6 +107,8 @@ export async function generate() {
 
     console.log(`generate: Preparing ${staticRoutes.length} page(s)...`);
 
+    const normalizedPublicPath = normalizePublicPath(rawPublicPath);
+
     for (const route of staticRoutes) {
         const label = `/${route.path ?? ""}`.replace(/\/$/, "") || "/";
         try {
@@ -97,56 +120,76 @@ export async function generate() {
             }
 
             // SSR the route's module
-            const jsxFn = await loadJsxModule(route.jsx);
+            const jsxFn = await loadModule(route.jsx);
 
             const params = {}; // static routes: empty params
             const content = await jsxFn(params);
 
             // It is a fragment not a full page
             if (!/^<html[\s>]/i.test(content)) {
-                generated++;
-                console.log(`- ${label} ✓ (fragment, not html file generated)`);
+                skipped++;
+                console.log(`- ${label} (skipped: fragment, not html file generated)`);
                 continue;
             }
             let out = content;
 
             // Inject assets from routes.json (client-relative paths) with PUBLIC_PATH normalization
-            const publicPath = normalizePublicPath(process.env.PUBLIC_PATH ?? "/");
             if (route.assets && typeof route.assets === "object") {
-                out = injectAssets(out, route.assets, publicPath);
+                out = injectAssets(out, route.assets, normalizedPublicPath);
             }
 
             // Prepend doctype
             out = `<!doctype html>\n${out}`;
 
             // Write to client HTML file
-            const htmlPath = path.join(OUTPUT_DIR_CLIENT, route.filename);
-            await fs.mkdir(path.dirname(htmlPath), { recursive: true });
-            await fs.writeFile(htmlPath, out, "utf8");
+            const htmlPath = path.join(outputDirClient, route.filename);
+            await mkdirp(path.dirname(htmlPath));
+            await writeFile(htmlPath, out);
 
             // Mark as generated in manifest
             route.generated = true;
 
             generated++;
-            console.log(`- ${label} ✓`);
+            console.log(`- ${label} \u2713`);
         } catch (e) {
             failed++;
             const msg = e && typeof e === "object" && "message" in e ? e.message : String(e);
-            console.error(`- ${label} ✗ ${msg}`);
+            console.error(`- ${label} \u2717 ${msg}`);
         }
     }
 
     // Persist updated manifest with generated flags
+    let writeError = null;
     try {
-        await fs.writeFile(ROUTES_FILE, JSON.stringify(routes, null, 2), "utf8");
-    } catch {
-        // If we fail to write, surface as non-fatal warning; pages are still generated
-        console.error("generate: failed to persist generated flags to routes.json");
+        await writeFile(routesFile, JSON.stringify(routes, null, 2));
+    } catch (e) {
+        writeError = e && typeof e === "object" && "message" in e ? String(e.message) : String(e);
+        console.error(`generate: failed to persist generated flags to routes.json: ${writeError}`);
     }
 
-    const ok = failed === 0;
+    const ok = failed === 0 && writeError === null;
     console.log(`generate: done. generated=${generated} skipped=${skipped} failed=${failed} total=${staticRoutes.length}`);
-    return { ok, generated, skipped, failed, total: staticRoutes.length };
+    return { ok, generated, skipped, failed, total: staticRoutes.length, writeError };
+}
+
+/**
+ * High-level generate entry point that reads paths from constants/env
+ * and delegates to generateCore.
+ *
+ * @returns {Promise<GenerateResult>}
+ */
+export async function generate() {
+    const fileReader = createFileReader();
+
+    return generateCore({
+        routesFile: ROUTES_FILE,
+        outputDirClient: OUTPUT_DIR_CLIENT,
+        publicPath: process.env.PUBLIC_PATH ?? "/",
+        readText: (file) => fileReader.readText(file),
+        writeFile: (file, content) => fs.writeFile(file, content, "utf8"),
+        mkdirp: (dir) => fs.mkdir(dir, { recursive: true }).then(() => {}),
+        loadModule: (jsxPath) => loadJsxModule(jsxPath),
+    });
 }
 
 // Allow running as a script

@@ -6,42 +6,395 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-async function makeTempDir(prefix = "sxo-generate-cli-") {
-    return await fs.mkdtemp(path.join(os.tmpdir(), prefix));
+import { generateCore, isDynamicRoute } from "./generate.js";
+
+const ssrHtml = ({ title = "Title", body = "<div>Body</div>" } = {}) =>
+    ["<html>", "<head>", `  <title>${title}</title>`, "</head>", "<body>", `  ${body}`, "</body>", "</html>", ""].join("\n");
+
+function createMockDeps(files, modules, publicPath = "/") {
+    const store = new Map(Object.entries(files));
+    const logs = [];
+    const errors = [];
+    const origLog = console.log;
+    const origError = console.error;
+    console.log = (...args) => logs.push(args.join(" "));
+    console.error = (...args) => errors.push(args.join(" "));
+
+    const deps = {
+        routesFile: "/mock/dist/server/routes.json",
+        outputDirClient: "/mock/dist/client",
+        publicPath,
+        readText: async (file) => store.get(file) ?? null,
+        writeFile: async (file, content) => store.set(file, content),
+        mkdirp: async () => {},
+        loadModule: async (jsxPath) => {
+            const fn = modules[jsxPath];
+            if (!fn) throw new Error(`No valid export found in ${jsxPath}`);
+            return fn;
+        },
+    };
+
+    const restore = () => {
+        console.log = origLog;
+        console.error = origError;
+    };
+
+    return { deps, store, logs, errors, restore };
 }
 
-async function writeFileEnsured(filePath, content) {
-    await fs.mkdir(path.dirname(filePath), { recursive: true });
-    await fs.writeFile(filePath, content, "utf8");
+const allOutput = (logs, errors) => [...logs, ...errors].join("\n");
+
+/**
+ * Run a test with automatic cleanup of mock dependencies.
+ * @param {Function} fn - async test function receiving { deps, store, logs, errors }
+ */
+async function runTest(fn, files, modules, publicPath = "/") {
+    const { deps, store, logs, errors, restore } = createMockDeps(files, modules, publicPath);
+    try {
+        await fn({ deps, store, logs, errors });
+    } finally {
+        restore();
+    }
 }
 
-async function readFile(filePath) {
-    return await fs.readFile(filePath, "utf8");
-}
+test("isDynamicRoute detects dynamic and static routes", () => {
+    assert.equal(isDynamicRoute({ path: "blog/[slug]", filename: "blog/[slug]/index.html" }), true);
+    assert.equal(isDynamicRoute({ filename: "user/[id]/index.html" }), true);
+    assert.equal(isDynamicRoute({ path: "about", filename: "about/index.html" }), false);
+    assert.equal(isDynamicRoute({ filename: "index.html" }), false);
+});
 
-function scriptPath() {
-    return fileURLToPath(new URL("./generate.js", import.meta.url));
-}
+test("generate (core): handles manifest write failure", async (t) => {
+    const routeFile = "/mock/dist/server/routes.json";
 
-function runGenerate({ cwd, outDir, pagesDirRel = "src/pages", extraEnv = {} }) {
-    return new Promise((resolve) => {
+    await t.test("manifest write fails -> returns ok:false with writeError", () =>
+        runTest(
+            async ({ deps, _store, errors }) => {
+                // Override writeFile to fail on routes.json
+                const originalWriteFile = deps.writeFile;
+                deps.writeFile = async (file, content) => {
+                    if (file === routeFile) {
+                        throw new Error("permission denied");
+                    }
+                    return originalWriteFile(file, content);
+                };
+
+                const res = await generateCore(deps);
+                assert.equal(res.ok, false, "should return ok:false when manifest write fails");
+                assert.equal(res.writeError, "permission denied", "should include writeError in result");
+                assert.equal(res.generated, 1, "should still have generated the HTML file");
+                assert.match(errors.join(" "), /failed to persist generated flags/i);
+            },
+            { [routeFile]: JSON.stringify([{ filename: "index.html", jsx: "src/pages/index.jsx" }]) },
+            { "src/pages/index.jsx": () => "<html><head><title>Test</title></head><body><div>Test</div></body></html>" },
+        ),
+    );
+});
+
+test("generate (core): handles various error and edge cases", async (t) => {
+    const routeFile = "/mock/dist/server/routes.json";
+
+    await t.test("missing manifest -> returns ok:false with helpful message", () =>
+        runTest(
+            async ({ deps, errors }) => {
+                const res = await generateCore(deps);
+                assert.equal(res.ok, false);
+                assert.match(allOutput([], errors), /Missing or invalid manifest/i);
+            },
+            {},
+            {},
+        ),
+    );
+
+    await t.test("bad manifest (not an array) -> returns ok:false", () =>
+        runTest(
+            async ({ deps, errors }) => {
+                const res = await generateCore(deps);
+                assert.equal(res.ok, false);
+                assert.match(allOutput([], errors), /routes manifest is not an array/i);
+            },
+            { [routeFile]: JSON.stringify({ not: "array" }) },
+            {},
+        ),
+    );
+
+    await t.test("empty routes array -> ok:true, logs none to generate", () =>
+        runTest(
+            async ({ deps, logs }) => {
+                const res = await generateCore(deps);
+                assert.equal(res.ok, true);
+                assert.equal(res.generated, 0);
+                assert.match(allOutput(logs, []), /No routes found in manifest/i);
+            },
+            { [routeFile]: JSON.stringify([]) },
+            {},
+        ),
+    );
+
+    await t.test("all routes dynamic -> ok:true, no generation performed", () =>
+        runTest(
+            async ({ deps, logs }) => {
+                const res = await generateCore(deps);
+                assert.equal(res.ok, true);
+                assert.equal(res.generated, 0);
+                assert.match(allOutput(logs, []), /No static routes to generate/i);
+            },
+            {
+                [routeFile]: JSON.stringify([
+                    { path: "blog/[slug]", filename: "blog/[slug]/index.html", jsx: "src/pages/blog/[slug]/index.jsx" },
+                    { filename: "user/[id]/index.html", jsx: "src/pages/user/[id]/index.jsx" },
+                ]),
+            },
+            {},
+        ),
+    );
+
+    await t.test("invalid SSR export (loadModule throws) -> ok:false and reports error", () =>
+        runTest(
+            async ({ deps, errors }) => {
+                const res = await generateCore(deps);
+                assert.equal(res.ok, false);
+                assert.match(allOutput([], errors), /No valid export found/i);
+            },
+            { [routeFile]: JSON.stringify([{ filename: "index.html", jsx: "src/pages/index.jsx" }]) },
+            {},
+        ),
+    );
+
+    await t.test("SSR returns non-HTML -> treats as fragment and does not mark as generated", () =>
+        runTest(
+            async ({ deps, store, logs }) => {
+                const res = await generateCore(deps);
+                assert.equal(res.ok, true);
+                assert.equal(res.generated, 0);
+                assert.equal(res.skipped, 1);
+                assert.match(allOutput(logs, []), /skipped: fragment, not html file generated/i);
+
+                // Verify no HTML file was written
+                assert.equal(store.has("/mock/dist/client/index.html"), false);
+
+                // Verify route is NOT marked as generated in manifest
+                const updatedRoutes = JSON.parse(store.get(routeFile));
+                assert.equal(updatedRoutes[0].generated, undefined);
+            },
+            {
+                [routeFile]: JSON.stringify([{ filename: "index.html", jsx: "src/pages/index.jsx" }]),
+            },
+            { "src/pages/index.jsx": () => "plain text" },
+        ),
+    );
+});
+
+test("generate (core): handles various success scenarios", async (t) => {
+    const routeFile = "/mock/dist/server/routes.json";
+
+    await t.test("successful generation writes doctype, HTML, and sets generated flag", () => {
+        const html = ssrHtml({ title: "OK", body: "<div>Done</div>" });
+        return runTest(
+            async ({ deps, store, logs }) => {
+                const res = await generateCore(deps);
+
+                assert.equal(res.ok, true);
+                assert.equal(res.generated, 1);
+                assert.equal(res.skipped, 0);
+                assert.match(allOutput(logs, []), /done\.\s+generated=1\s+skipped=0\s+failed=0/i);
+
+                const written = store.get("/mock/dist/client/index.html");
+                assert.ok(written, "HTML file should be written");
+                assert.equal(written.startsWith("<!doctype html>"), true, "should prepend doctype");
+                assert.match(written, /<html>/i);
+                assert.match(written, /<title>OK<\/title>/);
+                assert.match(written, />\s*<div>Done<\/div>/);
+
+                assert.equal(JSON.parse(store.get(routeFile))[0].generated, true);
+            },
+            { [routeFile]: JSON.stringify([{ filename: "index.html", jsx: "src/pages/index.jsx" }]) },
+            { "src/pages/index.jsx": () => html },
+        );
+    });
+
+    await t.test("mixed static + dynamic -> dynamic untouched; statics generated", () =>
+        runTest(
+            async ({ deps, store, logs }) => {
+                await generateCore(deps);
+
+                const out = allOutput(logs, []);
+                assert.match(out, /generated=2/);
+                assert.match(out, /failed=0/);
+
+                const home = store.get("/mock/dist/client/index.html");
+                const about = store.get("/mock/dist/client/about/index.html");
+                assert.match(home, /<title>Home<\/title>/);
+                assert.match(about, /<title>About<\/title>/);
+                assert.equal(store.has("/mock/dist/client/blog/[slug]/index.html"), false);
+
+                const updated = JSON.parse(store.get(routeFile));
+                const byFile = (f) => updated.find((r) => r.filename === f);
+                assert.equal(byFile("index.html").generated, true);
+                assert.equal(byFile("about/index.html").generated, true);
+                assert.ok(!byFile("blog/[slug]/index.html").generated);
+            },
+            {
+                [routeFile]: JSON.stringify([
+                    { filename: "index.html", jsx: "src/pages/index.jsx" },
+                    { path: "about", filename: "about/index.html", jsx: "src/pages/about/index.jsx" },
+                    { path: "blog/[slug]", filename: "blog/[slug]/index.html", jsx: "src/pages/blog/[slug]/index.jsx" },
+                ]),
+            },
+            {
+                "src/pages/index.jsx": () => "<html><head><title>Home</title></head><body><div>H</div></body></html>",
+                "src/pages/about/index.jsx": () => "<html><head><title>About</title></head><body><div>A</div></body></html>",
+            },
+        ),
+    );
+
+    await t.test("idempotency -> second run skips already-generated", () => {
+        const routes = [
+            { filename: "index.html", jsx: "src/pages/index.jsx" },
+            { path: "about", filename: "about/index.html", jsx: "src/pages/about/index.jsx" },
+        ];
+        return runTest(
+            async ({ deps, logs }) => {
+                const r1 = await generateCore(deps);
+                assert.equal(r1.ok, true);
+                assert.equal(r1.generated, 2);
+
+                logs.length = 0;
+                const r2 = await generateCore(deps);
+                assert.equal(r2.ok, true);
+                const out2 = allOutput(logs, []);
+                assert.match(out2, /generated=0/);
+                assert.match(out2, /skipped=2/);
+                assert.match(out2, /failed=0/);
+            },
+            { [routeFile]: JSON.stringify(routes) },
+            {
+                "src/pages/index.jsx": () => "<html><head><title>H</title></head><body>1</body></html>",
+                "src/pages/about/index.jsx": () => "<html><head><title>A</title></head><body>2</body></html>",
+            },
+        );
+    });
+
+    await t.test("asset injection with PUBLIC_PATH='/'", () =>
+        runTest(
+            async ({ deps, store }) => {
+                const res = await generateCore(deps);
+                assert.equal(res.ok, true);
+
+                const written = store.get("/mock/dist/client/index.html");
+                assert.match(written, /<link rel="stylesheet" href="\/global\.A1\.css">/);
+                assert.match(written, /<link rel="stylesheet" href="\/index\.B2\.css">/);
+                assert.match(written, /<script type="module" src="\/index\.B2\.js"><\/script>/);
+            },
+            {
+                [routeFile]: JSON.stringify([
+                    {
+                        filename: "index.html",
+                        jsx: "src/pages/index.jsx",
+                        entryPoints: ["src/pages/index.client.js", "src/pages/global.css"],
+                        assets: { css: ["global.A1.css", "index.B2.css"], js: ["index.B2.js"] },
+                    },
+                ]),
+            },
+            { "src/pages/index.jsx": () => ssrHtml({ title: "Assets", body: "<div>Body</div>" }) },
+            "/",
+        ),
+    );
+});
+
+test("generate (core): sequential asset injection PUBLIC_PATH '/' then ''", async () => {
+    const routeFile = "/mock/dist/server/routes.json";
+    const modules = {
+        "src/pages/index.jsx": () => ssrHtml({ title: "Home SSR", body: "<div>Welcome Home</div>" }),
+        "src/pages/about/index.jsx": () => ssrHtml({ title: "About SSR", body: "<div>About Page</div>" }),
+        "src/pages/plain/index.jsx": () => ssrHtml({ title: "Plain SSR", body: "<div>Plain Page</div>" }),
+    };
+
+    return runTest(
+        async ({ deps, store }) => {
+            // First run with PUBLIC_PATH="/"
+            const res1 = await generateCore(deps);
+            assert.equal(res1.ok, true);
+
+            const home1 = store.get("/mock/dist/client/index.html");
+            assert.match(home1, /Welcome Home/);
+            assert.match(home1, /<link rel="stylesheet" href="\/global\.A1\.css">/);
+            assert.match(home1, /<link rel="stylesheet" href="\/index\.B2\.css">/);
+            assert.match(home1, /<script type="module" src="\/index\.B2\.js"><\/script>/);
+
+            const about1 = store.get("/mock/dist/client/about/index.html");
+            assert.match(about1, /About Page/);
+            assert.match(about1, /<link rel="stylesheet" href="\/about\/index\.C3\.css">/);
+            assert.match(about1, /<script type="module" src="\/about\/index\.C3\.js"><\/script>/);
+
+            // Add a new route (plain) not yet generated
+            const updatedRoutes = JSON.parse(store.get(routeFile));
+            updatedRoutes.push({
+                path: "plain",
+                filename: "plain/index.html",
+                jsx: "src/pages/plain/index.jsx",
+                entryPoints: ["src/pages/plain/client/index.js"],
+                assets: { css: ["plain/index.D1.css"], js: ["plain/index.D1.js"] },
+            });
+            store.set(routeFile, JSON.stringify(updatedRoutes));
+
+            // Second run with PUBLIC_PATH="" (empty preserved)
+            deps.publicPath = "";
+            const res2 = await generateCore(deps);
+            assert.equal(res2.ok, true);
+
+            const plain = store.get("/mock/dist/client/plain/index.html");
+            assert.match(plain, /Plain Page/);
+            assert.match(plain, /<link rel="stylesheet" href="plain\/index\.D1\.css">/);
+            assert.match(plain, /<script type="module" src="plain\/index\.D1\.js"><\/script>/);
+        },
+        {
+            [routeFile]: JSON.stringify([
+                {
+                    filename: "index.html",
+                    jsx: "src/pages/index.jsx",
+                    entryPoints: ["src/pages/index.client.js", "src/pages/global.css"],
+                    assets: { css: ["global.A1.css", "index.B2.css"], js: ["index.B2.js"] },
+                },
+                {
+                    path: "about",
+                    filename: "about/index.html",
+                    jsx: "src/pages/about/index.jsx",
+                    entryPoints: ["src/pages/about/client/index.js"],
+                    assets: { css: ["about/index.C3.css"], js: ["about/index.C3.js"] },
+                },
+            ]),
+        },
+        modules,
+        "/",
+    );
+});
+
+test("generate (CLI): script entrypoint sets exitCode correctly", async () => {
+    const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "sxo-generate-cli-"));
+    const outDir = path.join(tmpRoot, "dist");
+    const routesFile = path.join(outDir, "server", "routes.json");
+
+    await fs.mkdir(path.dirname(routesFile), { recursive: true });
+    await fs.writeFile(routesFile, JSON.stringify([]), "utf8");
+
+    const scriptFile = fileURLToPath(new URL("./generate.js", import.meta.url));
+
+    const { code, stdout, stderr } = await new Promise((resolve) => {
         const env = {
             ...process.env,
             SXO_RESOLVED_CONFIG: JSON.stringify({
                 command: "build",
                 port: 0,
-                pagesDir: pagesDirRel,
+                pagesDir: "src/pages",
                 outDir,
                 minify: true,
                 sourcemap: false,
             }),
-            ...extraEnv,
         };
-
-        const child = spawn(process.execPath, [scriptPath()], { cwd, env });
+        const child = spawn(process.execPath, [scriptFile], { cwd: tmpRoot, env });
         let stdout = "";
         let stderr = "";
-
         child.stdout.on("data", (d) => {
             stdout += d.toString();
         });
@@ -50,389 +403,7 @@ function runGenerate({ cwd, outDir, pagesDirRel = "src/pages", extraEnv = {} }) 
         });
         child.on("close", (code) => resolve({ code, stdout, stderr }));
     });
-}
 
-function ssrHtml({ title = "Title", body = "<div>Body</div>" } = {}) {
-    return ["<html>", "<head>", `  <title>${title}</title>`, "</head>", "<body>", `  ${body}`, "</body>", "</html>", ""].join("\n");
-}
-
-test("generate (CLI): missing manifest -> exits non-zero with helpful message", async () => {
-    const tmpRoot = await makeTempDir();
-    const outDir = path.join(tmpRoot, "dist");
-
-    const { code, stdout, stderr } = await runGenerate({
-        cwd: tmpRoot,
-        outDir,
-    });
-
-    const out = stdout + stderr;
-    assert.notEqual(code, 0, "should exit with non-zero code");
-    assert.match(out, /Missing or invalid manifest/i);
-});
-
-test("generate (CLI): bad manifest (not an array) -> exits non-zero", async () => {
-    const tmpRoot = await makeTempDir();
-    const outDir = path.join(tmpRoot, "dist");
-    const routesFile = path.join(outDir, "server", "routes.json");
-
-    await writeFileEnsured(routesFile, JSON.stringify({ not: "array" }));
-
-    const { code, stdout, stderr } = await runGenerate({
-        cwd: tmpRoot,
-        outDir,
-    });
-
-    const out = stdout + stderr;
-    assert.notEqual(code, 0);
-    assert.match(out, /routes manifest is not an array/i);
-});
-
-test("generate (CLI): empty routes array -> ok exit 0, logs none to generate", async () => {
-    const tmpRoot = await makeTempDir();
-    const outDir = path.join(tmpRoot, "dist");
-    const routesFile = path.join(outDir, "server", "routes.json");
-
-    await writeFileEnsured(routesFile, JSON.stringify([]));
-
-    const { code, stdout, stderr } = await runGenerate({
-        cwd: tmpRoot,
-        outDir,
-    });
-
-    const out = stdout + stderr;
-    assert.equal(code, 0);
-    assert.match(out, /No routes found in manifest/i);
-});
-
-test("generate (CLI): all routes dynamic -> ok exit 0, no generation performed", async () => {
-    const tmpRoot = await makeTempDir();
-    const outDir = path.join(tmpRoot, "dist");
-    const routesFile = path.join(outDir, "server", "routes.json");
-
-    const routes = [
-        { path: "blog/[slug]", filename: "blog/[slug]/index.html", jsx: "src/pages/blog/[slug]/index.jsx" },
-        { filename: "user/[id]/index.html", jsx: "src/pages/user/[id]/index.jsx" },
-    ];
-    await writeFileEnsured(routesFile, JSON.stringify(routes, null, 2));
-
-    const { code, stdout, stderr } = await runGenerate({
-        cwd: tmpRoot,
-        outDir,
-    });
-
-    const out = stdout + stderr;
-    assert.equal(code, 0);
-    assert.match(out, /No static routes to generate/i);
-});
-
-test("generate (CLI): invalid SSR export (no default/jsx function) -> exits non-zero and reports error", async () => {
-    const tmpRoot = await makeTempDir();
-    const outDir = path.join(tmpRoot, "dist");
-    const outServer = path.join(outDir, "server");
-    const pagesDir = path.join(tmpRoot, "src", "pages");
-    const routesFile = path.join(outServer, "routes.json");
-
-    // Provide page source (not strictly required but mirrors real structure)
-    await writeFileEnsured(path.join(pagesDir, "index.jsx"), "// placeholder");
-    // SSR bundle missing valid export
-    await writeFileEnsured(path.join(outServer, "index.js"), "export const nope = 123;");
-
-    const routes = [{ filename: "index.html", jsx: "src/pages/index.jsx" }];
-    await writeFileEnsured(routesFile, JSON.stringify(routes, null, 2));
-
-    const { code, stdout, stderr } = await runGenerate({
-        cwd: tmpRoot,
-        outDir,
-    });
-
-    const out = stdout + stderr;
-    assert.notEqual(code, 0);
-    assert.match(out, /No valid export found/i);
-});
-
-test("generate (CLI): SSR returns non-HTML -> treats as fragment and exits cleanly", async () => {
-    const tmpRoot = await makeTempDir();
-    const outDir = path.join(tmpRoot, "dist");
-    const outServer = path.join(outDir, "server");
-    const pagesDir = path.join(tmpRoot, "src", "pages");
-    const routesFile = path.join(outServer, "routes.json");
-
-    await writeFileEnsured(path.join(pagesDir, "index.jsx"), "// placeholder");
-    await writeFileEnsured(path.join(outServer, "index.js"), `export default () => "plain text";`);
-
-    const routes = [{ filename: "index.html", jsx: "src/pages/index.jsx" }];
-    await writeFileEnsured(routesFile, JSON.stringify(routes, null, 2));
-
-    const { code, stdout, stderr } = await runGenerate({
-        cwd: tmpRoot,
-        outDir,
-    });
-
-    const out = stdout + stderr;
-    assert.equal(code, 0);
-    assert.match(out, /fragment, not html file generated/i);
-});
-
-test("generate (CLI): successful generation writes doctype, HTML, and sets generated flag", async () => {
-    const tmpRoot = await makeTempDir();
-    const outDir = path.join(tmpRoot, "dist");
-    const outServer = path.join(outDir, "server");
-    const outClient = path.join(outDir, "client");
-    const pagesDir = path.join(tmpRoot, "src", "pages");
-    const routesFile = path.join(outServer, "routes.json");
-
-    await writeFileEnsured(path.join(pagesDir, "index.jsx"), "// placeholder");
-    await writeFileEnsured(
-        path.join(outServer, "index.js"),
-        `export default () => ${JSON.stringify(ssrHtml({ title: "OK", body: "<div>Done</div>" }))};`,
-    );
-
-    const routes = [{ filename: "index.html", jsx: "src/pages/index.jsx" }];
-    await writeFileEnsured(routesFile, JSON.stringify(routes, null, 2));
-
-    const { code, stdout, stderr } = await runGenerate({
-        cwd: tmpRoot,
-        outDir,
-    });
-
-    const out = stdout + stderr;
-    assert.equal(code, 0);
-    assert.match(out, /done\.\s+generated=1\s+skipped=0\s+failed=0/i);
-
-    const htmlPath = path.join(outClient, "index.html");
-    const html = await readFile(htmlPath);
-    assert.equal(html.startsWith("<!doctype html>"), true, "should prepend doctype");
-    assert.match(html, /<html>/i);
-    assert.match(html, /<title>OK<\/title>/);
-    assert.match(html, />\s*<div>Done<\/div>/);
-
-    const updatedRoutes = JSON.parse(await readFile(routesFile));
-    assert.equal(Array.isArray(updatedRoutes), true);
-    assert.equal(updatedRoutes[0].generated, true, "manifest should be updated with generated flag");
-});
-
-test("generate (CLI): mixed static + dynamic -> dynamic untouched; statics generated", async () => {
-    const tmpRoot = await makeTempDir();
-    const outDir = path.join(tmpRoot, "dist");
-    const outClient = path.join(outDir, "client");
-    const outServer = path.join(outDir, "server");
-    const pagesDir = path.join(tmpRoot, "src", "pages");
-    const routesFile = path.join(outServer, "routes.json");
-
-    // Prepare sources and SSR bundles
-    await writeFileEnsured(path.join(pagesDir, "index.jsx"), "// src home");
-    await writeFileEnsured(path.join(pagesDir, "about", "index.jsx"), "// src about");
-    await writeFileEnsured(path.join(pagesDir, "blog", "[slug]", "index.jsx"), "// src dynamic");
-    await writeFileEnsured(
-        path.join(outServer, "index.js"),
-        `export default () => "<html><head><title>Home</title></head><body><div>H</div></body></html>";`,
-    );
-    await writeFileEnsured(
-        path.join(outServer, "about", "index.js"),
-        `export function jsx(){ return "<html><head><title>About</title></head><body><div>A</div></body></html>"; }`,
-    );
-
-    // Manifest: two static + one dynamic
-    const routes = [
-        { filename: "index.html", jsx: "src/pages/index.jsx" },
-        { path: "about", filename: "about/index.html", jsx: "src/pages/about/index.jsx" },
-        { path: "blog/[slug]", filename: "blog/[slug]/index.html", jsx: "src/pages/blog/[slug]/index.jsx" },
-    ];
-    await writeFileEnsured(routesFile, JSON.stringify(routes, null, 2));
-
-    const { code, stdout, stderr } = await runGenerate({ cwd: tmpRoot, outDir });
-    const out = stdout + stderr;
-    assert.equal(code, 0);
-    assert.match(out, /generated=2/);
-    assert.match(out, /failed=0/);
-
-    // Static pages generated
-    const home = await readFile(path.join(outClient, "index.html"));
-    const about = await readFile(path.join(outClient, "about", "index.html"));
-    assert.match(home, /<title>Home<\/title>/);
-    assert.match(about, /<title>About<\/title>/);
-
-    // Dynamic untouched (no file created)
-    let dynamicExists = true;
-    try {
-        await fs.access(path.join(outClient, "blog", "[slug]", "index.html"));
-        dynamicExists = true;
-    } catch {
-        dynamicExists = false;
-    }
-    assert.equal(dynamicExists, false, "dynamic route should not be generated");
-
-    // Manifest flags updated only for static routes
-    const updated = JSON.parse(await readFile(routesFile));
-    const byFile = (f) => updated.find((r) => r.filename === f);
-    assert.equal(byFile("index.html").generated, true);
-    assert.equal(byFile("about/index.html").generated, true);
-    assert.ok(!updated.find((r) => r.filename === "blog/[slug]/index.html").generated);
-});
-
-test("generate (CLI): idempotency -> second run skips already-generated", async () => {
-    const tmpRoot = await makeTempDir();
-    const outDir = path.join(tmpRoot, "dist");
-    const outServer = path.join(outDir, "server");
-    const pagesDir = path.join(tmpRoot, "src", "pages");
-    const routesFile = path.join(outServer, "routes.json");
-
-    // Prepare two static routes
-    await writeFileEnsured(path.join(pagesDir, "index.jsx"), "// src home");
-    await writeFileEnsured(path.join(pagesDir, "about", "index.jsx"), "// src about");
-    await writeFileEnsured(
-        path.join(outServer, "index.js"),
-        `export default () => "<html><head><title>H</title></head><body>1</body></html>";`,
-    );
-    await writeFileEnsured(
-        path.join(outServer, "about", "index.js"),
-        `export default () => "<html><head><title>A</title></head><body>2</body></html>";`,
-    );
-
-    const routes = [
-        { filename: "index.html", jsx: "src/pages/index.jsx" },
-        { path: "about", filename: "about/index.html", jsx: "src/pages/about/index.jsx" },
-    ];
-    await writeFileEnsured(routesFile, JSON.stringify(routes, null, 2));
-
-    // First run: generate both
-    const r1 = await runGenerate({ cwd: tmpRoot, outDir });
-    assert.equal(r1.code, 0);
-    assert.match(r1.stdout + r1.stderr, /generated=2/);
-
-    // Second run: skip both
-    const r2 = await runGenerate({ cwd: tmpRoot, outDir });
-    assert.equal(r2.code, 0);
-    const out2 = r2.stdout + r2.stderr;
-    assert.match(out2, /generated=0/);
-    assert.match(out2, /skipped=2/);
-    assert.match(out2, /failed=0/);
-});
-
-test("generate (CLI): asset injection minimal (PUBLIC_PATH='/')", async () => {
-    const tmpRoot = await makeTempDir();
-    const outDir = path.join(tmpRoot, "dist");
-    const outServer = path.join(outDir, "server");
-    const outClient = path.join(outDir, "client");
-    const pagesDir = path.join(tmpRoot, "src", "pages");
-    const routesFile = path.join(outServer, "routes.json");
-
-    // One static route with assets
-    await writeFileEnsured(path.join(pagesDir, "index.jsx"), "// src home");
-    await writeFileEnsured(
-        path.join(outServer, "index.js"),
-        `export default () => ${JSON.stringify(ssrHtml({ title: "Assets", body: "<div>Body</div>" }))};`,
-    );
-
-    const routes = [
-        {
-            filename: "index.html",
-            jsx: "src/pages/index.jsx",
-            entryPoints: ["src/pages/index.client.js", "src/pages/global.css"],
-            assets: {
-                css: ["global.A1.css", "index.B2.css"],
-                js: ["index.B2.js"],
-            },
-        },
-    ];
-    await writeFileEnsured(routesFile, JSON.stringify(routes, null, 2));
-
-    const res = await runGenerate({ cwd: tmpRoot, outDir, extraEnv: { PUBLIC_PATH: "/" } });
-    assert.equal(res.code, 0);
-
-    const html = await readFile(path.join(outClient, "index.html"));
-    assert.match(html, /<link rel="stylesheet" href="\/global\.A1\.css">/);
-    assert.match(html, /<link rel="stylesheet" href="\/index\.B2\.css">/);
-    assert.match(html, /<script type="module" src="\/index\.B2\.js"><\/script>/);
-});
-
-test("generate (CLI): sequential asset injection PUBLIC_PATH '/' then ''", async () => {
-    const tmpRoot = await makeTempDir();
-    const outDir = path.join(tmpRoot, "dist");
-    const outClient = path.join(outDir, "client");
-    const outServer = path.join(outDir, "server");
-    const pagesDir = path.join(tmpRoot, "src", "pages");
-    const routesFile = path.join(outServer, "routes.json");
-
-    // Prepare project structure
-    await writeFileEnsured(path.join(pagesDir, "index.jsx"), "// source placeholder");
-    await writeFileEnsured(path.join(pagesDir, "about", "index.jsx"), "// source placeholder");
-    await writeFileEnsured(path.join(pagesDir, "plain", "index.jsx"), "// source placeholder");
-
-    // Server SSR modules returning full HTML documents
-    await writeFileEnsured(
-        path.join(outServer, "index.js"),
-        `export default () => ${JSON.stringify(ssrHtml({ title: "Home SSR", body: "<div>Welcome Home</div>" }))};`,
-    );
-    await writeFileEnsured(
-        path.join(outServer, "about", "index.js"),
-        `export function jsx(){ return ${JSON.stringify(ssrHtml({ title: "About SSR", body: "<div>About Page</div>" }))}; }`,
-    );
-    await writeFileEnsured(
-        path.join(outServer, "plain", "index.js"),
-        `export default () => ${JSON.stringify(ssrHtml({ title: "Plain SSR", body: "<div>Plain Page</div>" }))};`,
-    );
-
-    // routes.json with per-route assets (client-relative; no PUBLIC_PATH prefix)
-    const routes = [
-        {
-            filename: "index.html",
-            jsx: "src/pages/index.jsx",
-            entryPoints: ["src/pages/index.client.js", "src/pages/global.css"],
-            assets: {
-                css: ["global.A1.css", "index.B2.css"],
-                js: ["index.B2.js"],
-            },
-        },
-        {
-            path: "about",
-            filename: "about/index.html",
-            jsx: "src/pages/about/index.jsx",
-            entryPoints: ["src/pages/about/client/index.js"],
-            assets: {
-                css: ["about/index.C3.css"],
-                js: ["about/index.C3.js"],
-            },
-        },
-        // 'plain' route will be generated in the second run with PUBLIC_PATH=""
-    ];
-    await writeFileEnsured(routesFile, JSON.stringify(routes, null, 2));
-
-    // First run with PUBLIC_PATH="/"
-    const res1 = await runGenerate({ cwd: tmpRoot, outDir, extraEnv: { PUBLIC_PATH: "/" } });
-    assert.equal(res1.code, 0);
-
-    const homeHtml1 = await readFile(path.join(outClient, "index.html"));
-    assert.match(homeHtml1, /Welcome Home/);
-    assert.match(homeHtml1, /<link rel="stylesheet" href="\/global\.A1\.css">/);
-    assert.match(homeHtml1, /<link rel="stylesheet" href="\/index\.B2\.css">/);
-    assert.match(homeHtml1, /<script type="module" src="\/index\.B2\.js"><\/script>/);
-
-    const aboutHtml1 = await readFile(path.join(outClient, "about", "index.html"));
-    assert.match(aboutHtml1, /About Page/);
-    assert.match(aboutHtml1, /<link rel="stylesheet" href="\/about\/index\.C3\.css">/);
-    assert.match(aboutHtml1, /<script type="module" src="\/about\/index\.C3\.js"><\/script>/);
-
-    // Prepare second run: add a new route (plain) not yet generated
-    const updatedRoutes = JSON.parse(await readFile(routesFile));
-    updatedRoutes.push({
-        path: "plain",
-        filename: "plain/index.html",
-        jsx: "src/pages/plain/index.jsx",
-        entryPoints: ["src/pages/plain/client/index.js"],
-        assets: {
-            css: ["plain/index.D1.css"],
-            js: ["plain/index.D1.js"],
-        },
-    });
-    await writeFileEnsured(routesFile, JSON.stringify(updatedRoutes, null, 2));
-
-    // Second run with PUBLIC_PATH="" (empty preserved)
-    const res2 = await runGenerate({ cwd: tmpRoot, outDir, extraEnv: { PUBLIC_PATH: "" } });
-    assert.equal(res2.code, 0);
-
-    const plainHtml = await readFile(path.join(outClient, "plain", "index.html"));
-    assert.match(plainHtml, /Plain Page/);
-    assert.match(plainHtml, /<link rel="stylesheet" href="plain\/index\.D1\.css">/);
-    assert.match(plainHtml, /<script type="module" src="plain\/index\.D1\.js"><\/script>/);
+    assert.equal(code, 0, "empty routes should exit 0");
+    assert.match(stdout + stderr, /No routes found in manifest/i);
 });
