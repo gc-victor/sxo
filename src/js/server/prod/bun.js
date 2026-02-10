@@ -15,48 +15,69 @@
  */
 
 import path from "node:path";
-import { OUTPUT_DIR_CLIENT, OUTPUT_DIR_SERVER, PORT, ROUTES_FILE, ROUTES_RELATIVE_PATH } from "../../constants.js";
+
+import {
+    ALLOW_MIDDLEWARE_SECURITY_OVERRIDE,
+    OUTPUT_DIR_CLIENT,
+    OUTPUT_DIR_SERVER,
+    PORT,
+    ROUTES_FILE,
+    ROUTES_RELATIVE_PATH,
+    SECURITY_HEADERS,
+} from "../../constants.js";
 import { loadUserDefinedMiddlewares } from "../middleware.js";
 import { loadErrorPages } from "../shared/error-pages-loader.js";
-import { bunFileReader } from "../shared/file-readers.js";
+import { createFileReader } from "../shared/file-readers.js";
 import { loadModulesWithFallback } from "../shared/module-loader.js";
 import { loadRoutesManifest } from "../shared/routes-loader.js";
 import { createStaticHandler } from "../shared/static-handler.js";
-import { httpBunLogger, logger, resolve404Page, resolve500Page } from "../utils/index.js";
+import { resolve404Page, resolve500Page } from "../utils/error-pages.js";
+import { jsxBundlePath } from "../utils/jsx-bundle-path.js";
+import { logger } from "../utils/logger.js";
 import { createFetchHandler, createGeneratedRouteHandler, createProdHandler } from "./core-handler.js";
+
+/** Check if running in test mode */
+function isTestMode() {
+    return process.env.NODE_ENV === "test";
+}
 
 const YELLOW = "\x1b[33m";
 
-// --- Startup: Load routes, modules, middleware, and error pages ---
-
 // Platform-specific importer (Bun dynamic import)
-const bunImporter = (url) => import(url);
+const bunImporter = (/** @type {string} */ url) => import(url);
 
 // Load and validate routes at startup
-let routes;
+/** @type {Route[]} */ let routes = [];
 try {
-    routes = await loadRoutesManifest(ROUTES_FILE, {
-        retries: 1,
-        readFile: async (path) => await Bun.file(path).text(),
-        logger,
-        source: ROUTES_RELATIVE_PATH,
-    });
+    // Skip routes loading in test mode or if Bun is not available
+    if (!isTestMode() && typeof globalThis.Bun !== "undefined") {
+        routes = await loadRoutesManifest(ROUTES_FILE, {
+            retries: 1,
+            readFile: async (path) => await Bun.file(path).text(),
+            source: ROUTES_RELATIVE_PATH,
+        });
+    }
 } catch (e) {
     logger.error({ err: e }, `Failed to load or validate ${ROUTES_RELATIVE_PATH}`);
-    process.exit(1);
+    // Don't exit in test mode to allow importing for testing
+    if (process.env.NODE_ENV !== "test") {
+        process.exit(1);
+    }
 }
 
 // Load modules from generated modules.js (falls back to loading JSX modules individually)
 const modulesPath = path.join(OUTPUT_DIR_SERVER, "modules.js");
 const modules = await loadModulesWithFallback({
     modulesPath,
-    routes,
+    routes: routes ?? [],
     importer: bunImporter,
     onWarn: (msg) => logger.warn(msg),
     onError: (msg) => logger.error(msg),
+    isDev: false,
 });
 
 // Load user-defined middleware
+/** @type {Function[]} */
 let userMiddlewares = [];
 try {
     userMiddlewares = await loadUserDefinedMiddlewares();
@@ -69,29 +90,30 @@ const { render404, render500 } = await loadErrorPages({
     resolve404Page,
     resolve500Page,
     loadJsxModule: async (jsxPath) => {
-        const fn = await bunImporter(path.join(OUTPUT_DIR_SERVER, jsxPath));
+        const fn = await bunImporter(jsxBundlePath(jsxPath));
         return fn.default || fn.jsx;
     },
-    logger,
+    redactErrors: true,
 });
 
 // Normalize public path once at startup
 const publicPath = process.env.PUBLIC_PATH ?? "/";
 
-// --- Create platform-agnostic handlers ---
-
 // Create file reader once
-const fileReader = bunFileReader();
+const fileReader = createFileReader();
 
 // Create prod handler with core logic
-const { handleRequest, send500 } = createProdHandler({
-    getRoutes: () => routes,
+const { handleRequest, send404, send500 } = createProdHandler({
+    getRoutes: () => routes ?? [],
     modules,
     publicPath,
-    getMiddleware: () => userMiddlewares,
+    getMiddleware: /** @type {() => Array<(request: Request, env?: object) => Response | void | Promise<Response | void>>} */ (
+        () => userMiddlewares
+    ),
     render404,
     render500,
-    logger,
+    securityHeaders: SECURITY_HEADERS,
+    allowMiddlewareSecurityOverride: ALLOW_MIDDLEWARE_SECURITY_OVERRIDE,
 });
 
 // Create static file handler with Bun file reader
@@ -104,7 +126,7 @@ const handleStaticRequest = createStaticHandler({
 const serveGeneratedRoute = createGeneratedRouteHandler({
     staticDir: OUTPUT_DIR_CLIENT,
     fileReader,
-    joinPath: path.resolve,
+    securityHeaders: SECURITY_HEADERS,
 });
 
 // Create unified fetch handler
@@ -112,40 +134,30 @@ const handleFetch = createFetchHandler({
     handleStaticRequest,
     handleRequest,
     serveGeneratedRoute,
+    send404,
     send500,
-    logger,
 });
-
-// --- Bun.serve fetch handler ---
 
 /**
  * Handle incoming HTTP request (Bun.serve fetch API).
  *
  * @param {Request} request - Web Standard Request
- * @param {import("bun").Server} server - Bun server instance
  * @returns {Promise<Response>} Web Standard Response
  */
-async function fetch(request, server) {
-    const log = httpBunLogger(request, server);
+async function fetch(request) {
     const response = await handleFetch(request);
-    log.finish(response);
     return response;
 }
 
-// --- Start Bun server ---
+// Start server in production mode
+if (process.env.NODE_ENV !== "test") {
+    Bun.serve({
+        port: PORT,
+        fetch,
+    });
+    logger.info(`${YELLOW}http://localhost:${PORT}/`);
+}
 
-Bun.serve({
-    port: PORT,
-    fetch,
-});
-
-logger.info(`${YELLOW}http://localhost:${PORT}/`);
-
-// Graceful shutdown
-process.on("SIGINT", () => {
-    logger.info("Shutting down...");
-    process.exit(0);
-});
 process.on("unhandledRejection", (reason) => {
     logger.error({ reason }, "Unhandled Rejection");
 });

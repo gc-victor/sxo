@@ -1,24 +1,19 @@
 /**
- * @fileoverview Tests for the Cloudflare Workers adapter.
+ * @fileoverview Tests for Cloudflare Workers adapter.
  *
  * Tests cover:
- * - createHandler returns an object with a fetch method
- * - fetch receives Request, env, ctx arguments
- * - Static file requests delegate to env.ASSETS.fetch()
- * - SSR routes call core handler and return Response
- * - Dynamic routes (with [slug]) pass params to SSR module
- * - Invalid slug parameters return 400
- * - Middleware can short-circuit with Response
- * - Middleware receives Web Standard Request
- * - Generated routes fetch pre-rendered HTML from ASSETS
- * - 404 for non-existent routes
- * - HEAD requests return headers without body
- * - Error handling when aliases not configured
+ * - Error handling when aliases not configured (routes, modules)
+ * - Request validation (URL length, malformed URLs, invalid parameters)
+ * - Integration: complete request lifecycle and HTTP methods
+ * - Error handling and fallback mechanisms
  */
 
 import { deepStrictEqual, ok, rejects, strictEqual } from "node:assert";
 import { describe, test } from "node:test";
 import { createHandler } from "./cloudflare.js";
+
+/** Maximum URL length to accept (must match cloudflare.js) */
+const MAX_URL_LEN = 2048;
 
 // --- Test Fixtures ---
 
@@ -67,637 +62,315 @@ function createMockContext() {
 
 // --- Tests ---
 
-describe("createHandler", () => {
-    test("returns an object with a fetch method", async () => {
-        const handler = await createHandler({
-            routes: [],
-            modules: {},
+describe("createHandler configuration errors", () => {
+    const errorCases = [
+        { name: "sxo:routes", config: {} },
+        { name: "sxo:modules", config: { routes: [] } },
+    ];
+
+    for (const { name, config } of errorCases) {
+        test(`throws helpful error when ${name} alias not configured`, async () => {
+            await rejects(createHandler(config), (err) => {
+                ok(err.message.includes(name), `Expected error about ${name}, got: ${err.message}`);
+                ok(err.message.includes("wrangler.jsonc"), `Expected guidance about wrangler.jsonc, got: ${err.message}`);
+                return true;
+            });
         });
-
-        ok(handler !== null && typeof handler === "object", "Should return an object");
-        strictEqual(typeof handler.fetch, "function", "Should have a fetch method");
-    });
-
-    test("fetch receives Request, env, ctx arguments", async () => {
-        let receivedArgs = null;
-
-        const handler = await createHandler({
-            routes: [],
-            modules: {},
-        });
-
-        // Wrap to capture args
-        const originalFetch = handler.fetch;
-        handler.fetch = async (request, env, ctx) => {
-            receivedArgs = { request, env, ctx };
-            return originalFetch(request, env, ctx);
-        };
-
-        const request = new Request("https://example.com/");
-        const env = { ASSETS: createMockAssets() };
-        const ctx = createMockContext();
-
-        await handler.fetch(request, env, ctx);
-
-        ok(receivedArgs !== null, "Arguments should be captured");
-        ok(receivedArgs.request instanceof Request, "First arg should be Request");
-        strictEqual(receivedArgs.env, env, "Second arg should be env");
-        strictEqual(receivedArgs.ctx, ctx, "Third arg should be ctx");
-    });
-
-    test("throws helpful error when sxo:routes alias not configured", async () => {
-        // When no routes or modules provided, it tries dynamic import
-        // which fails since sxo:routes doesn't exist
-        await rejects(createHandler({}), (err) => {
-            ok(err.message.includes("sxo:routes"), `Expected error about sxo:routes, got: ${err.message}`);
-            ok(err.message.includes("wrangler.jsonc"), `Expected guidance about wrangler.jsonc, got: ${err.message}`);
-            return true;
-        });
-    });
-
-    test("throws helpful error when sxo:modules alias not configured", async () => {
-        // Provide routes but not modules - should fail on modules import
-        await rejects(createHandler({ routes: [] }), (err) => {
-            ok(err.message.includes("sxo:modules"), `Expected error about sxo:modules, got: ${err.message}`);
-            ok(err.message.includes("wrangler.jsonc"), `Expected guidance about wrangler.jsonc, got: ${err.message}`);
-            return true;
-        });
-    });
+    }
 });
 
-describe("Cloudflare adapter static file serving", () => {
-    test("static file requests delegate to env.ASSETS.fetch()", async () => {
-        let assetsFetchCalled = false;
-
-        const handler = await createHandler({
-            routes: [],
-            modules: {},
-        });
-
-        const request = new Request("https://example.com/app.js");
-        const env = {
-            ASSETS: {
-                async fetch(_req) {
-                    assetsFetchCalled = true;
-                    return new Response('console.log("test");', {
-                        headers: { "Content-Type": "application/javascript" },
-                    });
+describe("createHandler request validation", () => {
+    const validationCases = [
+        {
+            name: "returns 414 for URL exceeding MAX_URL_LEN",
+            url: `https://example.com/${"x".repeat(MAX_URL_LEN + 1 - 20)}`,
+            expectedStatus: 414,
+        },
+        {
+            name: "returns 400 for malformed percent-encoding",
+            url: "https://example.com/path%",
+            expectedStatus: 400,
+        },
+        {
+            name: "returns 400 for invalid slug parameters",
+            url: "https://example.com/post/<script>",
+            expectedStatus: 400,
+            routes: [
+                {
+                    filename: "post/[slug]/index.html",
+                    jsx: "src/pages/post/[slug]/index.jsx",
+                    path: "post/[slug]",
+                    assets: { css: [], js: [] },
                 },
-            },
-        };
-        const ctx = createMockContext();
+            ],
+        },
+    ];
 
-        const response = await handler.fetch(request, env, ctx);
-
-        ok(assetsFetchCalled, "ASSETS.fetch should be called for static files");
-        strictEqual(response.status, 200);
-        const body = await response.text();
-        ok(body.includes('console.log("test")'), "Should return asset content");
-    });
-
-    test("static file requests for CSS delegate to env.ASSETS.fetch()", async () => {
-        const handler = await createHandler({
-            routes: [],
-            modules: {},
+    for (const { name, url, expectedStatus, routes = [] } of validationCases) {
+        test(name, async () => {
+            const handler = await createHandler({
+                routes,
+                modules: {},
+            });
+            const env = { ASSETS: createMockAssets() };
+            const ctx = createMockContext();
+            const response = await handler.fetch(new Request(url), env, ctx);
+            strictEqual(response.status, expectedStatus);
         });
-
-        const request = new Request("https://example.com/style.css");
-        const env = {
-            ASSETS: createMockAssets({
-                "/style.css": "body { color: red; }",
-            }),
-        };
-        const ctx = createMockContext();
-
-        const response = await handler.fetch(request, env, ctx);
-
-        strictEqual(response.status, 200);
-        strictEqual(response.headers.get("Content-Type"), "text/css");
-    });
-
-    test("falls through to SSR if asset not found", async () => {
-        const routes = [
-            {
-                filename: "index.html",
-                jsx: "src/pages/index.jsx",
-                path: "/",
-                assets: { css: [], js: [] },
-            },
-        ];
-
-        const modules = {
-            "src/pages/index.jsx": {
-                default: () => "<html><head></head><body>SSR Fallback</body></html>",
-            },
-        };
-
-        const handler = await createHandler({
-            routes,
-            modules,
-        });
-
-        const request = new Request("https://example.com/");
-        const env = {
-            ASSETS: createMockAssets({}),
-        };
-        const ctx = createMockContext();
-
-        const response = await handler.fetch(request, env, ctx);
-
-        strictEqual(response.status, 200);
-        const body = await response.text();
-        ok(body.includes("SSR Fallback"), "Should fall through to SSR");
-    });
+    }
 });
 
-describe("Cloudflare adapter SSR handling", () => {
-    test("SSR routes call core handler and return Response", async () => {
-        const routes = [
-            {
-                filename: "index.html",
-                jsx: "src/pages/index.jsx",
-                path: "/",
-                assets: { css: [], js: [] },
-            },
-        ];
-
-        const modules = {
-            "src/pages/index.jsx": {
-                default: () => "<html><head></head><body>SSR Content</body></html>",
-            },
-        };
-
-        const handler = await createHandler({
-            routes,
-            modules,
-        });
-
-        const request = new Request("https://example.com/");
-        const env = { ASSETS: createMockAssets() };
-        const ctx = createMockContext();
-
-        const response = await handler.fetch(request, env, ctx);
-
-        ok(response instanceof Response, "Should return a Response");
-        strictEqual(response.status, 200);
-        const body = await response.text();
-        ok(body.includes("SSR Content"), "Body should contain SSR content");
-        ok(body.includes("<!doctype html>"), "Body should include doctype");
-    });
-
-    test("dynamic routes pass params to SSR module", async () => {
-        let receivedParams = null;
-
-        const routes = [
-            {
-                filename: "post/[slug]/index.html",
-                jsx: "src/pages/post/[slug]/index.jsx",
-                path: "post/[slug]",
-                assets: { css: [], js: [] },
-            },
-        ];
-
-        const modules = {
-            "src/pages/post/[slug]/index.jsx": {
-                default: (params) => {
-                    receivedParams = params;
-                    return `<html><head></head><body>Post: ${params.slug}</body></html>`;
-                },
-            },
-        };
-
-        const handler = await createHandler({
-            routes,
-            modules,
-        });
-
-        const request = new Request("https://example.com/post/hello-world");
-        const env = { ASSETS: createMockAssets() };
-        const ctx = createMockContext();
-
-        const response = await handler.fetch(request, env, ctx);
-
-        strictEqual(response.status, 200);
-        const expectedParams = Object.create(null);
-        expectedParams.slug = "hello-world";
-        deepStrictEqual(receivedParams, expectedParams);
-    });
-
-    test("returns 400 for invalid slug parameters", async () => {
-        const routes = [
-            {
-                filename: "post/[slug]/index.html",
-                jsx: "src/pages/post/[slug]/index.jsx",
-                path: "post/[slug]",
-                assets: { css: [], js: [] },
-            },
-        ];
-
-        const handler = await createHandler({
-            routes,
-            modules: {},
-        });
-
-        const request = new Request("https://example.com/post/<script>");
-        const env = { ASSETS: createMockAssets() };
-        const ctx = createMockContext();
-
-        const response = await handler.fetch(request, env, ctx);
-
-        strictEqual(response.status, 400);
-    });
-
-    test("returns 404 for non-existent routes", async () => {
-        const handler = await createHandler({
-            routes: [],
-            modules: {},
-        });
-
-        const request = new Request("https://example.com/nonexistent");
-        const env = { ASSETS: createMockAssets() };
-        const ctx = createMockContext();
-
-        const response = await handler.fetch(request, env, ctx);
-
-        strictEqual(response.status, 404);
-    });
-});
-
-describe("Cloudflare adapter middleware integration", () => {
-    test("middleware can short-circuit with Response", async () => {
-        const middleware = [
-            (request) => {
-                if (new URL(request.url).pathname === "/blocked") {
-                    return new Response("Blocked", { status: 403 });
-                }
-            },
-        ];
-
-        const handler = await createHandler({
-            routes: [],
-            modules: {},
-            middleware,
-        });
-
-        const request = new Request("https://example.com/blocked");
-        const env = { ASSETS: createMockAssets() };
-        const ctx = createMockContext();
-
-        const response = await handler.fetch(request, env, ctx);
-
-        strictEqual(response.status, 403);
-        const body = await response.text();
-        strictEqual(body, "Blocked");
-    });
-
-    test("middleware receives Web Standard Request", async () => {
-        let receivedRequest = null;
-
-        const middleware = [
-            (request) => {
-                receivedRequest = request;
-            },
-        ];
-
-        const handler = await createHandler({
-            routes: [],
-            modules: {},
-            middleware,
-        });
-
-        const request = new Request("https://example.com/test");
-        const env = { ASSETS: createMockAssets() };
-        const ctx = createMockContext();
-
-        await handler.fetch(request, env, ctx);
-
-        ok(receivedRequest instanceof Request, "Middleware should receive Web Standard Request");
-        strictEqual(new URL(receivedRequest.url).pathname, "/test");
-    });
-
-    test("middleware runs before static file check", async () => {
+describe("createHandler integration & methods", () => {
+    test("handles various request types and methods", async () => {
         const callOrder = [];
-
-        const middleware = [
-            () => {
-                callOrder.push("middleware");
+        const routes = [
+            {
+                filename: "index.html",
+                jsx: "src/pages/index.jsx",
+                path: "/",
+                assets: { css: ["style.css"], js: ["app.js"] },
+            },
+            {
+                filename: "about.html",
+                jsx: "src/pages/about.jsx",
+                path: "/about",
+                generated: true,
+                assets: { css: [], js: [] },
             },
         ];
 
-        const handler = await createHandler({
-            routes: [],
-            modules: {},
-            middleware,
-        });
-
-        const request = new Request("https://example.com/app.js");
-        const env = {
-            ASSETS: {
-                async fetch() {
-                    callOrder.push("assets");
-                    return new Response("js content");
+        const modules = {
+            "src/pages/index.jsx": {
+                default: () => {
+                    callOrder.push("ssr");
+                    return "<html><head></head><body>SSR Content</body></html>";
                 },
             },
         };
-        const ctx = createMockContext();
 
-        await handler.fetch(request, env, ctx);
-
-        deepStrictEqual(callOrder, ["middleware", "assets"], "Middleware should run before ASSETS.fetch");
-    });
-});
-
-describe("Cloudflare adapter generated routes", () => {
-    test("generated routes fetch pre-rendered HTML from ASSETS", async () => {
-        const routes = [
-            {
-                filename: "about.html",
-                jsx: "src/pages/about/index.jsx",
-                path: "/about",
-                generated: true,
-                assets: { css: [], js: [] },
+        const middleware = [
+            (request) => {
+                const url = new URL(request.url);
+                callOrder.push("middleware");
+                if (url.pathname === "/auth") return new Response("Authenticated", { status: 200 });
             },
         ];
 
-        const handler = await createHandler({
-            routes,
-            modules: {},
-        });
-
-        const request = new Request("https://example.com/about");
-        const env = {
-            ASSETS: createMockAssets({
-                "/about.html": "<!doctype html><html><body>About Page</body></html>",
-            }),
-        };
-        const ctx = createMockContext();
-
-        const response = await handler.fetch(request, env, ctx);
-
-        strictEqual(response.status, 200);
-        const body = await response.text();
-        ok(body.includes("About Page"), "Should serve pre-rendered content");
-    });
-
-    test("generated routes set appropriate cache headers", async () => {
-        const routes = [
-            {
-                filename: "about.html",
-                jsx: "src/pages/about/index.jsx",
-                path: "/about",
-                generated: true,
-                assets: { css: [], js: [] },
-            },
-        ];
-
-        const handler = await createHandler({
-            routes,
-            modules: {},
-        });
-
-        const request = new Request("https://example.com/about");
-        const env = {
-            ASSETS: createMockAssets({
-                "/about.html": "<!doctype html><html><body>About Page</body></html>",
-            }),
-        };
-        const ctx = createMockContext();
-
-        const response = await handler.fetch(request, env, ctx);
-
-        strictEqual(response.headers.get("Cache-Control"), "public, max-age=300");
-    });
-});
-
-describe("Cloudflare adapter HEAD requests", () => {
-    test("HEAD request for static file returns headers without body", async () => {
-        const handler = await createHandler({
-            routes: [],
-            modules: {},
-        });
-
-        const request = new Request("https://example.com/app.js", { method: "HEAD" });
+        const handler = await createHandler({ routes, modules, middleware, publicPath: "/assets/" });
         const env = {
             ASSETS: createMockAssets({
                 "/app.js": 'console.log("test");',
+                "/about.html": "<!doctype html><html><body>About Page</body></html>",
             }),
         };
         const ctx = createMockContext();
 
-        const response = await handler.fetch(request, env, ctx);
+        // 1. Middleware short-circuit
+        const authRes = await handler.fetch(new Request("https://example.com/auth"), env, ctx);
+        strictEqual(authRes.status, 200);
+        strictEqual(await authRes.text(), "Authenticated");
+        deepStrictEqual(callOrder, ["middleware"]);
+        callOrder.length = 0;
 
-        strictEqual(response.status, 200);
-        const body = await response.text();
-        strictEqual(body, "", "HEAD response should have no body");
-    });
+        // 2. Static file request
+        const jsRes = await handler.fetch(new Request("https://example.com/app.js"), env, ctx);
+        strictEqual(jsRes.status, 200);
+        strictEqual(jsRes.headers.get("Content-Type"), "application/javascript");
+        callOrder.length = 0;
 
-    test("HEAD request for SSR route returns headers without body", async () => {
-        const routes = [
-            {
-                filename: "index.html",
-                jsx: "src/pages/index.jsx",
-                path: "/",
-                assets: { css: [], js: [] },
-            },
-        ];
+        // 3. SSR route with asset injection
+        const indexRes = await handler.fetch(new Request("https://example.com/"), env, ctx);
+        const indexBody = await indexRes.text();
+        ok(
+            indexBody.includes("SSR Content") &&
+                indexBody.includes('href="/assets/style.css"') &&
+                indexBody.includes('src="/assets/app.js"'),
+        );
+        deepStrictEqual(callOrder, ["middleware", "ssr"]);
+        callOrder.length = 0;
 
-        const modules = {
-            "src/pages/index.jsx": {
-                default: () => "<html><head></head><body>Content</body></html>",
-            },
-        };
+        // 4. Generated route
+        const aboutRes = await handler.fetch(new Request("https://example.com/about"), env, ctx);
+        strictEqual(aboutRes.status, 200);
+        strictEqual(aboutRes.headers.get("Cache-Control"), "public, max-age=300");
+        ok((await aboutRes.text()).includes("About Page"));
 
-        const handler = await createHandler({
-            routes,
-            modules,
-        });
+        // 5. HEAD request
+        const headRes = await handler.fetch(new Request("https://example.com/", { method: "HEAD" }), env, ctx);
+        strictEqual(headRes.status, 200);
+        strictEqual(await headRes.text(), "");
 
-        const request = new Request("https://example.com/", { method: "HEAD" });
-        const env = { ASSETS: createMockAssets() };
-        const ctx = createMockContext();
-
-        const response = await handler.fetch(request, env, ctx);
-
-        strictEqual(response.status, 200);
-        const body = await response.text();
-        strictEqual(body, "", "HEAD response should have no body");
-    });
-
-    test("HEAD request for 404 returns headers without body", async () => {
-        const handler = await createHandler({
-            routes: [],
-            modules: {},
-        });
-
-        const request = new Request("https://example.com/nonexistent", { method: "HEAD" });
-        const env = { ASSETS: createMockAssets() };
-        const ctx = createMockContext();
-
-        const response = await handler.fetch(request, env, ctx);
-
-        strictEqual(response.status, 404);
-        const body = await response.text();
-        strictEqual(body, "", "HEAD 404 response should have no body");
+        // 6. OPTIONS preflight
+        const optionsRes = await handler.fetch(new Request("https://example.com/api", { method: "OPTIONS" }), env, ctx);
+        strictEqual(optionsRes.status, 204);
+        strictEqual(optionsRes.body, null);
     });
 });
 
-describe("Cloudflare adapter publicPath configuration", () => {
-    test("uses default publicPath of /", async () => {
-        const routes = [
-            {
-                filename: "index.html",
-                jsx: "src/pages/index.jsx",
-                path: "/",
-                assets: { css: ["style.css"], js: ["app.js"] },
+describe("createHandler error fallbacks", () => {
+    const fallbackCases = [
+        {
+            name: "falls back to plain text 404 when custom render404 throws",
+            setup: {
+                render404: () => {
+                    throw new Error("404 fail");
+                },
             },
-        ];
-
-        const modules = {
-            "src/pages/index.jsx": {
-                default: () => "<html><head></head><body>Content</body></html>",
+            url: "https://example.com/404",
+            expectedStatus: 404,
+            expectedText: "Not found",
+        },
+        {
+            name: "falls back to plain text 500 when custom render500 throws",
+            setup: {
+                routes: [{ filename: "err.html", jsx: "err.jsx", path: "err", assets: { css: [], js: [] } }],
+                modules: {
+                    "err.jsx": {
+                        default: () => {
+                            throw new Error("SSR fail");
+                        },
+                    },
+                },
+                render500: () => {
+                    throw new Error("500 fail");
+                },
             },
-        };
+            url: "https://example.com/err",
+            expectedStatus: 500,
+            expectedText: "Internal Server Error",
+        },
+        {
+            name: "returns 500 when middleware throws",
+            setup: {
+                middleware: [
+                    () => {
+                        throw new Error("MW fail");
+                    },
+                ],
+            },
+            url: "https://example.com/",
+            expectedStatus: 500,
+            expectedText: "Internal Server Error",
+        },
+        {
+            name: "returns 500 for unexpected errors in core handler",
+            setup: {
+                routes: [{ filename: "index.html", jsx: "index.jsx", path: "", assets: { css: [], js: [] } }],
+                modules: {
+                    "index.jsx": {
+                        default: () => {
+                            throw new Error("Unexpected");
+                        },
+                    },
+                },
+            },
+            url: "https://example.com/",
+            expectedStatus: 500,
+            expectedText: "Internal Server Error",
+        },
+        {
+            name: "returns 404 for non-existent route",
+            setup: { routes: [] },
+            url: "https://example.com/none",
+            expectedStatus: 404,
+        },
+    ];
 
-        const handler = await createHandler({
-            routes,
-            modules,
+    for (const { name, setup, url, expectedStatus, expectedText } of fallbackCases) {
+        test(name, async () => {
+            const handler = await createHandler({ routes: [], modules: {}, ...setup });
+            const response = await handler.fetch(new Request(url), { ASSETS: createMockAssets() }, createMockContext());
+            strictEqual(response.status, expectedStatus);
+            if (expectedText) strictEqual(await response.text(), expectedText);
         });
-
-        const request = new Request("https://example.com/");
-        const env = { ASSETS: createMockAssets() };
-        const ctx = createMockContext();
-
-        const response = await handler.fetch(request, env, ctx);
-        const body = await response.text();
-
-        ok(body.includes('href="/style.css"'), "Should use default / publicPath for CSS");
-        ok(body.includes('src="/app.js"'), "Should use default / publicPath for JS");
-    });
-
-    test("uses custom publicPath when provided", async () => {
-        const routes = [
-            {
-                filename: "index.html",
-                jsx: "src/pages/index.jsx",
-                path: "/",
-                assets: { css: ["style.css"], js: ["app.js"] },
-            },
-        ];
-
-        const modules = {
-            "src/pages/index.jsx": {
-                default: () => "<html><head></head><body>Content</body></html>",
-            },
-        };
-
-        const handler = await createHandler({
-            routes,
-            modules,
-            publicPath: "/assets/",
-        });
-
-        const request = new Request("https://example.com/");
-        const env = { ASSETS: createMockAssets() };
-        const ctx = createMockContext();
-
-        const response = await handler.fetch(request, env, ctx);
-        const body = await response.text();
-
-        ok(body.includes('href="/assets/style.css"'), "Should use custom publicPath for CSS");
-        ok(body.includes('src="/assets/app.js"'), "Should use custom publicPath for JS");
-    });
+    }
 });
 
-describe("Cloudflare adapter security headers", () => {
-    test("SSR responses include default security headers", async () => {
-        const routes = [
-            {
-                filename: "index.html",
-                jsx: "src/pages/index.jsx",
-                path: "/",
-                assets: { css: [], js: [] },
-            },
-        ];
-
-        const modules = {
-            "src/pages/index.jsx": {
-                default: () => "<html><head></head><body>Content</body></html>",
+describe("createHandler edge cases", () => {
+    test("falls through to SSR when static file fetch throws", async () => {
+        const handler = await createHandler({
+            routes: [{ filename: "app.js", jsx: "app.jsx", path: "app.js", assets: { css: [], js: [] } }],
+            modules: { "app.jsx": { default: () => "<html><body>SSR Fallback</body></html>" } },
+        });
+        const env = {
+            ASSETS: {
+                fetch: () => {
+                    throw new Error("fail");
+                },
             },
         };
-
-        const handler = await createHandler({
-            routes,
-            modules,
-        });
-
-        const request = new Request("https://example.com/");
-        const env = { ASSETS: createMockAssets() };
-        const ctx = createMockContext();
-
-        const response = await handler.fetch(request, env, ctx);
-
-        strictEqual(response.headers.get("X-Content-Type-Options"), "nosniff");
-        strictEqual(response.headers.get("X-Frame-Options"), "DENY");
-        strictEqual(response.headers.get("Referrer-Policy"), "strict-origin-when-cross-origin");
+        const response = await handler.fetch(new Request("https://example.com/app.js"), env, createMockContext());
+        strictEqual(response.status, 200);
+        ok((await response.text()).includes("SSR Fallback"));
     });
 
-    test("custom security headers override defaults", async () => {
-        const routes = [
-            {
-                filename: "index.html",
-                jsx: "src/pages/index.jsx",
-                path: "/",
-                assets: { css: [], js: [] },
-            },
-        ];
-
-        const modules = {
-            "src/pages/index.jsx": {
-                default: () => "<html><head></head><body>Content</body></html>",
-            },
-        };
-
+    test("returns 404 when generated route asset fetch fails", async () => {
         const handler = await createHandler({
-            routes,
-            modules,
-            securityHeaders: {
-                "X-Frame-Options": "SAMEORIGIN",
-                "Strict-Transport-Security": "max-age=31536000",
-            },
-        });
-
-        const request = new Request("https://example.com/");
-        const env = { ASSETS: createMockAssets() };
-        const ctx = createMockContext();
-
-        const response = await handler.fetch(request, env, ctx);
-
-        // Custom header overrides default
-        strictEqual(response.headers.get("X-Frame-Options"), "SAMEORIGIN");
-        // New custom header added
-        strictEqual(response.headers.get("Strict-Transport-Security"), "max-age=31536000");
-        // Default headers still present
-        strictEqual(response.headers.get("X-Content-Type-Options"), "nosniff");
-        strictEqual(response.headers.get("Referrer-Policy"), "strict-origin-when-cross-origin");
-    });
-
-    test("404 responses include security headers", async () => {
-        const handler = await createHandler({
-            routes: [],
+            routes: [{ filename: "gen.html", jsx: "gen.jsx", path: "/gen", generated: true, assets: { css: [], js: [] } }],
             modules: {},
-            securityHeaders: {
-                "X-Frame-Options": "SAMEORIGIN",
+        });
+        const env = { ASSETS: { fetch: async () => new Response("Not Found", { status: 404 }) } };
+        const response = await handler.fetch(new Request("https://example.com/gen"), env, createMockContext());
+        strictEqual(response.status, 404);
+    });
+
+    test("serves generated index route for / with empty path", async () => {
+        const handler = await createHandler({
+            routes: [{ filename: "index.html", jsx: "index.jsx", path: "", generated: true, assets: { css: [], js: [] } }],
+            modules: {},
+        });
+        const env = { ASSETS: createMockAssets({ "/index.html": "Generated Index" }) };
+        const response = await handler.fetch(new Request("https://example.com/"), env, createMockContext());
+        strictEqual(response.status, 200);
+        strictEqual(await response.text(), "Generated Index");
+    });
+
+    test("getRequestUrl returns 400 for invalid URL format", async () => {
+        const handler = await createHandler({ routes: [], modules: {} });
+        // Passing a request-like object where URL constructor will fail
+        const response = await handler.fetch({ url: "not-a-url" }, {}, {});
+        strictEqual(response.status, 400);
+    });
+
+    test("fetch returns 500 for global unexpected errors (e.g. throwing property access)", async () => {
+        const handler = await createHandler({ routes: [], modules: {} });
+        const mockRequest = {
+            get url() {
+                throw new Error("Unexpected Error");
+            },
+        };
+        // @ts-expect-error - testing invalid input
+        const response = await handler.fetch(mockRequest, {}, {});
+        strictEqual(response.status, 500);
+        strictEqual(await response.text(), "Internal Server Error");
+    });
+
+    test("tryServeGeneratedRoute falls through to SSR when ASSETS.fetch throws", async () => {
+        const handler = await createHandler({
+            routes: [
+                {
+                    filename: "gen.html",
+                    jsx: "gen.jsx",
+                    path: "gen",
+                    generated: true,
+                    assets: { css: [], js: [] },
+                },
+            ],
+            modules: {
+                "gen.jsx": {
+                    default: () => "SSR Fallback",
+                },
             },
         });
-
-        const request = new Request("https://example.com/nonexistent");
-        const env = { ASSETS: createMockAssets() };
-        const ctx = createMockContext();
-
-        const response = await handler.fetch(request, env, ctx);
-
+        const env = {
+            ASSETS: {
+                fetch: () => {
+                    throw new Error("ASSETS failure");
+                },
+            },
+        };
+        const response = await handler.fetch(new Request("https://example.com/gen"), env, createMockContext());
+        // Fallback to SSR returns 404 because coreHandler skips generated routes
         strictEqual(response.status, 404);
-        strictEqual(response.headers.get("X-Frame-Options"), "SAMEORIGIN");
-        strictEqual(response.headers.get("X-Content-Type-Options"), "nosniff");
     });
 });

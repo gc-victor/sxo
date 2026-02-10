@@ -14,21 +14,33 @@
  * @module server/prod/deno
  */
 
-import { OUTPUT_DIR_CLIENT, OUTPUT_DIR_SERVER, PORT, ROUTES_FILE, ROUTES_RELATIVE_PATH } from "../../constants.js";
+import {
+    ALLOW_MIDDLEWARE_SECURITY_OVERRIDE,
+    OUTPUT_DIR_CLIENT,
+    OUTPUT_DIR_SERVER,
+    PORT,
+    ROUTES_FILE,
+    ROUTES_RELATIVE_PATH,
+    SECURITY_HEADERS,
+} from "../../constants.js";
 import { loadUserDefinedMiddlewares } from "../middleware.js";
 import { loadErrorPages } from "../shared/error-pages-loader.js";
-import { denoFileReader } from "../shared/file-readers.js";
+import { createFileReader } from "../shared/file-readers.js";
 import { loadModulesWithFallback } from "../shared/module-loader.js";
 import { loadRoutesManifest } from "../shared/routes-loader.js";
 import { createStaticHandler } from "../shared/static-handler.js";
-import { httpDenoLogger, logger, resolve404Page, resolve500Page } from "../utils/index.js";
+import { resolve404Page, resolve500Page } from "../utils/error-pages.js";
+import { jsxBundlePath } from "../utils/jsx-bundle-path.js";
+import { httpDenoLogger, logger } from "../utils/logger.js";
 import { createFetchHandler, createGeneratedRouteHandler, createProdHandler } from "./core-handler.js";
 
 const YELLOW = "\x1b[33m";
 
-// --- Startup: Load routes, modules, middleware, and error pages ---
-
-// Platform-specific importer (Deno dynamic import)
+/**
+ * Platform-specific importer (Deno dynamic import).
+ * @param {string} url - Module URL to import
+ * @returns {Promise<any>}
+ */
 const denoImporter = (url) => import(url);
 
 /**
@@ -37,7 +49,7 @@ const denoImporter = (url) => import(url);
  * @param {string} relative - Relative path
  * @returns {string} Resolved path
  */
-function joinPath(base, relative) {
+function _joinPath(base, relative) {
     const normalized = relative.replace(/^\/+/, "");
     if (base.endsWith("/")) {
         return base + normalized;
@@ -46,12 +58,12 @@ function joinPath(base, relative) {
 }
 
 // Load and validate routes at startup
+/** @type {any[]} */
 let routes;
 try {
     routes = await loadRoutesManifest(ROUTES_FILE, {
         retries: 1,
         readFile: async (path) => await Deno.readTextFile(path),
-        logger,
         source: ROUTES_RELATIVE_PATH,
     });
 } catch (e) {
@@ -72,9 +84,11 @@ const modules = await loadModulesWithFallback({
     importer: denoImporter,
     onWarn: (msg) => logger.warn(msg),
     onError: (msg) => logger.error(msg),
+    isDev: false,
 });
 
 // Load user-defined middleware
+/** @type {any[]} */
 let userMiddlewares = [];
 try {
     userMiddlewares = await loadUserDefinedMiddlewares();
@@ -87,31 +101,28 @@ const { render404, render500 } = await loadErrorPages({
     resolve404Page,
     resolve500Page,
     loadJsxModule: async (jsxPath) => {
-        const fullPath = joinPath(OUTPUT_DIR_SERVER, jsxPath);
-        const fileUrl = fullPath.startsWith("file://") ? fullPath : `file://${fullPath.startsWith("/") ? fullPath : `${cwd}/${fullPath}`}`;
-        const fn = await denoImporter(fileUrl);
+        const fn = await denoImporter(`file://${jsxBundlePath(jsxPath)}`);
         return fn.default || fn.jsx;
     },
-    logger,
+    redactErrors: true,
 });
 
 // Normalize public path once at startup
 const publicPath = Deno.env.get("PUBLIC_PATH") ?? "/";
 
-// --- Create platform-agnostic handlers ---
-
 // Create file reader once
-const fileReader = denoFileReader();
+const fileReader = createFileReader();
 
 // Create prod handler with core logic
-const { handleRequest, send500 } = createProdHandler({
+const { handleRequest, send404, send500 } = createProdHandler({
     getRoutes: () => routes,
     modules,
     publicPath,
     getMiddleware: () => userMiddlewares,
     render404,
     render500,
-    logger,
+    securityHeaders: SECURITY_HEADERS,
+    allowMiddlewareSecurityOverride: ALLOW_MIDDLEWARE_SECURITY_OVERRIDE,
 });
 
 // Create static file handler with Deno file reader
@@ -124,7 +135,7 @@ const handleStaticRequest = createStaticHandler({
 const serveGeneratedRoute = createGeneratedRouteHandler({
     staticDir: OUTPUT_DIR_CLIENT,
     fileReader,
-    joinPath: joinPath,
+    securityHeaders: SECURITY_HEADERS,
 });
 
 // Create unified fetch handler
@@ -132,27 +143,23 @@ const handleFetch = createFetchHandler({
     handleStaticRequest,
     handleRequest,
     serveGeneratedRoute,
+    send404,
     send500,
-    logger,
 });
-
-// --- Deno.serve fetch handler ---
 
 /**
  * Handle incoming HTTP request (Deno.serve fetch API).
  *
  * @param {Request} request - Web Standard Request
- * @param {Deno.ServeHandlerInfo} info - Request info
+ * @param {Deno.ServeHandlerInfo} [info] - Request info
  * @returns {Promise<Response>} Web Standard Response
  */
 async function fetch(request, info) {
-    const log = httpDenoLogger(request, info);
+    const log = httpDenoLogger(request, /** @type {{ remoteAddr?: { hostname: string } } | undefined} */ (info));
     const response = await handleFetch(request);
     log.finish(response);
     return response;
 }
-
-// --- Start Deno server ---
 
 Deno.serve({
     port: PORT,
@@ -161,18 +168,12 @@ Deno.serve({
 
 logger.info(`${YELLOW}http://localhost:${PORT}/`);
 
-// Graceful shutdown
-Deno.addSignalListener("SIGINT", () => {
-    logger.info("Shutting down...");
-    Deno.exit(0);
-});
-
 // Note: Deno doesn't have direct equivalents for unhandledRejection/uncaughtException
 // but has similar global error handlers
-globalThis.addEventListener("unhandledrejection", (event) => {
+globalThis.addEventListener("unhandledrejection", (/** @type {PromiseRejectionEvent} */ event) => {
     logger.error({ reason: event.reason }, "Unhandled Rejection");
 });
 
-globalThis.addEventListener("error", (event) => {
+globalThis.addEventListener("error", (/** @type {ErrorEvent} */ event) => {
     logger.error({ err: event.error }, "Uncaught Exception");
 });
