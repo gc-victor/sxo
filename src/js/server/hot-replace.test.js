@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { normalizePublicPath, renderErrorHtml } from "./utils/index.js";
+import { renderErrorHtml } from "./utils/html-utils.js";
+import { normalizePublicPath } from "./utils/inject-assets.js";
 
 // These tests validate the SSE hot-replace contract described in AGENTS.md:
 // - Success payload shape: { body, assets, publicPath }

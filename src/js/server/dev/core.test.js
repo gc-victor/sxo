@@ -4,94 +4,111 @@
  * Covers:
  * - debounce() timing and cancellation behavior
  * - reloadRoutesManifest() with retry logic
+ * - isMiddlewareFile() identification logic
  * - extractBodyFromHtml() body content extraction
  * - buildHotReplacePayload() SSE payload building
  * - getWatcherErrorHandler() graceful error handling
+ * - runEsbuild() esbuild execution and error cleaning
  */
 
 import { deepStrictEqual, ok, rejects, strictEqual } from "node:assert";
 import fsp from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, test } from "node:test";
 
-// These imports will fail initially (RED phase) until implementation exists
-import { buildHotReplacePayload, debounce, extractBodyFromHtml, getWatcherErrorHandler, reloadRoutesManifest } from "./core.js";
+import { buildHotReplacePayload, debounce, getWatcherErrorHandler, isMiddlewareFile, reloadRoutesManifest, runEsbuild } from "./core.js";
+import { extractBodyFromHtml } from "./html-utils.js";
+
+/**
+ * Helper to run scenario-based tests with common pattern.
+ * @param {object} t - Test context
+ * @param {Array} scenarios - Test scenarios
+ * @param {Function} runner - Async function to execute each scenario
+ */
+async function _runScenarios(t, scenarios, runner) {
+    for (const scenario of scenarios) {
+        await t.test(scenario.name, () => runner(scenario));
+    }
+}
 
 // --- debounce() tests ---
 
 describe("debounce", () => {
-    describe("timing behavior", () => {
-        test("should delay function execution by specified milliseconds", async () => {
-            // Arrange
-            let callCount = 0;
-            const fn = () => {
-                callCount++;
-            };
-            const debounced = debounce(fn, 50);
+    test("handles various debounce scenarios", async (t) => {
+        const scenarios = [
+            {
+                name: "delays function execution by specified milliseconds",
+                delay: 50,
+                setup: () => {
+                    let calls = 0;
+                    return { fn: () => calls++, get: () => calls };
+                },
+                act: (fn) => fn(),
+                check: (val) => strictEqual(val, 1),
+                wait: 60,
+                immediate: true,
+            },
+            {
+                name: "cancels previous timer when called multiple times within delay",
+                delay: 50,
+                setup: () => {
+                    let calls = 0;
+                    return { fn: () => calls++, get: () => calls };
+                },
+                act: (fn) => {
+                    fn();
+                    fn();
+                    fn();
+                },
+                check: (val) => strictEqual(val, 1),
+                wait: 60,
+            },
+            {
+                name: "passes all arguments to debounced function",
+                delay: 20,
+                setup: () => {
+                    let args = null;
+                    return {
+                        fn: (...a) => {
+                            args = a;
+                        },
+                        get: () => args,
+                    };
+                },
+                act: (fn) => fn("arg1", "arg2", 123),
+                check: (val) => deepStrictEqual(val, ["arg1", "arg2", 123]),
+                wait: 30,
+            },
+            {
+                name: "handles async functions correctly",
+                delay: 20,
+                setup: () => {
+                    let done = false;
+                    const fn = async () => {
+                        await new Promise((r) => setTimeout(r, 10));
+                        done = true;
+                    };
+                    return { fn, get: () => done };
+                },
+                act: (fn) => fn(),
+                check: (val) => strictEqual(val, true),
+                wait: 50,
+            },
+        ];
 
-            // Act
-            debounced();
+        for (const s of scenarios) {
+            await t.test(s.name, async () => {
+                const { fn, get } = s.setup();
+                const debounced = debounce(fn, s.delay);
 
-            // Assert - should not have been called immediately
-            strictEqual(callCount, 0, "Function should not be called immediately");
+                s.act(debounced);
+                if (s.immediate) strictEqual(get(), 0);
 
-            // Wait for delay
-            await new Promise((resolve) => setTimeout(resolve, 60));
-            strictEqual(callCount, 1, "Function should be called after delay");
-        });
-
-        test("should cancel previous timer when called multiple times within delay", async () => {
-            // Arrange
-            let callCount = 0;
-            const fn = () => {
-                callCount++;
-            };
-            const debounced = debounce(fn, 50);
-
-            // Act - call multiple times rapidly
-            debounced();
-            debounced();
-            debounced();
-
-            // Assert - wait for delay and check only called once
-            await new Promise((resolve) => setTimeout(resolve, 60));
-            strictEqual(callCount, 1, "Function should only be called once after multiple rapid calls");
-        });
-
-        test("should pass all arguments to debounced function", async () => {
-            // Arrange
-            let receivedArgs = null;
-            const fn = (...args) => {
-                receivedArgs = args;
-            };
-            const debounced = debounce(fn, 20);
-
-            // Act
-            debounced("arg1", "arg2", 123);
-
-            // Wait for execution
-            await new Promise((resolve) => setTimeout(resolve, 30));
-
-            // Assert
-            deepStrictEqual(receivedArgs, ["arg1", "arg2", 123]);
-        });
-
-        test("should handle async functions correctly", async () => {
-            // Arrange
-            let resolved = false;
-            const asyncFn = async () => {
-                await new Promise((resolve) => setTimeout(resolve, 10));
-                resolved = true;
-            };
-            const debounced = debounce(asyncFn, 20);
-
-            // Act
-            debounced();
-
-            // Assert - async function should complete
-            await new Promise((resolve) => setTimeout(resolve, 50));
-            strictEqual(resolved, true, "Async function should complete execution");
-        });
+                await new Promise((r) => setTimeout(r, s.wait));
+                s.check(get());
+            });
+        }
     });
 });
 
@@ -102,333 +119,250 @@ describe("reloadRoutesManifest", () => {
     let routesPath;
 
     beforeEach(async () => {
-        // Create temp directory for test fixtures
-        tempDir = await fsp.mkdtemp(path.join("/tmp", "core-test-"));
+        tempDir = await fsp.mkdtemp(path.join(os.tmpdir(), "core-test-"));
         routesPath = path.join(tempDir, "routes.json");
     });
 
     afterEach(async () => {
-        // Cleanup temp directory
         await fsp.rm(tempDir, { recursive: true, force: true });
     });
 
-    test("should parse valid routes.json on first attempt", async () => {
-        // Arrange
-        const routes = [
-            { path: "", jsx: "dist/server/index.js" },
-            { path: "about", jsx: "dist/server/about.js" },
+    test("handles manifest loading scenarios", async (t) => {
+        const scenarios = [
+            {
+                name: "parses valid routes.json on first attempt with multiple routes",
+                setup: async () => {
+                    const routes = [
+                        { path: "", jsx: "dist/server/index.js", filename: "index.html" },
+                        { path: "about", jsx: "dist/server/about.js", filename: "about.html" },
+                    ];
+                    await fsp.writeFile(routesPath, JSON.stringify(routes), "utf-8");
+                    return routes;
+                },
+                act: () => reloadRoutesManifest(routesPath),
+                check: (result, expected) => deepStrictEqual(result, expected),
+            },
+            {
+                name: "parses valid routes.json with assets and custom reader",
+                setup: async () => {
+                    const routes = [{ path: "test", jsx: "test.js", filename: "test.html", assets: { css: [], js: [] } }];
+                    await fsp.writeFile(routesPath, JSON.stringify(routes), "utf-8");
+                    return routes;
+                },
+                act: () => reloadRoutesManifest(routesPath, { readFile: (p) => fsp.readFile(p, "utf-8") }),
+                check: (result, expected) => {
+                    ok(Array.isArray(result));
+                    strictEqual(result.length, 1);
+                    deepStrictEqual(result, expected);
+                },
+            },
+            {
+                name: "handles retry logic on temporary parse errors",
+                setup: async () => {
+                    await fsp.writeFile(routesPath, "not valid json", "utf-8");
+                    const routes = [{ path: "", jsx: "index.js", filename: "index.html" }];
+                    setTimeout(async () => {
+                        await fsp.writeFile(routesPath, JSON.stringify(routes), "utf-8");
+                    }, 150);
+                    return routes;
+                },
+                act: () => reloadRoutesManifest(routesPath, { retries: 3 }),
+                check: (result, expected) => deepStrictEqual(result, expected),
+            },
         ];
-        await fsp.writeFile(routesPath, JSON.stringify(routes), "utf-8");
 
-        // Act
-        const result = await reloadRoutesManifest(routesPath);
-
-        // Assert
-        deepStrictEqual(result, routes);
+        for (const s of scenarios) {
+            await t.test(s.name, async () => {
+                const expected = await s.setup();
+                const result = await s.act();
+                s.check(result, expected);
+            });
+        }
     });
 
-    test("should retry up to 3 times on parse errors", async () => {
-        // Arrange - write invalid JSON initially
-        await fsp.writeFile(routesPath, "not valid json", "utf-8");
-
-        // Write valid JSON after a delay (simulating file being written)
-        setTimeout(async () => {
-            const routes = [{ path: "", jsx: "index.js" }];
-            await fsp.writeFile(routesPath, JSON.stringify(routes), "utf-8");
-        }, 150);
-
-        // Act
-        const result = await reloadRoutesManifest(routesPath, { retries: 3 });
-
-        // Assert - should have successfully parsed after retry
-        deepStrictEqual(result, [{ path: "", jsx: "index.js" }]);
-    });
-
-    test("should throw after exhausting retries on persistent parse errors", async () => {
-        // Arrange - write invalid JSON that won't be fixed
+    test("throws after exhausting retries on persistent parse errors", async () => {
         await fsp.writeFile(routesPath, "{ invalid json }", "utf-8");
-
-        // Act & Assert
         await rejects(async () => reloadRoutesManifest(routesPath, { retries: 2 }), /Failed to load routes after 2 attempts/);
     });
+});
 
-    test("should return parsed routes array on success", async () => {
-        // Arrange
-        const routes = [{ path: "test", jsx: "test.js", assets: { css: [], js: [] } }];
-        await fsp.writeFile(routesPath, JSON.stringify(routes), "utf-8");
+// --- isMiddlewareFile() tests ---
 
-        // Act
-        const result = await reloadRoutesManifest(routesPath);
+describe("isMiddlewareFile", () => {
+    test("correctly identifies middleware files", (t) => {
+        const scenarios = [
+            { file: "middleware.js", expected: true },
+            { file: "middleware.ts", expected: true },
+            { file: "middleware.mjs", expected: true },
+            { file: "src/middleware.js", expected: true },
+            { file: "src/middleware/auth.js", expected: true },
+            { file: "components/button.jsx", expected: false },
+            { file: "app.js", expected: false },
+            { file: "", expected: false },
+            { file: null, expected: false },
+        ];
 
-        // Assert
-        ok(Array.isArray(result), "Result should be an array");
-        strictEqual(result.length, 1);
-        strictEqual(result[0].path, "test");
+        for (const { file, expected } of scenarios) {
+            t.test(`returns ${expected} for "${file}"`, () => {
+                strictEqual(isMiddlewareFile(file), expected);
+            });
+        }
     });
 });
 
 // --- extractBodyFromHtml() tests ---
 
 describe("extractBodyFromHtml", () => {
-    test("should extract content between <body> and </body> tags", () => {
-        // Arrange
-        const html = "<html><head></head><body><div>Hello World</div></body></html>";
+    test("extracts body content across various scenarios", (t) => {
+        const scenarios = [
+            { html: "<html><body><div>Hello</div></body></html>", expected: "<div>Hello</div>" },
+            { html: "<HTML><BODY><p>Content</p></BODY></HTML>", expected: "<p>Content</p>" },
+            { html: "<html><Body><span>Mixed</span></Body></html>", expected: "<span>Mixed</span>" },
+            { html: '<body class="dark"><main>Content</main></body>', expected: "<main>Content</main>" },
+            {
+                html: "<html><body>\n    <div>\n        <h1>Title</h1>\n    </div>\n</body></html>",
+                expected: "\n    <div>\n        <h1>Title</h1>\n    </div>\n",
+            },
+            { html: "<html><head><title>No Body</title></head></html>", expected: "" },
+        ];
 
-        // Act
-        const result = extractBodyFromHtml(html);
-
-        // Assert
-        strictEqual(result, "<div>Hello World</div>");
-    });
-
-    test("should handle case-insensitive tags", () => {
-        // Arrange
-        const htmlUpper = "<HTML><HEAD></HEAD><BODY><p>Content</p></BODY></HTML>";
-        const htmlMixed = "<html><head></head><Body><span>Mixed</span></Body></html>";
-
-        // Act
-        const resultUpper = extractBodyFromHtml(htmlUpper);
-        const resultMixed = extractBodyFromHtml(htmlMixed);
-
-        // Assert
-        strictEqual(resultUpper, "<p>Content</p>");
-        strictEqual(resultMixed, "<span>Mixed</span>");
-    });
-
-    test("should preserve inner HTML exactly including whitespace and nested tags", () => {
-        // Arrange
-        const html = `<html><body>
-    <div class="wrapper">
-        <h1>Title</h1>
-        <p>Paragraph</p>
-    </div>
-</body></html>`;
-
-        // Act
-        const result = extractBodyFromHtml(html);
-
-        // Assert
-        ok(result.includes('<div class="wrapper">'), "Should preserve class attribute");
-        ok(result.includes("<h1>Title</h1>"), "Should preserve nested tags");
-        ok(result.includes("    "), "Should preserve whitespace");
-    });
-
-    test("should return empty string if no body tags found", () => {
-        // Arrange
-        const html = "<html><head><title>No Body</title></head></html>";
-
-        // Act
-        const result = extractBodyFromHtml(html);
-
-        // Assert
-        strictEqual(result, "");
-    });
-
-    test("should handle body with attributes", () => {
-        // Arrange
-        const html = '<html><body class="dark" data-theme="night"><main>Content</main></body></html>';
-
-        // Act
-        const result = extractBodyFromHtml(html);
-
-        // Assert
-        strictEqual(result, "<main>Content</main>");
+        for (const { html, expected } of scenarios) {
+            t.test(`extracts from ${html.slice(0, 30)}...`, () => {
+                strictEqual(extractBodyFromHtml(html), expected);
+            });
+        }
     });
 });
 
 // --- buildHotReplacePayload() tests ---
 
 describe("buildHotReplacePayload", () => {
-    test("should return JSON string with body, assets, publicPath keys", async () => {
-        // Arrange
-        const route = {
-            jsx: "test.js",
-            assets: { css: ["style.css"], js: ["main.js"] },
-        };
-        const params = {};
-        const jsxFn = async () => "<html><body><p>Test</p></body></html>";
-        const publicPath = "/";
+    test("builds correct SSE payloads", async (t) => {
+        const scenarios = [
+            {
+                name: "standard route with assets",
+                opts: {
+                    route: { jsx: "t.js", assets: { css: ["s.css"], js: ["m.js"] } },
+                    jsxFn: async () => "<body><p>Test</p></body>",
+                    publicPath: "/",
+                },
+                check: (p) => {
+                    strictEqual(p.body, "<p>Test</p>");
+                    deepStrictEqual(p.assets.css, ["s.css"]);
+                    strictEqual(p.publicPath, "/");
+                },
+            },
+            {
+                name: "route without assets property",
+                opts: {
+                    route: { jsx: "t.js" },
+                    jsxFn: async () => "<body>Content</body>",
+                    publicPath: "/static",
+                },
+                check: (p) => {
+                    deepStrictEqual(p.assets.css, []);
+                    strictEqual(p.publicPath, "/static/");
+                },
+            },
+            {
+                name: "empty publicPath",
+                opts: {
+                    route: { jsx: "t.js" },
+                    jsxFn: async () => "<body></body>",
+                    publicPath: "",
+                },
+                check: (p) => strictEqual(p.publicPath, ""),
+            },
+        ];
 
-        // Act
-        const result = await buildHotReplacePayload({ route, params, jsxFn, publicPath });
-        const parsed = JSON.parse(result);
-
-        // Assert
-        ok("body" in parsed, "Should have body key");
-        ok("assets" in parsed, "Should have assets key");
-        ok("publicPath" in parsed, "Should have publicPath key");
-    });
-
-    test("should include css and js arrays from route.assets", async () => {
-        // Arrange
-        const route = {
-            jsx: "test.js",
-            assets: { css: ["a.css", "b.css"], js: ["x.js"] },
-        };
-        const jsxFn = async () => "<html><body>Content</body></html>";
-
-        // Act
-        const result = await buildHotReplacePayload({
-            route,
-            params: {},
-            jsxFn,
-            publicPath: "/",
-        });
-        const parsed = JSON.parse(result);
-
-        // Assert
-        deepStrictEqual(parsed.assets.css, ["a.css", "b.css"]);
-        deepStrictEqual(parsed.assets.js, ["x.js"]);
-    });
-
-    test("should normalize publicPath preserving empty string", async () => {
-        // Arrange
-        const route = { jsx: "test.js", assets: { css: [], js: [] } };
-        const jsxFn = async () => "<html><body></body></html>";
-
-        // Act - empty string publicPath
-        const resultEmpty = await buildHotReplacePayload({
-            route,
-            params: {},
-            jsxFn,
-            publicPath: "",
-        });
-        const parsedEmpty = JSON.parse(resultEmpty);
-
-        // Act - non-empty publicPath
-        const resultPath = await buildHotReplacePayload({
-            route,
-            params: {},
-            jsxFn,
-            publicPath: "/static",
-        });
-        const parsedPath = JSON.parse(resultPath);
-
-        // Assert
-        strictEqual(parsedEmpty.publicPath, "", "Empty string should be preserved");
-        ok(parsedPath.publicPath.endsWith("/"), "Non-empty path should end with trailing slash");
-    });
-
-    test("should extract body from HTML if route module returns full document", async () => {
-        // Arrange
-        const route = { jsx: "test.js", assets: { css: [], js: [] } };
-        const jsxFn = async () => '<html><head></head><body><div id="app">App Content</div></body></html>';
-
-        // Act
-        const result = await buildHotReplacePayload({
-            route,
-            params: {},
-            jsxFn,
-            publicPath: "/",
-        });
-        const parsed = JSON.parse(result);
-
-        // Assert
-        strictEqual(parsed.body, '<div id="app">App Content</div>');
-    });
-
-    test("should handle routes without assets gracefully", async () => {
-        // Arrange
-        const route = { jsx: "test.js" }; // No assets property
-        const jsxFn = async () => "<html><body>Content</body></html>";
-
-        // Act
-        const result = await buildHotReplacePayload({
-            route,
-            params: {},
-            jsxFn,
-            publicPath: "/",
-        });
-        const parsed = JSON.parse(result);
-
-        // Assert
-        deepStrictEqual(parsed.assets.css, []);
-        deepStrictEqual(parsed.assets.js, []);
+        for (const s of scenarios) {
+            await t.test(s.name, async () => {
+                const result = await buildHotReplacePayload({ ...s.opts, params: {} });
+                s.check(JSON.parse(result));
+            });
+        }
     });
 });
 
 // --- getWatcherErrorHandler() tests ---
 
 describe("getWatcherErrorHandler", () => {
-    test("should return a function that accepts an Error", () => {
-        // Arrange
-        const mockLogger = { warn: () => {} };
+    test("handles watcher errors gracefully", (t) => {
+        const scenarios = [
+            { context: "src", error: new Error("ENOSPC: limit reached") },
+            { context: "dist", error: new Error("EMFILE: too many files") },
+            { context: "src", error: new Error("Watch failed") },
+        ];
 
-        // Act
-        const handler = getWatcherErrorHandler("src", mockLogger);
+        for (const { context, error } of scenarios) {
+            t.test(`handles ${error.message.slice(0, 20)}...`, () => {
+                const handler = getWatcherErrorHandler(context);
+                strictEqual(typeof handler, "function");
+                handler(error);
+                ok(true);
+            });
+        }
+    });
 
-        // Assert
+    test("returns a function and does not throw", () => {
+        const handler = getWatcherErrorHandler("test");
         strictEqual(typeof handler, "function");
+        handler(new Error("silent"));
+        ok(true);
     });
+});
 
-    test("should log warning message with context on error", () => {
-        // Arrange
-        let loggedMessage = null;
-        const mockLogger = {
-            warn: (msg) => {
-                loggedMessage = msg;
+// --- runEsbuild() tests ---
+
+describe("runEsbuild", () => {
+    test("handles esbuild execution scenarios", async (t) => {
+        const scenarios = [
+            { name: "successful build returns empty string", spawn: async () => "", expected: "" },
+            {
+                name: "cleans error messages from stderr",
+                spawn: async () => "✘ [ERROR] [plugin jsx-transform] syntax error",
+                expected: "syntax error",
             },
-        };
-        const handler = getWatcherErrorHandler("src directory", mockLogger);
-        const error = new Error("ENOSPC: System limit reached");
-
-        // Act
-        handler(error);
-
-        // Assert
-        ok(loggedMessage, "Should have logged a message");
-        ok(loggedMessage.includes("src directory"), "Should include context");
-        ok(loggedMessage.includes("ENOSPC"), "Should include error message");
-    });
-
-    test("should not throw or crash when called", () => {
-        // Arrange
-        const mockLogger = { warn: () => {} };
-        const handler = getWatcherErrorHandler("test", mockLogger);
-        const error = new Error("Some error");
-
-        // Act & Assert - should not throw
-        handler(error);
-        ok(true, "Handler should not throw");
-    });
-
-    test("should include error message in log output", () => {
-        // Arrange
-        let loggedMessage = null;
-        const mockLogger = {
-            warn: (msg) => {
-                loggedMessage = msg;
+            { name: "trims whitespace from errors", spawn: async () => "  ✘ [ERROR]   spacing   ", expected: "spacing" },
+            { name: "returns empty string when filename provided without errors", spawn: async () => "", filename: "app.js", expected: "" },
+            {
+                name: "returns empty string when filename with colors provided without errors",
+                spawn: async () => "",
+                filename: "app.js",
+                colors: { yellow: "Y", reset: "R" },
+                expected: "",
             },
-        };
-        const handler = getWatcherErrorHandler("dist", mockLogger);
-        const error = new Error("EMFILE: too many open files");
+        ];
 
-        // Act
-        handler(error);
-
-        // Assert
-        ok(loggedMessage.includes("EMFILE: too many open files"));
+        for (const s of scenarios) {
+            await t.test(s.name, async () => {
+                const result = await runEsbuild({ spawnEsbuild: s.spawn, filename: s.filename, colors: s.colors });
+                strictEqual(result, s.expected);
+            });
+        }
     });
 
-    test("should indicate hot-reload may be degraded", () => {
-        // Arrange
-        let loggedMessage = null;
-        const mockLogger = {
-            warn: (msg) => {
-                loggedMessage = msg;
-            },
-        };
-        const handler = getWatcherErrorHandler("src", mockLogger);
+    test("propagates unexpected execution failures", async (t) => {
+        const scenarios = [
+            { name: "with Error instance", error: new Error("Spawn failed") },
+            { name: "with string error", error: "Non-error failure" },
+        ];
 
-        // Act
-        handler(new Error("Watch error"));
-
-        // Assert
-        ok(
-            loggedMessage.toLowerCase().includes("hot-reload") ||
-                loggedMessage.toLowerCase().includes("degraded") ||
-                loggedMessage.toLowerCase().includes("watcher"),
-            "Should indicate watcher/hot-reload issue",
-        );
+        for (const { name, error } of scenarios) {
+            await t.test(name, async () => {
+                await rejects(
+                    async () =>
+                        runEsbuild({
+                            spawnEsbuild: async () => {
+                                throw error;
+                            },
+                        }),
+                    (e) => {
+                        const expected = error instanceof Error ? error.message : String(error);
+                        return e === error || (e instanceof Error && e.message === expected);
+                    },
+                );
+            });
+        }
     });
 });

@@ -1,3 +1,14 @@
+/**
+ * @typedef {Map<string, Record<string, unknown>>} HrcStateMap
+ * @typedef {{[key: string]: number}} CustomElementVersions
+ * @typedef {{___hrcStates?: HrcStateMap; __customElementVersions?: CustomElementVersions}} HotReplaceGlobal
+ * @typedef {{__version?: number}} VersionedCustomElementConstructor
+ * @typedef {{[key: string]: () => unknown}} StateMap
+ * @typedef {{state: StateMap; setState: (key: string, value: unknown) => void}} ReactiveComponent
+ * @typedef {{hrc?: string; hmrId?: string}} DatasetLike
+ * @typedef {{forEach: (callback: (signal: () => unknown, key: string) => void) => void}} MapLikeState
+ */
+
 // Reactive component contract (lightweight / opt-in):
 // - Elements with a Map-like `state` (key -> signalFn()) can have their state captured.
 // - Provide `setState(key, value)` on the element for state restoration.
@@ -8,8 +19,39 @@
 // - Body scroll plus any element with data-hot-replace-scroll attribute is captured.
 // - After body innerHTML replacement, scroll is restored.
 
+/** @type {EventSource | null} */
 let evSource;
-const HRC_STATE_GLOBAL_KEY = "___hrcStates"; // window.___hrcStates = Map<hrcId, stateObj>
+/** @type {MutationObserver | null} */
+let versionObserver = null;
+/** True while a hot-reload body replacement is in progress to prevent
+ *  the observer from upgrading elements with stale constructors. */
+let hotReloading = false;
+const HRC_STATE_GLOBAL_KEY = "___hrcStates";
+const HRC_SELECTOR = "[data-hrc]";
+const SCROLL_ATTR = "data-hot-replace-scroll";
+
+/** @type {HotReplaceGlobal} */
+const gt = /** @type {HotReplaceGlobal} */ (globalThis);
+delete gt.___hrcStates;
+delete gt.__customElementVersions;
+
+/**
+ * Check if element has dataset property.
+ * @param {Element | EventTarget | null} el
+ * @returns {el is Element & {dataset: DOMStringMap}}
+ */
+function hasDataset(el) {
+    return el !== null && "dataset" in el;
+}
+
+/**
+ * Get dataset from element if available.
+ * @param {Element | null} el
+ * @returns {DatasetLike | null}
+ */
+function getDataset(el) {
+    return hasDataset(el) ? el.dataset : null;
+}
 
 /**
  * Decode a base64 string with Unicode support.
@@ -22,22 +64,24 @@ const HRC_STATE_GLOBAL_KEY = "___hrcStates"; // window.___hrcStates = Map<hrcId,
  *
  * @param {string} base64 - Base64-encoded string
  * @returns {string} Decoded Unicode string
- * @example
- * base64DecodeUnicode('encoded-string-with-unicode'); // Correctly decodes Unicode
  */
 function base64DecodeUnicode(base64) {
     const binString = atob(base64);
-    const bytes = Uint8Array.from(binString, (m) => m.codePointAt(0));
+    const bytes = Uint8Array.from(binString, (m) => m.codePointAt(0) ?? 0);
     return new TextDecoder().decode(bytes);
 }
 
 /**
- * Initialize hot reload connection
- * @param {string} href
+ * Initialize hot reload connection for current page.
+ *
+ * Establishes a Server-Sent Events (SSE) connection to receive hot reload updates.
+ * The connection is automatically re-established on disconnect. Scroll positions
+ * and reactive component states are preserved across hot reloads.
+ *
+ * @param {string} href - The current route path to subscribe to hot reload updates
  */
 export function hotReplace(href) {
     if (evSource && evSource.readyState !== EventSource.CLOSED) {
-        // Already connected
         return;
     }
 
@@ -50,22 +94,27 @@ export function hotReplace(href) {
     evSource.onerror = () => {
         console.warn(`${logTimer()}::[hot-replace] - connection lost, retrying...`);
         try {
-            evSource.close();
-        } catch (_e) {
+            evSource?.close();
+        } catch {
             /* noop */
         }
+        versionObserver?.disconnect();
         setTimeout(() => location.reload(), 1000);
     };
 
-    // Cancel evSource when leaving the page
     window.addEventListener("beforeunload", () => {
-        if (evSource && typeof evSource.close === "function") {
-            evSource.close();
-        }
+        evSource?.close();
+        versionObserver?.disconnect();
     });
 }
 
+/**
+ * Handle hot reload message from server.
+ *
+ * @param {MessageEvent} e - The message event from SSE connection
+ */
 function onHotMessage(e) {
+    /** @type {unknown} */
     let data;
     try {
         data = JSON.parse(base64DecodeUnicode(e.data));
@@ -74,91 +123,130 @@ function onHotMessage(e) {
         return;
     }
 
-    // Capture scroll + reactive state BEFORE mutation.
+    const payload = isValidPayload(data) ? data : { body: "", assets: { js: [], css: [] }, publicPath: "" };
+
     const scrollInfo = captureScrollPositions();
     const preservedStates = preserveReactiveComponentsState();
 
-    // Stash globally for custom element rehydration after scripts execute.
     if (preservedStates.size) {
-        globalThis[HRC_STATE_GLOBAL_KEY] = preservedStates;
+        gt[HRC_STATE_GLOBAL_KEY] = preservedStates;
     }
 
-    // Replace body content
-    document.body.innerHTML = data.body || "";
-
-    // Replace scripts (will also re-execute page logic)
-    scripts(data);
-    // Replace styles
-    styles(data);
-
-    // Restore scroll
+    // During body replacement, prevent the observer from upgrading elements
+    // with stale constructors (which would process and mutate children before
+    // the define override runs). The define override handles all elements in
+    // the new body when scripts reload.
+    hotReloading = true;
+    document.body.innerHTML = payload.body || "";
+    scripts(payload, () => {
+        hotReloading = false;
+        // Upgrade unversioned custom elements added during body replacement
+        // (observer was skipped while hotReloading was true). Only iterate
+        // known tags — not all elements.
+        const versions = /** @type {HotReplaceGlobal} */ (globalThis).__customElementVersions;
+        if (versions) {
+            for (const tag of Object.keys(versions)) {
+                for (const el of document.querySelectorAll(tag)) {
+                    upgradeRuntimeElement(el);
+                }
+            }
+        }
+    });
+    styles(payload);
     restoreScrollPositions(scrollInfo);
-
-    // Attempt reactive state restoration shortly after DOM + scripts settle.
     scheduleStateRestoration();
 }
 
-/* ----------------------------- Scripts Handling ---------------------------- */
+/**
+ * Type guard for hot reload payload.
+ * @param {unknown} data
+ * @returns {data is { body: string; assets: { js: string[]; css: string[] }; publicPath: string }}
+ */
+function isValidPayload(data) {
+    return typeof data === "object" && data !== null && "body" in data;
+}
 
-function scripts(data) {
-    if (!data?.assets?.js?.length) return;
+function scripts(data, onFirstLoaded) {
+    const paths = data.assets?.js;
+    if (!paths?.length) {
+        onFirstLoaded?.();
+        return;
+    }
 
-    const paths = data.assets.js;
     const publicPath = data.publicPath || "";
+    let remaining = paths.length;
+    let onLoadedCalled = false;
+
+    function onLoaded() {
+        if (onLoadedCalled) return;
+        onLoadedCalled = true;
+        clearTimeout(fallbackTimer);
+        onFirstLoaded?.();
+        scheduleStateRestoration(50);
+    }
+
+    // Safety net: if every script fails to load (404, server error), the
+    // normal path never fires. Clear hotReloading after a generous delay
+    // so the MutationObserver doesn't stay suppressed forever.
+    const fallbackTimer = setTimeout(() => {
+        console.warn(`${logTimer()}::[hot-replace] - script load fallback: forcing hotReloading=false`);
+        hotReloading = false;
+        onLoaded();
+    }, 30000);
 
     paths.forEach((path) => {
         const src = publicPath + path;
         const script = document.createElement("script");
         script.type = "module";
-        script.src = `${src}?${Date.now()}`;
+        script.src = `${src}?hmr=${Date.now()}`;
 
-        script.addEventListener("load", () => {
-            console.log(`${logTimer()}::[hot-replace] - script loaded:`, src);
-            // Additional attempt to restore state after a script loads (in case components defined late)
-            scheduleStateRestoration(50);
-        });
-        script.addEventListener("error", (err) => {
-            console.error(`${logTimer()}::[hot-replace] - script failed:`, src, err);
-        });
+        function loaded() {
+            if (--remaining > 0) return;
+            onLoaded();
+        }
+
+        script.addEventListener("load", loaded, { once: true });
+        script.addEventListener(
+            "error",
+            (err) => {
+                console.error(`${logTimer()}::[hot-replace] - script failed:`, src, err);
+                loaded();
+            },
+            { once: true },
+        );
 
         document.body.appendChild(script);
     });
 }
 
-/* ------------------------------ Styles Handling ---------------------------- */
-
+/**
+ * Replace stylesheet links with new versions from hot reload payload.
+ *
+ * @param {{ body: string; assets: { js: string[]; css: string[] }; publicPath: string }} data - Hot reload payload
+ */
 function styles(data) {
-    if (!data?.assets?.css?.length) return;
+    const paths = data.assets?.css;
+    if (!paths?.length) return;
 
-    const paths = data.assets.css;
     const publicPath = data.publicPath || "";
 
     paths.forEach((path) => {
-        const cleanHref = publicPath + path; // The logical ID of the file
+        const cleanHref = publicPath + path;
 
         const newLink = document.createElement("link");
         newLink.rel = "stylesheet";
-        newLink.href = `${cleanHref}?hmr=${Date.now()}`; // Add timestamp
-
-        // Tag the element so we can find it later
+        newLink.href = `${cleanHref}?hmr=${Date.now()}`;
         newLink.dataset.hmr = "true";
         newLink.dataset.hmrId = cleanHref;
 
-        // Wait for load event before removing the old one (Prevents FOUC)
         const handleLoad = () => {
             console.log(`${logTimer()}::[hot-replace] - style loaded:`, cleanHref);
 
-            // Find and remove all old versions of this stylesheet
-            const allStylesheets = document.head.querySelectorAll('link[rel="stylesheet"]');
-
-            allStylesheets.forEach((link) => {
-                if (link === newLink) return; // Keep the new one
+            document.head.querySelectorAll('link[rel="stylesheet"]').forEach((link) => {
+                if (link === newLink) return;
 
                 const linkHref = link.getAttribute("href") || "";
-                const linkHmrId = link.dataset.hmrId;
-
-                // Match by data-hmr-id (for HMR-managed links)
-                // OR by href pattern (for server-rendered links)
+                const linkHmrId = getDataset(link)?.hmrId;
                 const isOldVersion = linkHmrId === cleanHref || linkHref === cleanHref || linkHref.startsWith(`${cleanHref}?`);
 
                 if (isOldVersion) {
@@ -167,87 +255,58 @@ function styles(data) {
             });
         };
 
-        const handleError = (err) => {
-            console.error(`${logTimer()}::[hot-replace] - style failed:`, cleanHref, err);
-            // Clean up the broken link so it doesn't hang around
-            newLink.remove();
-        };
-
-        // Attach event listeners with { once: true } for automatic cleanup
         newLink.addEventListener("load", handleLoad, { once: true });
-        newLink.addEventListener("error", handleError, { once: true });
+        newLink.addEventListener("error", () => newLink.remove(), { once: true });
 
         document.head.appendChild(newLink);
     });
 }
 
-/* -------------------- Custom Element Redefinition & State ------------------ */
+/** @type {boolean} */
+installCustomElementRedefinition._installed = false;
 
+/**
+ * Override customElements.define to create a versioned tag and replace instances.
+ * This sidesteps DOMException on redefining existing custom element names.
+ */
 function installCustomElementRedefinition() {
     if (installCustomElementRedefinition._installed) return;
     installCustomElementRedefinition._installed = true;
 
     const originalDefine = customElements.define;
+    const win = /** @type {HotReplaceGlobal & Window} */ (window);
+    win.__customElementVersions ||= {};
 
-    // Maintain a version map for each tagName
-    if (!window.__customElementVersions) {
-        window.__customElementVersions = {};
-    }
-
-    /**
-     * Override customElements.define to create a versioned tag and replace instances.
-     * This sidesteps DOMException on redefining existing custom element names.
-     */
     customElements.define = (tagName, ctr, options) => {
         try {
-            // Increment or init version counter
-            window.__customElementVersions[tagName] = (window.__customElementVersions[tagName] || 0) + 1;
-            const version = window.__customElementVersions[tagName];
+            const versions = win.__customElementVersions;
+            if (!versions) throw new Error("versions not initialized");
+
+            versions[tagName] = (versions[tagName] || 0) + 1;
+            const version = versions[tagName];
             const versionedTagName = `${tagName}-${version}`;
 
-            // Attach version for diagnostics
-            ctr.__version = version;
+            /** @type {VersionedCustomElementConstructor} */ (ctr).__version = version;
 
-            // Replace existing instances
+            // HMR: fragment.ts's upgradePageElements may have already upgraded
+            // these with a stale version number before define() ran. Include
+            // previously-versioned elements so the new definition takes effect.
             const existing = Array.from(document.querySelectorAll(tagName));
-            const replacements = [];
-            const isReactiveComponent = typeof ReactiveComponent !== "undefined" && ctr.prototype instanceof ReactiveComponent;
-
-            existing.forEach((el, index) => {
-                const newEl = document.createElement(versionedTagName);
-
-                // Copy attributes
-                for (const attr of el.attributes) {
-                    newEl.setAttribute(attr.name, attr.value);
+            for (let v = 1; v < version; v++) {
+                for (const el of document.querySelectorAll(`${tagName}-${v}`)) {
+                    existing.push(el);
                 }
-
-                if (isReactiveComponent) {
-                    getOrAssignHrc(el, newEl, index);
-                }
-
-                // Move children
-                while (el.firstChild) {
-                    newEl.appendChild(el.firstChild);
-                }
-
-                el.replaceWith(newEl);
-                replacements.push(newEl);
-            });
+            }
+            const replacements = replaceCustomElements(existing, versionedTagName, ctr);
 
             if (!customElements.get(versionedTagName)) {
                 console.log(`${logTimer()}::[hot-replace] - re-defining custom element as: ${versionedTagName}`);
                 originalDefine.call(customElements, versionedTagName, ctr, options);
             }
 
-            // Attempt per-element reactive state restoration immediately
-            if (globalThis[HRC_STATE_GLOBAL_KEY] instanceof Map && isReactiveComponent) {
-                for (const el of replacements) {
-                    restoreReactiveComponentStateForElement(el);
-                }
-            }
+            restoreElementStates(replacements);
         } catch (err) {
             console.error(`${logTimer()}::[hot-replace] - custom element redefine failed`, err);
-            // Fallback: try original define (may throw if duplicate)
             try {
                 originalDefine.call(customElements, tagName, ctr, options);
             } catch (e2) {
@@ -255,47 +314,159 @@ function installCustomElementRedefinition() {
             }
         }
     };
+
+    // Watch for elements added later (fragment swaps, JS replaceWith, etc.).
+    // These arrive with unversioned tags but need to match the versioned
+    // constructors registered by the define override above.
+    versionObserver = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+            for (const node of mutation.addedNodes) {
+                if (!(node instanceof Element)) continue;
+                upgradeRuntimeElement(node);
+                for (const el of node.querySelectorAll("*")) {
+                    upgradeRuntimeElement(el);
+                }
+            }
+        }
+    });
+    versionObserver.observe(document.documentElement, { childList: true, subtree: true });
 }
 
+/**
+ * Upgrade a single element to its versioned tag if one exists in
+ * __customElementVersions. Used by the MutationObserver to handle
+ * runtime-inserted elements that use unversioned tags.
+ * @param {Element} el
+ */
+function upgradeRuntimeElement(el) {
+    const tag = el.tagName.toLowerCase();
+    if (!tag.includes("-")) return;
+
+    // During hot-reload body replacement, skip upgrading — the define override
+    // handles all existing elements with the latest constructor. Upgrading here
+    // with a stale constructor would mutate children (removing $on* / $bind-*
+    // attributes) before the new define override can process them.
+    if (hotReloading) return;
+
+    const versions = /** @type {HotReplaceGlobal} */ (globalThis).__customElementVersions;
+    const ver = versions?.[tag];
+    if (!ver) return;
+
+    const versionedTagName = `${tag}-${ver}`;
+    if (!customElements.get(versionedTagName)) return;
+
+    // Check if the element is already a versioned instance of itself.
+    const VersionedCtr = customElements.get(versionedTagName);
+    if (el instanceof VersionedCtr) return;
+
+    const newEl = document.createElement(versionedTagName);
+    Array.from(el.attributes).forEach((attr) => {
+        newEl.setAttribute(attr.name, attr.value);
+    });
+    if (!el.parentNode) return;
+
+    while (el.firstChild) {
+        newEl.appendChild(el.firstChild);
+    }
+    el.replaceWith(newEl);
+}
+
+/**
+ * Replace existing custom elements with versioned versions.
+ * @param {Element[]} existing - Existing elements to replace
+ * @param {string} versionedTagName - New versioned tag name
+ * @param {CustomElementConstructor} ctr - Element constructor
+ * @returns {Element[]} Replacement elements
+ */
+function replaceCustomElements(existing, versionedTagName, ctr) {
+    const ReactiveComponent =
+        "ReactiveComponent" in window ? /** @type {typeof HTMLElement | undefined} */ (window.ReactiveComponent) : undefined;
+    const isReactiveComponent = ReactiveComponent && ctr.prototype instanceof ReactiveComponent;
+    /** @type {Element[]} */
+    const replacements = [];
+
+    existing.forEach((el, index) => {
+        const newEl = document.createElement(versionedTagName);
+
+        Array.from(el.attributes).forEach((attr) => {
+            newEl.setAttribute(attr.name, attr.value);
+        });
+
+        if (isReactiveComponent) {
+            getOrAssignHrc(el, newEl, index);
+        }
+
+        while (el.firstChild) {
+            newEl.appendChild(el.firstChild);
+        }
+
+        el.replaceWith(newEl);
+        replacements.push(newEl);
+    });
+
+    return replacements;
+}
+
+/**
+ * Restore states for replacement elements.
+ * @param {Element[]} replacements - Elements to restore state for
+ */
+function restoreElementStates(replacements) {
+    const stateMap = gt[HRC_STATE_GLOBAL_KEY];
+    if (stateMap instanceof Map && replacements.length) {
+        replacements.forEach((el) => {
+            restoreReactiveComponentStateForElement(el);
+        });
+    }
+}
+
+/**
+ * Get or assign a hot-replace component ID to an element.
+ *
+ * @param {Element} oldEl - The old element being replaced
+ * @param {Element} newEl - The new replacement element
+ * @param {number} index - The index in the list of replacements
+ */
 function getOrAssignHrc(oldEl, newEl, index) {
-    // Prefer existing stable identifier
-    if (oldEl?.dataset?.hrc) {
-        newEl.dataset.hrc = oldEl.dataset.hrc;
+    const oldDataset = getDataset(oldEl);
+    const newDataset = getDataset(newEl);
+
+    if (oldDataset?.hrc && newDataset) {
+        newDataset.hrc = oldDataset.hrc;
         return;
     }
-    // Generate a hash from innerHTML for heuristic identity
+
     const inner = oldEl?.innerHTML || "";
     let hash = 11 >>> 0;
     for (let i = 0; i < inner.length; i++) {
         hash = (101 * hash + inner.charCodeAt(i)) >>> 0;
     }
-    newEl.dataset.hrc = `${String(hash)}-${index}`;
+
+    if (newDataset) {
+        newDataset.hrc = `${hash}-${index}`;
+    }
 }
 
-/* ----------------------- Reactive State Preservation ----------------------- */
-
+/**
+ * Preserve reactive component states before hot reload.
+ *
+ * Captures current state of all reactive components in the DOM.
+ *
+ * @returns {Map<string, Record<string, unknown>>} Map of HRC IDs to state snapshots
+ */
 function preserveReactiveComponentsState() {
-    const states = new Map(); // hrcId -> plain object
+    const states = new Map();
     try {
-        const elements = document.querySelectorAll("[data-hrc]");
-        elements.forEach((el) => {
-            // Expect el.state as a Map (key -> signalFn)
-            if (el.state && typeof el.state.forEach === "function") {
-                const snapshot = {};
-                let hasAny = false;
-                el.state.forEach((signal, key) => {
-                    try {
-                        if (typeof signal === "function") {
-                            snapshot[key] = signal();
-                            hasAny = true;
-                        }
-                    } catch (e) {
-                        console.warn(`${logTimer()}::[hot-replace] - state read failed for`, key, e);
-                    }
-                });
-                if (hasAny) {
-                    states.set(el.dataset.hrc, snapshot);
-                }
+        document.querySelectorAll(HRC_SELECTOR).forEach((el) => {
+            const elState = getMapLikeState(el);
+            if (!elState) return;
+
+            const snapshot = captureStateSnapshot(elState);
+            if (!snapshot) return;
+
+            const hrcId = getDataset(el)?.hrc;
+            if (hrcId) {
+                states.set(hrcId, snapshot);
             }
         });
     } catch (err) {
@@ -304,43 +475,82 @@ function preserveReactiveComponentsState() {
     return states;
 }
 
+/**
+ * Get Map-like state from element if present.
+ * @param {Element} el
+ * @returns {MapLikeState | null}
+ */
+function getMapLikeState(el) {
+    if (!("state" in el)) return null;
+    const state = /** @type {MapLikeState | unknown} */ (el.state);
+    return state && typeof (/** @type {{forEach?: unknown}} */ (state).forEach) === "function" ? /** @type {MapLikeState} */ (state) : null;
+}
+
+/**
+ * Capture state snapshot from Map-like state object.
+ * @param {MapLikeState} elState
+ * @returns {Record<string, unknown> | null}
+ */
+function captureStateSnapshot(elState) {
+    const snapshot = /** @type {Record<string, unknown>} */ ({});
+    let hasAny = false;
+
+    elState.forEach((signal, key) => {
+        try {
+            if (typeof signal === "function") {
+                snapshot[key] = signal();
+                hasAny = true;
+            }
+        } catch (e) {
+            console.warn(`${logTimer()}::[hot-replace] - state read failed for`, key, e);
+        }
+    });
+
+    return hasAny ? snapshot : null;
+}
+
+/**
+ * Restore reactive component state for a single element.
+ *
+ * @param {Element} el - The element to restore state for
+ */
 function restoreReactiveComponentStateForElement(el) {
-    if (!el?.dataset?.hrc) return;
-    const map = globalThis[HRC_STATE_GLOBAL_KEY];
+    const dataset = getDataset(el);
+    if (!dataset?.hrc) return;
+
+    const map = gt[HRC_STATE_GLOBAL_KEY];
     if (!(map instanceof Map) || !map.size) return;
 
-    if (!el.state || typeof el.setState !== "function") {
-        // Not yet ready; might need another pass later
-        return;
-    }
+    if (!("setState" in el) || typeof el.setState !== "function") return;
 
-    if (map.has(el.dataset.hrc)) {
-        const snapshot = map.get(el.dataset.hrc);
-        try {
-            Object.entries(snapshot).forEach(([k, v]) => {
-                try {
-                    el.setState(k, v);
-                } catch (e) {
-                    console.warn(`${logTimer()}::[hot-replace] - setState failed for`, k, e);
-                }
-            });
-            map.delete(el.dataset.hrc);
-            console.log(`${logTimer()}::[hot-replace] - restored reactive state for`, el.dataset.hrc);
-        } catch (err) {
-            console.error(`${logTimer()}::[hot-replace] - restore state error for`, el.dataset.hrc, err);
-        }
+    const snapshot = map.get(dataset.hrc);
+    if (!snapshot) return;
+
+    try {
+        Object.entries(snapshot).forEach(([k, v]) => {
+            try {
+                /** @type {{setState: (key: string, value: unknown) => void}} */ (el).setState(k, v);
+            } catch (e) {
+                console.warn(`${logTimer()}::[hot-replace] - setState failed for`, k, e);
+            }
+        });
+        map.delete(dataset.hrc);
+        console.log(`${logTimer()}::[hot-replace] - restored reactive state for`, dataset.hrc);
+    } catch (err) {
+        console.error(`${logTimer()}::[hot-replace] - restore state error for`, dataset.hrc, err);
     }
 }
 
+/**
+ * Attempt to restore reactive state for all components.
+ */
 function attemptBatchStateRestoration() {
-    const map = globalThis[HRC_STATE_GLOBAL_KEY];
+    const map = gt[HRC_STATE_GLOBAL_KEY];
     if (!(map instanceof Map) || !map.size) return;
 
-    const candidates = document.querySelectorAll("[data-hrc]");
-    for (const el of candidates) {
-        // Avoid returning from the loop/callback — each element may or may not be ready.
+    document.querySelectorAll(HRC_SELECTOR).forEach((el) => {
         restoreReactiveComponentStateForElement(el);
-    }
+    });
 
     if (!map.size) {
         console.log(`${logTimer()}::[hot-replace] - all reactive states restored`);
@@ -350,33 +560,29 @@ function attemptBatchStateRestoration() {
 /**
  * Schedule multiple staggered attempts to restore state:
  * - immediate microtask, short delay, and a longer fallback
+ *
+ * @param {number} [extraDelay=0] - Additional delay in milliseconds
  */
 function scheduleStateRestoration(extraDelay = 0) {
-    // First tick (after current call stack)
-    setTimeout(() => attemptBatchStateRestoration(), 0 + extraDelay);
-    // Short delay for late defined components
+    setTimeout(() => attemptBatchStateRestoration(), extraDelay);
     setTimeout(() => attemptBatchStateRestoration(), 50 + extraDelay);
-    // Longer safety net
     setTimeout(() => attemptBatchStateRestoration(), 250 + extraDelay);
 }
 
-/* ---------------------------- Scroll Preservation -------------------------- */
-
+/**
+ * Capture current scroll positions for body and marked elements.
+ *
+ * @returns {{ selector: string; scrollLeft: number; scrollTop: number }[]} Array of scroll position info
+ */
 function captureScrollPositions() {
-    const info = [];
-    try {
-        const body = document.body;
-        info.push({
-            selector: "body",
-            scrollLeft: body.scrollLeft,
-            scrollTop: body.scrollTop,
-        });
+    const info = [{ selector: "body", scrollLeft: document.body.scrollLeft, scrollTop: document.body.scrollTop }];
 
-        const extras = document.querySelectorAll("[data-hot-replace-scroll]");
-        extras.forEach((el) => {
+    try {
+        document.querySelectorAll(`[${SCROLL_ATTR}]`).forEach((el) => {
             if (el.scrollLeft || el.scrollTop) {
+                const attr = el.getAttribute(SCROLL_ATTR);
                 info.push({
-                    selector: `[data-hot-replace-scroll="${el.getAttribute("data-hot-replace-scroll")}"]`,
+                    selector: `[${SCROLL_ATTR}="${attr}"]`,
                     scrollLeft: el.scrollLeft,
                     scrollTop: el.scrollTop,
                 });
@@ -388,6 +594,11 @@ function captureScrollPositions() {
     return info;
 }
 
+/**
+ * Restore scroll positions for body and marked elements.
+ *
+ * @param {{ selector: string; scrollLeft: number; scrollTop: number }[]} info - Array of scroll position info
+ */
 function restoreScrollPositions(info) {
     if (!Array.isArray(info) || !info.length) return;
     try {
@@ -405,11 +616,14 @@ function restoreScrollPositions(info) {
     }
 }
 
-/* -------------------------------- Utilities -------------------------------- */
-
+/**
+ * Get a formatted timestamp for logging.
+ *
+ * @returns {string} Formatted timestamp string
+ */
 function logTimer() {
     const now = new Date();
-    const pad = (n, z = 2) => String(n).padStart(z, "0");
+    const pad = (/** @type {number} */ n, /** @type {number} */ z = 2) => String(n).padStart(z, "0");
     return `[${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}.${pad(now.getMilliseconds(), 3)}]`;
 }
 
@@ -419,10 +633,17 @@ function logTimer() {
  * - cancel(): clears pending invocation
  * - flush(): immediately invokes pending call if scheduled
  * NOTE: Minimal utility kept dependency-free for hot reload client.
+ *
+ * @param {(...args: unknown[]) => unknown} fn - Function to debounce
+ * @param {number} delay - Delay in milliseconds
+ * @returns {{ (...args: unknown[]): void; cancel(): void; flush(): void }} Debounced function with cancel/flush helpers
  */
 export function debounce(fn, delay) {
+    /** @type {ReturnType<typeof setTimeout> | null} */
     let timer = null;
+    /** @type {unknown[] | undefined} */
     let lastArgs;
+    /** @type {unknown} */
     let lastThis;
 
     function invoke() {
@@ -435,6 +656,10 @@ export function debounce(fn, delay) {
         }
     }
 
+    /**
+     * @this {unknown}
+     * @param {unknown[]} args
+     */
     function debounced(...args) {
         lastArgs = args;
         lastThis = this;

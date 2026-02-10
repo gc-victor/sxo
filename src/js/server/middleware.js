@@ -18,7 +18,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { SRC_DIR } from "../constants.js";
-import { logger } from "./utils/index.js";
+import { logger } from "./utils/logger.js";
 
 /**
  * Load user-defined middlewares from the source directory middleware file.
@@ -33,10 +33,12 @@ import { logger } from "./utils/index.js";
  *   - .ts (TypeScript)
  *   - .mjs (ES modules)
  *
+ * @param {object} [options] - Options
+ * @param {boolean} [options.isDev] - Force dev mode (defaults to process.env.DEV === "true")
+ * @param {string} [options.srcDir] - Source directory to search (defaults to global SRC_DIR)
  * @returns {Promise<Function[]>}
  */
-export async function loadUserDefinedMiddlewares() {
-    const srcDir = SRC_DIR;
+export async function loadUserDefinedMiddlewares({ isDev = process.env.DEV === "true", srcDir = SRC_DIR } = {}) {
     if (!srcDir) return [];
 
     // Try multiple extensions in priority order
@@ -56,7 +58,7 @@ export async function loadUserDefinedMiddlewares() {
     try {
         // Cache-bust in dev to enable hot-reload; stable URL in prod (single load at startup)
         const baseUrl = pathToFileURL(userMwPath).href;
-        const url = process.env.DEV === "true" ? `${baseUrl}?t=${Date.now()}-${Math.random()}` : baseUrl;
+        const url = isDev ? `${baseUrl}?t=${Date.now()}-${Math.random()}` : baseUrl;
         const mod = await import(url);
         const exported = mod.default ?? mod.middlewares ?? mod.middleware ?? mod.mw;
         if (Array.isArray(exported)) {
@@ -67,11 +69,7 @@ export async function loadUserDefinedMiddlewares() {
         }
         return [];
     } catch (e) {
-        if (logger && typeof logger.error === "function") {
-            logger.error({ err: e }, "Failed to load user middleware");
-        } else {
-            console.error("Failed to load user middleware", e);
-        }
+        logger.error({ err: e }, "Failed to load user middleware");
         return [];
     }
 }

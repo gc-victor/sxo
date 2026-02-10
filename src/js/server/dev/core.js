@@ -8,6 +8,8 @@
  */
 
 import { normalizePublicPath } from "../utils/inject-assets.js";
+import { logger } from "../utils/logger.js";
+import { extractBodyFromHtml } from "./html-utils.js";
 
 /**
  * Creates a debounced version of a function that delays execution.
@@ -16,39 +18,22 @@ import { normalizePublicPath } from "../utils/inject-assets.js";
  * have elapsed since the last time the debounced function was called.
  * Useful for batching rapid file change events.
  *
- * @param {Function} fn - Function to debounce
+ * @template {any[]} T
+ * @param {(...args: T) => any} fn - Function to debounce
  * @param {number} delay - Delay in milliseconds
- * @returns {Function} Debounced function that accepts any arguments
+ * @returns {(...args: T) => void} Debounced function that accepts any arguments
  * @public
  * @example
  * const debouncedSave = debounce(saveFile, 250);
  * debouncedSave(); // Will only execute once after 250ms of inactivity
  */
 export function debounce(fn, delay) {
+    /** @type {ReturnType<typeof setTimeout> | null} */
     let timer = null;
-    return (...args) => {
+    return (/** @type {T} */ ...args) => {
         if (timer) clearTimeout(timer);
         timer = setTimeout(() => fn(...args), delay);
     };
-}
-
-/**
- * Extract body innerHTML from HTML string.
- *
- * Matches content between `<body>` and `</body>` tags, case-insensitive.
- * Handles body tags with attributes (e.g., `<body class="dark">`).
- *
- * @param {string} html - Full HTML document string
- * @returns {string} Body content or empty string if no body tags found
- * @public
- * @example
- * const body = extractBodyFromHtml('<html><body><div>Hello</div></body></html>');
- * // Returns: '<div>Hello</div>'
- */
-export function extractBodyFromHtml(html) {
-    // Use dotAll flag (s) to match across newlines
-    const match = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
-    return match ? match[1] : "";
 }
 
 /**
@@ -58,15 +43,29 @@ export function extractBodyFromHtml(html) {
  * suitable for sending via Server-Sent Events to connected clients.
  *
  * @param {object} options - Payload options
- * @param {object} options.route - Route object with assets property
- * @param {object} options.params - Route parameters (e.g., slug values)
+ * @param {Route} options.route - Route object with assets property
+ * @param {Record<string, string>} options.params - Route parameters (e.g., slug values)
  * @param {Function} options.jsxFn - JSX render function (async, returns HTML string)
  * @param {string} options.publicPath - Public base path for assets
+ * @param {Request} [options.request] - Original request (preserves cookies/headers from SSE connection)
  * @returns {Promise<string>} JSON stringified payload with body, assets, publicPath
  * @public
  */
-export async function buildHotReplacePayload({ route, params, jsxFn, publicPath }) {
-    const html = await jsxFn(params);
+export async function buildHotReplacePayload({ route, params, jsxFn, publicPath, request }) {
+    // Use provided request (preserves cookies/headers from SSE connection)
+    // or provide a minimal request so page functions that access request.headers don't crash
+    const fallbackRequest =
+        request ||
+        new Request("http://localhost/", {
+            headers: { Accept: "text/html" },
+        });
+    const result = await jsxFn(params, fallbackRequest);
+    let html;
+    if (result instanceof Response) {
+        html = await result.text();
+    } else {
+        html = String(result ?? "");
+    }
     const body = extractBodyFromHtml(html);
     const normalized = normalizePublicPath(publicPath);
 
@@ -92,14 +91,13 @@ export async function buildHotReplacePayload({ route, params, jsxFn, publicPath 
  * - EMFILE: Too many open files
  *
  * @param {string} context - Description of what's being watched (e.g., "src", "dist")
- * @param {object} logger - Logger instance with warn method
  * @returns {(err: Error) => void} Error handler function
  * @public
  * @example
- * const handler = getWatcherErrorHandler("src", logger);
+ * const handler = getWatcherErrorHandler("src");
  * watcher.on("error", handler);
  */
-export function getWatcherErrorHandler(context, logger) {
+export function getWatcherErrorHandler(context) {
     return (err) => {
         logger.warn(`${context} watcher error: ${err.message}. Hot-reload may be degraded.`);
     };
@@ -131,33 +129,26 @@ export function isMiddlewareFile(filename) {
 }
 
 /**
- * Run esbuild and return the cleaned error string.
+ * Run esbuild and return a cleaned error string.
  *
  * Executes esbuild using a provided platform-specific spawn callback.
  * Handles stderr cleaning and logging. Caller is responsible for managing
  * the returned error state.
  *
  * @param {object} options - Runner options
- * @param {Function} options.spawnEsbuild - Platform-specific spawn function that returns Promise<string> (stderr)
- * @param {object} options.logger - Logger instance with info/error methods
- * @param {object} [options.colors] - Optional color codes { yellow, reset } for filename logging
+ * @param {() => Promise<string>} options.spawnEsbuild - Platform-specific spawn function that returns Promise<string> (stderr)
+ * @param {{ yellow?: string, reset?: string }} [options.colors] - Optional color codes { yellow, reset } for filename logging
  * @param {string} [options.filename] - Optional filename to log (for hot-reload feedback)
  * @returns {Promise<string>} Cleaned error string (empty string if no errors)
  * @public
  * @example
  * // Node.js example
- * const errorString = await runEsbuild({
- *     spawnEsbuild: async () => {
- *         const child = spawn(process.execPath, [ESBUILD_CONFIG_FILE, PAGES_DIR], {...});
- *         return capturedStderr; // Platform-specific stderr capture
- *     },
- *     logger,
- *     colors: { yellow: "\x1b[33m", reset: "\x1b[0m" },
- *     filename: "src/pages/index.jsx",
+ * await runEsbuild({
+ *   spawnEsbuild: (args, cwd) => exec("esbuild", args, { cwd }),
+ *   filename: "app.js",
  * });
- * esbuildError = errorString; // Caller manages state
  */
-export async function runEsbuild({ spawnEsbuild, logger, colors = {}, filename }) {
+export async function runEsbuild({ spawnEsbuild, colors = {}, filename }) {
     try {
         // Call platform-specific spawn function
         const stderr = await spawnEsbuild();
@@ -180,43 +171,42 @@ export async function runEsbuild({ spawnEsbuild, logger, colors = {}, filename }
 
         return cleaned;
     } catch (err) {
-        logger.error(`esbuild execution failed: ${err.message}`);
-        return "";
+        const message = err instanceof Error ? err.message : String(err);
+        logger.error(`esbuild execution failed: ${message}`);
+        throw err;
     }
 }
 
 /**
  * Reload routes manifest from disk.
  *
- * Loads and parses the routes.json manifest file with retry logic.
- * Returns the parsed routes array. Caller is responsible for managing
+ * Loads and parses routes.json manifest file with retry logic.
+ * Returns parsed routes array. Caller is responsible for managing
  * state updates and module reloading.
  *
  * @param {string} routesPath - Absolute path to routes.json
  * @param {object} [options] - Reload options
- * @param {Function} [options.readFile] - Platform-specific file reader (async, returns string)
- * @param {object} [options.logger] - Logger instance
+ * @param {(path: string) => Promise<string> | string} [options.readFile] - Platform-specific file reader (async, returns string)
  * @param {number} [options.retries=3] - Number of retry attempts for manifest loading
- * @returns {Promise<Array>} Parsed routes array
+ * @returns {Promise<Route[]>} Parsed routes array
  * @public
  * @example
  * // Node.js example
  * const routes = await reloadRoutesManifest(routesPath, {
  *     readFile: (path) => fs.promises.readFile(path, "utf-8"),
- *     logger,
  *     retries: 3,
  * });
  * // Caller manages state and module loading separately
  */
 export async function reloadRoutesManifest(routesPath, options = {}) {
-    const { readFile, logger, retries = 3 } = options;
+    const { readFile, retries = 3 } = options;
 
     // Import here to avoid circular dependency at module load time
     const { loadRoutesManifest } = await import("../shared/routes-loader.js");
 
-    return loadRoutesManifest(routesPath, {
-        retries,
-        readFile,
-        logger,
-    });
+    /** @type {{retries?: number, readFile?: (path: string) => string | Promise<string>}} */
+    const loadOptions = { retries };
+    if (readFile) loadOptions.readFile = readFile;
+
+    return loadRoutesManifest(routesPath, loadOptions);
 }
