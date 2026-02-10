@@ -68,9 +68,9 @@ A **fast**, minimal architecture convention and CLI for building websites with s
 
 SXO is designed as a **truly multi-runtime library** that runs seamlessly across different JavaScript runtimes:
 
-- **Node.js**: Full-featured production server with HTTP/2 support, timeouts, and graceful shutdown
-- **Bun**: High-performance runtime with native file I/O optimizations
-- **Deno**: Secure-by-default runtime with native TypeScript support
+- **Node.js**: Full-featured production server with HTTP/2 support and timeouts. No special signal handling; process interruptions (SIGINT/SIGTERM) immediately terminate the server without graceful shutdown.
+- **Bun**: High-performance runtime with native file I/O optimizations. No special signal handling; process interruptions (SIGINT/SIGTERM) immediately terminate the server without graceful shutdown.
+- **Deno**: Secure-by-default runtime with native TypeScript support. No special signal handling; process interruptions (SIGINT/SIGTERM) immediately terminate the server without graceful shutdown.
 - **Cloudflare Workers**: Edge computing with distributed deployment
 
 ### How It Works
@@ -186,7 +186,7 @@ export default () => (
 Commands:
 
 ```shell
-sxo create <project>  # Create a new SXO project from templates (prompts for runtime; defaults to node)
+sxo create [project]  # Create a new SXO project from templates (prompts for runtime; defaults to node)
 sxo add <component>     # Add a component from the basecoat library to src/components
 sxo dev                 # Start the development server with hot replace
 sxo build               # Build the project for production (client and server bundles)
@@ -305,6 +305,7 @@ SXOUI is a comprehensive component library built specifically for SXO, featuring
 ### Available Components
 
 #### Layout & Structure
+
 - **Card** - Flexible containers with header/body/footer
 - **Badge** - Status indicators and labels
 - **Breadcrumb** - Navigation trails
@@ -312,6 +313,7 @@ SXOUI is a comprehensive component library built specifically for SXO, featuring
 - **Table** - Data tables with sorting
 
 #### Form Controls
+
 - **Input** - Text, email, password, number inputs
 - **Textarea** - Multi-line text with auto-resize
 - **Select** - Native dropdowns with styling
@@ -324,6 +326,7 @@ SXOUI is a comprehensive component library built specifically for SXO, featuring
 - **Form** - Validation and layout utilities
 
 #### Feedback & Overlays
+
 - **Alert** - Info, success, warning, error banners
 - **Alert Dialog** - Modal confirmations
 - **Dialog** - General-purpose modals
@@ -332,12 +335,14 @@ SXOUI is a comprehensive component library built specifically for SXO, featuring
 - **Tooltip** - Contextual help
 
 #### Navigation
+
 - **Tabs** - Tabbed content organization
 - **Dropdown Menu** - Action menus
 - **Popover** - Floating content panels
 - **Accordion** - Expandable sections
 
 #### Content Display
+
 - **Avatar** - Profile images with fallback
 - **Button** - Interaction buttons with variants
 - **Icon** - SVG icon system
@@ -367,6 +372,7 @@ sxo add dialog
 ### Documentation
 
 Visit **[sxoui.com](https://sxoui.com)** for:
+
 - 🎭 Live interactive demos for all components
 - 📋 Copy-paste ready code snippets
 - 📚 Complete API documentation (props, variants, usage)
@@ -576,6 +582,25 @@ export default await createHandler({
 });
 ```
 
+**Custom Error Pages (Cloudflare)**:
+
+Unlike Node/Bun/Deno adapters which automatically load `PAGES_DIR/404.*` and `PAGES_DIR/500.*`, the Cloudflare adapter requires explicit render functions:
+
+```javascript
+import { createHandler } from "sxo/cloudflare";
+import middleware from "./src/middleware.js";
+// Import your custom error page modules explicitly
+import { default as render404 } from "./src/pages/404.jsx";
+import { default as render500 } from "./src/pages/500.jsx";
+
+export default await createHandler({
+  publicPath: "/",
+  middleware,
+  render404,
+  render500,
+});
+```
+
 ## Routing Guide
 
 A route exists when a directory contains an `index.(tsx|jsx|ts|js)` file.
@@ -605,6 +630,7 @@ Parameters object passed to the page render function is shaped from bracket name
 - Multiple parameters: `{ category: string, product: string }`
 
 **Parameter naming rules:**
+
 - Must start with a letter (a-z, A-Z)
 - Can contain letters, numbers, and underscores
 - Must be unique within each route
@@ -622,30 +648,12 @@ Note: Pages must return a full `<html>...</html>` document (including `<head>` a
 
 ## Middleware
 
-SXO supports two middleware signatures depending on your runtime.
+SXO uses one middleware contract across dev, prod, and platform adapters.
 
-### 1. CLI Server (`sxo dev`, `sxo start`)
+**Signature**: `(request: Request, env?: object) => Response | void | Promise<Response | void>`
 
-Uses **Node-style** middleware.
-
-**Signature**: `(req, res, next) => void` or `(req, res) => boolean`
-
-```javascript
-// src/middleware.js
-export default function (req, res, next) {
-  if (req.url === "/ping") {
-    res.end("pong");
-    return; // Handled
-  }
-  next(); // Continue
-}
-```
-
-### 2. Platform Adapters (`createHandler`)
-
-Uses **Web Standard** middleware. This is required when using `sxo/cloudflare` or the internal runtime adapters.
-
-**Signature**: `(request: Request, env: object) => Response | void`
+- Return a `Response` to short-circuit the request.
+- Return nothing to continue to the next middleware or route handler.
 
 ```javascript
 // src/middleware.js
@@ -654,7 +662,8 @@ export default function (request, env) {
   if (url.pathname === "/ping") {
     return new Response("pong");
   }
-  // Return nothing to continue
+
+  // Return nothing to continue.
 }
 ```
 
@@ -796,7 +805,6 @@ Features:
 - **Short caching**: non-hashed (`public, max-age=300`).
 - **ETag + Last-Modified** with conditional request support.
 - **Precompressed**: selects `.br` > `.gz` variant if client supports & asset is compressible.
-- **Range requests**: only for uncompressed assets.
 - **Traversal protection**: `../` style attempts rejected (403/404).
 - **HEAD requests** supported.
 
@@ -807,7 +815,7 @@ Hashed filename detection heuristics: segment containing 8+ hex chars or an 8-ch
 Precedence:
 
 ```
-CLI Flags > sxo.config.* > .env / .env.local > defaults
+CLI Flags > sxo.config.* > environment variables > defaults
 ```
 
 Command defaults:
@@ -852,12 +860,11 @@ Key flags:
 --loaders <ext=loader>            # esbuild server loaders (dev/build only; repeatable or comma-separated). Example: --loaders ".svg=file" --loaders ".ts=tsx"
 --verbose                         # Enable verbose logging for debugging and diagnostics
 --no-color                        # Disable ANSI/colorized log output (useful for CI)
---config <file>                   # Load an alternate config file (e.g., sxo.config.json or .js)
 ```
 
 ## Environment Variables
 
-Loaded (non-destructively) from `.env` then `.env.local` unless already set.
+SXO reads these values from the existing process environment.
 
 Recognized:
 | Variable | Meaning | Default |
@@ -919,6 +926,7 @@ SXO provides **foundational security controls** while giving you full control ov
 ### 🔒 Built-in Protections
 
 ✅ **What SXO Provides:**
+
 - Path traversal protection (automatic)
 - Security headers: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`
 - HTML escaping utilities (`escapeHtml()`)
@@ -929,6 +937,7 @@ SXO provides **foundational security controls** while giving you full control ov
 ### 🛡️ Your Responsibility (via Middleware)
 
 ❌ **What You Must Implement:**
+
 - Authentication & Authorization
 - Session Management
 - CSRF Protection
@@ -958,7 +967,7 @@ SXO provides **foundational security controls** while giving you full control ov
 
 Before deploying to production:
 
-- [ ] All secrets in `.env` / `.env.local`, never committed to git
+- [ ] All secrets stored securely, never committed to git
 - [ ] Application serves over HTTPS with valid certificates
 - [ ] Authentication & session management implemented
 - [ ] CSRF protection enabled for state-changing operations

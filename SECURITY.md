@@ -791,7 +791,7 @@ export function validateLogin(request) {
 
 ### Environment Variable Setup
 
-1. **Create `.env` and `.env.local`** (SXO loads both automatically):
+1. **Create `.env` and `.env.local`** (SXO reads from `process.env`; load `.env` files via your shell or a tool like `dotenv-cli`):
 
 ```bash
 # .env (committed - defaults for development)
@@ -804,6 +804,11 @@ JWT_SECRET=your-secret-key-min-32-chars-long
 SESSION_SECRET=another-secret-key-for-sessions
 API_KEY=external-api-key
 ```
+
+**Note:** SXO does not automatically load `.env` or `.env.local` files. Use one of these approaches:
+- Run with `dotenv-cli`: `npx dotenv-cli -e .env.local -- sxo dev`
+- Export variables manually: `export $(cat .env.local | xargs) && sxo dev`
+- Use your shell's built-in support or a process manager that loads .env files
 
 2. **Add to `.gitignore`**:
 
