@@ -13,20 +13,6 @@ function writeFileRecursive(filePath, content) {
     fs.writeFileSync(filePath, content);
 }
 
-function _rmDirRecursive(dirPath) {
-    if (!fs.existsSync(dirPath)) return;
-    for (const entry of fs.readdirSync(dirPath)) {
-        const cur = path.join(dirPath, entry);
-        const stat = fs.lstatSync(cur);
-        if (stat.isDirectory()) {
-            _rmDirRecursive(cur);
-        } else {
-            fs.unlinkSync(cur);
-        }
-    }
-    fs.rmdirSync(dirPath);
-}
-
 before(() => {
     fixturesRoot = fs.mkdtempSync(path.join(os.tmpdir(), "sxo-metafile-"));
 });
@@ -140,7 +126,6 @@ test("metafile plugin augments routes.json with per-route assets (no HTML genera
 
     // asset-manifest.json removed; using routes.assets in routes.json
 
-    // Assert routes.json augmented with per-route assets (failing TDD)
     const updatedRoutes = readJson(routesFile);
     assert.equal(Array.isArray(updatedRoutes), true, "routes.json should be an array");
     assert.ok(
@@ -151,7 +136,6 @@ test("metafile plugin augments routes.json with per-route assets (no HTML genera
     assert.ok(updatedRoutes[0].assets.css.includes("foo/index.ABC123.css"), "assets.css should include js-emitted css bundle");
     assert.ok(updatedRoutes[0].assets.js.includes("foo/index.ABC123.js"), "assets.js should include client entry bundle");
 
-    // Assert plugin does NOT generate HTML (that is done by the CLI `generate` step)
     const outHtmlPath = path.join(clientDir, "foo", "index.html");
     assert.equal(fs.existsSync(outHtmlPath), false, "HTML output should not be written by the metafile plugin");
 });
@@ -189,7 +173,6 @@ test("metafile plugin writes client-relative assets in routes.json", async () =>
         publicPath: "", // preserved as ""
     });
 
-    // Assert routes.json augmented with per-route assets (client-relative, no PUBLIC_PATH prefix)
     const updatedRoutes2 = readJson(routesFile);
     assert.ok(updatedRoutes2[0]?.assets, "route.assets should be present");
     assert.ok(updatedRoutes2[0].assets.css.includes("global.222.css"), "assets.css should include explicit global css");
@@ -252,4 +235,143 @@ test("metafile plugin normalizes PUBLIC_PATH by ensuring trailing slash", async 
         const outHtmlPath3 = path.join(clientDir, "site", `case${i}`, "index.html");
         assert.equal(fs.existsSync(outHtmlPath3), false, "HTML output should not be written by the metafile plugin");
     }
+});
+
+// Edge case: onEnd skips if no metafile
+test("metafile plugin skips processing when metafile is missing", async () => {
+    const { routesFile } = makeCaseDirs("edge-no-metafile");
+
+    const plugin = esbuildMetafilePlugin({ routesFile });
+    let onEndCb;
+    const build = {
+        onEnd: (cb) => {
+            onEndCb = cb;
+        },
+    };
+    plugin.setup(build);
+
+    // Should return early and not throw
+    await onEndCb({});
+    await onEndCb(null);
+    assert.ok(!fs.existsSync(routesFile), "routes file should not be created when no metafile");
+});
+
+// Edge case: onEnd handles missing or malformed routes manifest
+test("metafile plugin handles missing or malformed routes manifest", async () => {
+    const { clientDir, routesFile } = makeCaseDirs("edge-malformed-routes");
+
+    const plugin = esbuildMetafilePlugin({ routesFile, outputDirClient: clientDir });
+    let onEndCb;
+    const build = {
+        onEnd: (cb) => {
+            onEndCb = cb;
+        },
+    };
+    plugin.setup(build);
+
+    // Missing routes file - should create empty routes
+    await onEndCb({ metafile: { outputs: {} } });
+    assert.ok(fs.existsSync(routesFile), "routes file should be created");
+    assert.deepEqual(JSON.parse(fs.readFileSync(routesFile, "utf8")), []);
+
+    // Malformed JSON - should reset to empty array
+    fs.writeFileSync(routesFile, "invalid json");
+    await onEndCb({ metafile: { outputs: {} } });
+    assert.deepEqual(JSON.parse(fs.readFileSync(routesFile, "utf8")), []);
+});
+
+// Edge case: onEnd propagates errors when manifest persistence fails
+test("metafile plugin propagates errors to fail the build when manifest persistence fails", async () => {
+    const { clientDir } = makeCaseDirs("edge-persist-fail");
+    const errorRoutesDir = path.join(clientDir, "error-routes");
+    fs.mkdirSync(errorRoutesDir);
+
+    const plugin = esbuildMetafilePlugin({ routesFile: errorRoutesDir, outputDirClient: clientDir });
+    let onEndCb;
+    const build = {
+        onEnd: (cb) => {
+            onEndCb = cb;
+        },
+    };
+    plugin.setup(build);
+
+    // Should return errors array to fail the build (routesFile is a directory, so write will fail)
+    const result = await onEndCb({ metafile: { outputs: {} } });
+    assert.ok(Array.isArray(result.errors) && result.errors.length > 0, "should return errors array to fail build");
+    assert.match(result.errors[0].text, /Metafile plugin failed to persist manifest/);
+});
+
+// Edge case: skip invalid route entries
+test("metafile plugin skips invalid route entries", async () => {
+    const { clientDir, routesFile } = makeCaseDirs("edge-invalid-routes");
+
+    fs.writeFileSync(
+        routesFile,
+        JSON.stringify([
+            null,
+            "not an object",
+            {}, // missing filename
+            { filename: 123 }, // filename not a string
+            { filename: "valid/index.html", entryPoints: [] }, // valid entry
+        ]),
+    );
+
+    const plugin = esbuildMetafilePlugin({ routesFile, outputDirClient: clientDir });
+    let onEndCb;
+    const build = {
+        onEnd: (cb) => {
+            onEndCb = cb;
+        },
+    };
+    plugin.setup(build);
+
+    await onEndCb({ metafile: { outputs: {} } });
+
+    const routes = JSON.parse(fs.readFileSync(routesFile, "utf8"));
+    // Invalid entries preserved as-is; valid entry gets assets
+    assert.equal(routes.length, 5);
+    assert.ok(!routes[0]);
+    assert.equal(routes[1], "not an object");
+    assert.deepEqual(routes[4].assets, { css: [], js: [] });
+});
+
+// Edge case: skip assets outside client dir
+test("metafile plugin skips assets outside client dir", async () => {
+    const { clientDir, routesFile } = makeCaseDirs("edge-outside-client");
+
+    fs.writeFileSync(
+        routesFile,
+        JSON.stringify([
+            {
+                filename: "index.html",
+                entryPoints: ["../outside.js"],
+            },
+        ]),
+    );
+
+    const plugin = esbuildMetafilePlugin({
+        routesFile,
+        outputDirClient: clientDir,
+    });
+    let onEndCb;
+    const build = {
+        onEnd: (cb) => {
+            onEndCb = cb;
+        },
+    };
+    plugin.setup(build);
+
+    // metafile with output outside client dir
+    const metafile = {
+        outputs: {
+            "../outside.bundle.js": {
+                entryPoint: "../outside.js",
+            },
+        },
+    };
+
+    await onEndCb({ metafile });
+
+    const routes = JSON.parse(fs.readFileSync(routesFile, "utf8"));
+    assert.deepEqual(routes[0].assets, { css: [], js: [] });
 });

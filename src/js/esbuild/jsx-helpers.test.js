@@ -2,76 +2,32 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import "./jsx-helpers.js";
 
+const assertRenders = (result, expected) => assert.strictEqual(result.toString(), expected);
+
 test("should handle basic static template", () => {
-    const result = __jsxList("<div>Hello</div>");
-    assert.strictEqual(result.toString(), "<div>Hello</div>");
+    assertRenders(__jsxList("<div>Hello</div>"), "<div>Hello</div>");
 });
 
 test("should handle template with dynamic values", () => {
     const dynamicClass = "active";
-    const result = __jsxList(`<div class="${dynamicClass}">Content</div>`);
-    assert.strictEqual(result.toString(), '<div class="active">Content</div>');
+    assertRenders(__jsxList(`<div class="${dynamicClass}">Content</div>`), '<div class="active">Content</div>');
 });
 
 test("should handle nested elements with dynamic content", () => {
     const items = ["one", "two"];
     const result = `<div class="test"><ul>${__jsxList(items.map((item) => `<li>${item}</li>`))}</ul></div>`;
-    assert.strictEqual(result.toString(), '<div class="test"><ul><li>one</li><li>two</li></ul></div>');
-});
-
-test("should handle component with no props", () => {
-    const Component = () => "<div>Basic Component</div>";
-    const result = __jsxComponent(Component, []);
-    assert.strictEqual(result.toString(), "<div>Basic Component</div>");
-});
-
-test("should handle component with props", () => {
-    const Component = (props) => `<div class="${props.class}">With Props</div>`;
-    const result = __jsxComponent(Component, [{ class: "test-class" }]);
-    assert.strictEqual(result.toString(), '<div class="test-class">With Props</div>');
-});
-
-test("should handle component with children", () => {
-    const Component = ({ children }) => `<div>${children}</div>`;
-    const result = __jsxComponent(Component, [], "<span>Child Content</span>");
-    assert.strictEqual(result.toString(), "<div><span>Child Content</span></div>");
-});
-
-test("should handle component with props and children", () => {
-    const Component = ({ children, ...props }) => `<div id="${props.id}">${children}</div>`;
-    const result = __jsxComponent(Component, [{ id: "test" }], "<span>Child Content</span>");
-    assert.strictEqual(result.toString(), '<div id="test"><span>Child Content</span></div>');
+    assertRenders(result, '<div class="test"><ul><li>one</li><li>two</li></ul></div>');
 });
 
 test("should handle nested component composition", () => {
     const Child = ({ children, ...props }) => `<div><p>${props.attr}</p>${children}</div>`;
     const Parent = (props) => __jsxComponent(Child, [props], "<p>Parent Content</p><p>Another Content</p>");
     const GrandParent = () => __jsxComponent(Parent, [{ attr: "Test" }]);
-    const result = __jsxComponent(GrandParent, []);
-    assert.strictEqual(result.toString(), "<div><p>Test</p><p>Parent Content</p><p>Another Content</p></div>");
+    assertRenders(__jsxComponent(GrandParent, []), "<div><p>Test</p><p>Parent Content</p><p>Another Content</p></div>");
 });
 
 test("should spread object properties into string", () => {
-    const props = { class: "test", id: "main", disabled: true };
-    const result = __jsxSpread(props);
-    assert.strictEqual(result.toString(), ' class="test" id="main" disabled');
-});
-
-test("should handle empty object", () => {
-    const props = {};
-    const result = __jsxSpread(props);
-    assert.strictEqual(result.toString(), "");
-});
-
-test("should handle boolean and null values", () => {
-    const props = {
-        visible: true,
-        hidden: false,
-        empty: null,
-        zero: 0,
-    };
-    const result = __jsxSpread(props);
-    assert.strictEqual(result.toString(), ' visible zero="0"');
+    assertRenders(__jsxSpread({ class: "test", id: "main", disabled: true }), ' class="test" id="main" disabled');
 });
 
 test("should handle complex jsx with conditions", () => {
@@ -83,7 +39,6 @@ test("should handle complex jsx with conditions", () => {
     const mockTheme = "light";
     const mockCurrentPath = "/home";
     const mockStyles = { header: "header-class", link: "link-class", active: "active-class" };
-
     const Icon = (props) => `<i>${props.name}</i>`;
     const Badge = (props) => `<span type="${props.type}">${props.count}</span>`;
 
@@ -120,35 +75,19 @@ test("should handle complex jsx with conditions", () => {
     assert.strictEqual(result.toString().replace(/\s+/g, ""), expected.replace(/\s+/g, ""));
 });
 
-test("should handle specific JSX attribute name conversions", () => {
-    // Convert className to class
-    const classProps = { className: "test" };
-    assert.strictEqual(__jsxSpread(classProps), ' class="test"');
-    // Convert htmlFor to for
-    const forProps = { htmlFor: "input" };
-    assert.strictEqual(__jsxSpread(forProps), ' for="input"');
-});
-
 test("should handle event handler attribute names", () => {
-    // Regular event handler
-    const clickProps = { onClick: "handleClick" };
-    assert.strictEqual(__jsxSpread(clickProps), ' onclick="handleClick"');
-    // Special case for doubleclick
-    const dblClickProps = { onDoubleClick: "handleDblClick" };
-    assert.strictEqual(__jsxSpread(dblClickProps), ' ondblclick="handleDblClick"');
-    // Animation events
-    const animProps = { onAnimationEnd: "handleAnimEnd" };
-    assert.strictEqual(__jsxSpread(animProps), ' onanimationend="handleAnimEnd"');
-    const transProps = { onTransitionEnd: "handleTransEnd" };
-    assert.strictEqual(__jsxSpread(transProps), ' ontransitionend="handleTransEnd"');
-    // Touch events
-    const touchProps = { onTouchStart: "handleTouch" };
-    assert.strictEqual(__jsxSpread(touchProps), ' ontouchstart="handleTouch"');
-    // Other special cases
-    const inputProps = { onBeforeInput: "handleInput" };
-    assert.strictEqual(__jsxSpread(inputProps), ' onbeforeinput="handleInput"');
-    const compProps = { onCompositionEnd: "handleComp" };
-    assert.strictEqual(__jsxSpread(compProps), ' oncompositionend="handleComp"');
+    const cases = [
+        [{ onClick: "handleClick" }, ' onclick="handleClick"'],
+        [{ onDoubleClick: "handleDblClick" }, ' ondblclick="handleDblClick"'],
+        [{ onAnimationEnd: "handleAnimEnd" }, ' onanimationend="handleAnimEnd"'],
+        [{ onTransitionEnd: "handleTransEnd" }, ' ontransitionend="handleTransEnd"'],
+        [{ onTouchStart: "handleTouch" }, ' ontouchstart="handleTouch"'],
+        [{ onBeforeInput: "handleInput" }, ' onbeforeinput="handleInput"'],
+        [{ onCompositionEnd: "handleComp" }, ' oncompositionend="handleComp"'],
+    ];
+    for (const [props, expected] of cases) {
+        assertRenders(__jsxSpread(props), expected);
+    }
 });
 
 test("should normalize HTML attributes", () => {
@@ -290,74 +229,121 @@ test("should normalize HTML attributes", () => {
         yChannelSelector: "yChannelSelector",
         zoomAndPan: "zoomAndPan",
     };
-
     for (const [input, expected] of Object.entries(attributeMappings)) {
         assert.strictEqual(__jsxSpread({ [input]: "test" }), ` ${expected}="test"`);
     }
 });
 
-test("should handle aria attributes", () => {
-    const ariaProps = {
-        ariaLabel: "test-label",
-        ariaRequired: true,
-        ariaHidden: false,
-        ariaDisabled: null,
-    };
-    assert.strictEqual(__jsxSpread(ariaProps), ' aria-label="test-label" aria-required');
-});
-
 test("should preserve regular attribute names", () => {
-    // Regular attributes should remain unchanged
-    const standardProps = {
-        src: "image.jpg",
-        href: "/link",
-        type: "button",
-        value: "test",
-    };
-    assert.strictEqual(__jsxSpread(standardProps), ' src="image.jpg" href="/link" type="button" value="test"');
-
-    // Non-matching camelCase should remain unchanged
-    const customProps = {
-        dataTest: "value",
-    };
-    assert.strictEqual(__jsxSpread(customProps), ' dataTest="value"');
+    assertRenders(
+        __jsxSpread({ src: "image.jpg", href: "/link", type: "button", value: "test" }),
+        ' src="image.jpg" href="/link" type="button" value="test"',
+    );
+    assertRenders(__jsxSpread({ dataTest: "value" }), ' dataTest="value"');
 });
 
 test("should handle __jsxComponent returning an array", () => {
     const MultiComponent = () => ["<div>First</div>", "<div>Second</div>", "<div>Third</div>"];
-    const result = __jsxComponent(MultiComponent, []);
-    assert.strictEqual(result.toString(), "<div>First</div><div>Second</div><div>Third</div>");
-});
-
-/* New intrinsic element support tests */
-
-test("should render intrinsic string element with attributes and children", () => {
-    const result = __jsxComponent("section", [{ id: "intro", class: "hero" }], "<p>Hello</p>");
-    assert.strictEqual(result.toString(), '<section id="intro" class="hero"><p>Hello</p></section>');
-});
-
-test("should render intrinsic void element and ignore children", () => {
-    const result = __jsxComponent("img", [{ src: "/logo.png", alt: "Logo" }], "IGNORED");
-    assert.strictEqual(result.toString(), '<img src="/logo.png" alt="Logo"/>');
-});
-
-test("should render intrinsic element with no children producing empty content", () => {
-    const result = __jsxComponent("div", [{ class: "wrap" }]);
-    assert.strictEqual(result.toString(), '<div class="wrap"></div>');
+    assertRenders(__jsxComponent(MultiComponent, []), "<div>First</div><div>Second</div><div>Third</div>");
 });
 
 test("should allow prop objects (non-array) for intrinsic element", () => {
     const result = __jsxComponent("nav", { role: "navigation", class: "main" }, "<span>Menu</span>");
-    assert.strictEqual(result.toString(), '<nav role="navigation" class="main"><span>Menu</span></nav>');
+    assertRenders(result, '<nav role="navigation" class="main"><span>Menu</span></nav>');
 });
 
 test("should throw when component is not function or string", () => {
-    let threw = false;
-    try {
-        __jsxComponent(42, []);
-    } catch (e) {
-        threw = true;
-        assert.match(String(e), /expected a function or intrinsic tag string/i);
+    assert.throws(() => __jsxComponent(42, []), /expected a function or intrinsic tag string/i);
+});
+
+test("component rendering variations", async (t) => {
+    const cases = [
+        { name: "no props", component: () => "<div>Basic Component</div>", props: [], expected: "<div>Basic Component</div>" },
+        {
+            name: "with props",
+            component: (props) => `<div class="${props.class}">With Props</div>`,
+            props: [{ class: "test-class" }],
+            expected: '<div class="test-class">With Props</div>',
+        },
+        {
+            name: "with children",
+            component: ({ children }) => `<div>${children}</div>`,
+            props: [],
+            children: "<span>Child Content</span>",
+            expected: "<div><span>Child Content</span></div>",
+        },
+        {
+            name: "with props and children",
+            component: ({ children, ...props }) => `<div id="${props.id}">${children}</div>`,
+            props: [{ id: "test" }],
+            children: "<span>Child Content</span>",
+            expected: '<div id="test"><span>Child Content</span></div>',
+        },
+        {
+            name: "intrinsic element with attributes and children",
+            component: "section",
+            props: [{ id: "intro", class: "hero" }],
+            children: "<p>Hello</p>",
+            expected: '<section id="intro" class="hero"><p>Hello</p></section>',
+        },
+        { name: "intrinsic element with no children", component: "div", props: [{ class: "wrap" }], expected: '<div class="wrap"></div>' },
+    ];
+
+    for (const tc of cases) {
+        await t.test(tc.name, () => assertRenders(__jsxComponent(tc.component, tc.props, tc.children), tc.expected));
     }
-    assert.ok(threw, "Expected __jsxComponent to throw for invalid component type");
+});
+
+test("void elements ignore children", async (t) => {
+    const cases = [
+        {
+            name: "img",
+            element: "img",
+            props: [{ src: "/logo.png", alt: "Logo" }],
+            children: "IGNORED",
+            expected: '<img src="/logo.png" alt="Logo"/>',
+        },
+        {
+            name: "input",
+            element: "input",
+            props: [{ type: "text", placeholder: "Enter text" }],
+            children: "IGNORED",
+            expected: '<input type="text" placeholder="Enter text"/>',
+        },
+    ];
+
+    for (const tc of cases) {
+        await t.test(tc.name, () => assertRenders(__jsxComponent(tc.element, tc.props, tc.children), tc.expected));
+    }
+});
+
+test("attribute edge cases", async (t) => {
+    const cases = [
+        { name: "empty object", props: {}, expected: "" },
+        { name: "boolean true", props: { visible: true, hidden: false }, expected: " visible" },
+        { name: "null and false omitted", props: { hidden: false, empty: null }, expected: "" },
+        { name: "zero as string", props: { zero: 0 }, expected: ' zero="0"' },
+        { name: "className converts to class", props: { className: "test" }, expected: ' class="test"' },
+        { name: "htmlFor converts to for", props: { htmlFor: "input" }, expected: ' for="input"' },
+        { name: "onClick converts to onclick", props: { onClick: "handleClick" }, expected: ' onclick="handleClick"' },
+        {
+            name: "onDoubleClick converts to ondblclick",
+            props: { onDoubleClick: "handleDblClick" },
+            expected: ' ondblclick="handleDblClick"',
+        },
+        {
+            name: "aria attributes with hyphens",
+            props: { ariaLabel: "test-label", ariaRequired: true, ariaHidden: false },
+            expected: ' aria-label="test-label" aria-required',
+        },
+        {
+            name: "regular attributes",
+            props: { src: "image.jpg", href: "/link", type: "button", value: "test" },
+            expected: ' src="image.jpg" href="/link" type="button" value="test"',
+        },
+    ];
+
+    for (const tc of cases) {
+        await t.test(tc.name, () => assertRenders(__jsxSpread(tc.props), tc.expected));
+    }
 });
