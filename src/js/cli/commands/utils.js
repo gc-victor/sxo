@@ -1,9 +1,3 @@
-/**
- * @fileoverview Shared utilities for CLI command handlers.
- *
- * @module cli/commands/utils
- */
-
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -21,7 +15,7 @@ export function getErrorMessage(e) {
 
 /**
  * Computes routes.json path from resolved config.
- * @param {object} cfg - Resolved config with outDir
+ * @param {ResolvedConfig} cfg - Resolved config with outDir
  * @returns {string} Absolute path to routes.json
  */
 export function routesJsonPath(cfg) {
@@ -31,7 +25,7 @@ export function routesJsonPath(cfg) {
 /**
  * Computes relative routes.json path for display.
  * @param {string} root - Project root
- * @param {object} cfg - Resolved config
+ * @param {ResolvedConfig} cfg - Resolved config
  * @returns {string} Relative path for error messages
  */
 export function routesJsonRelative(root, cfg) {
@@ -40,8 +34,8 @@ export function routesJsonRelative(root, cfg) {
 
 /**
  * Checks if routes.json exists using injected pathExists.
- * @param {object} cfg - Resolved config
- * @param {object} impl - Implementation with pathExists
+ * @param {ResolvedConfig} cfg - Resolved config
+ * @param {{pathExists: (p: string) => Promise<boolean>}} impl - Implementation with pathExists
  * @returns {Promise<boolean>}
  */
 export async function routesJsonExists(cfg, impl) {
@@ -56,6 +50,7 @@ export async function routesJsonExists(cfg, impl) {
 export function getCliScriptPaths(fromUrl) {
     return {
         ESBUILD_CONFIG_FILE: fileURLToPath(new URL("../../esbuild/esbuild.config.js", fromUrl)),
+        RESOLVE_ALIASES_HOOK: fileURLToPath(new URL("../../server/hooks/resolve-aliases.js", fromUrl)),
         SERVER_DEV_FILE: fileURLToPath(new URL("../../server/dev.js", fromUrl)),
         SERVER_PROD_FILE: fileURLToPath(new URL("../../server/prod.js", fromUrl)),
     };

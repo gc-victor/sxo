@@ -1,9 +1,3 @@
-/**
- * @fileoverview Tests for dev command handler.
- *
- * @module cli/commands/dev.test
- */
-
 import assert from "node:assert/strict";
 import { after, before, beforeEach, describe, it, mock } from "node:test";
 import { log } from "../ui.js";

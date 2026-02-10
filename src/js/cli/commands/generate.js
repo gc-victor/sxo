@@ -1,13 +1,7 @@
-/**
- * @fileoverview SXO CLI generate command implementation.
- *
- * @module cli/commands/generate
- */
-
 import path from "node:path";
 import process from "node:process";
 
-import { resolveConfig } from "../../config.js";
+import { resolveConfig } from "../../config/resolve.js";
 import { pathExists, prepareFlags } from "../cli-helpers.js";
 import { createSpinner, log } from "../ui.js";
 import { getErrorMessage, routesJsonExists, routesJsonRelative } from "./utils.js";
@@ -15,7 +9,7 @@ import { getErrorMessage, routesJsonExists, routesJsonRelative } from "./utils.j
 /**
  * Handle the generate command logic.
  *
- * @param {object} flags - Command flags
+ * @param {Record<string, unknown>} flags - Command flags
  * @param {object} [inject] - Injectable dependencies for testing
  * @param {typeof resolveConfig} [inject.resolveConfig]
  * @param {typeof pathExists} [inject.pathExists]
@@ -34,7 +28,12 @@ export async function handleGenerateCommand(flags, inject = {}) {
 
         // Reuse build flags set; generation uses built outputs
         const { flagsForConfig, flagsExplicit } = prepareFlags("generate", flags);
-        const cfg = await impl.resolveConfig({ cwd: root, flags: flagsForConfig, flagsExplicit, command: "generate" });
+        const cfg = await impl.resolveConfig({
+            cwd: root,
+            flags: flagsForConfig,
+            flagsExplicit,
+            command: "generate",
+        });
 
         const ok = await routesJsonExists(cfg, impl);
         if (!ok) {

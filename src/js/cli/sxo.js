@@ -12,35 +12,40 @@
  *  - add:      Add a component from SXO
  */
 
-import fs from "node:fs";
 import path from "node:path";
 
 import { fileURLToPath } from "node:url";
 import cac from "cac";
+import { createFileReader } from "../server/shared/file-readers.js";
 import { registerCommonOptions } from "./cli-helpers.js";
-import {
-    handleAddCommand,
-    handleBuildCommand,
-    handleCleanCommand,
-    handleCreateCommand,
-    handleDevCommand,
-    handleGenerateCommand,
-    handleStartCommand,
-} from "./commands.js";
+import { handleAddCommand } from "./commands/add.js";
+import { handleBuildCommand } from "./commands/build.js";
+import { handleCleanCommand } from "./commands/clean.js";
+import { handleCreateCommand } from "./commands/create.js";
+import { handleDevCommand } from "./commands/dev.js";
+import { handleGenerateCommand } from "./commands/generate.js";
+import { handleStartCommand } from "./commands/start.js";
+import { shutdownHandler } from "./signal-handler.js";
 import { printBanner } from "./ui.js";
-
-/* ----------------------------- constants ----------------------------- */
 
 const NAME = "sxo";
 let VERSION = "0.0.0";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-try {
-    const pkgTxt = fs.readFileSync(path.resolve(__dirname, "../../../package.json"), "utf8");
-    VERSION = JSON.parse(pkgTxt).version || VERSION;
-} catch {}
 
-/* ------------------------------ commands ------------------------------ */
+// Create file reader and read version
+const fileReader = createFileReader();
+try {
+    const pkgTxt = await fileReader.readText(path.resolve(__dirname, "../../../package.json"));
+    if (pkgTxt !== null) {
+        VERSION = JSON.parse(pkgTxt).version || VERSION;
+    }
+} catch (err) {
+    const verbose = process.env.VERBOSE === "true" || process.argv.includes("--verbose");
+    if (verbose) {
+        console.error(`Failed to read package.json: ${err instanceof Error ? err.message : String(err)}`);
+    }
+}
 
 const cli = cac(NAME);
 
@@ -75,12 +80,21 @@ registerCommonOptions(cli.command("clean", "Remove the output directory"))
     .action(handleCleanCommand);
 
 /* generate */
-registerCommonOptions(cli.command("generate", "Generate static HTML into dist from built routes")).action(handleGenerateCommand);
+cli.command("generate", "Generate static HTML into dist from built routes")
+    .option("--out-dir <dir>", "Output directory (default: dist)")
+    .option("--public-path <path>", "Public base URL for assets (default: /)")
+    .option("--client-dir <name>", "Per-route client subdirectory (default: client)")
+    .option("--verbose", "Verbose output")
+    .option("--no-color", "Disable colors")
+    .action(handleGenerateCommand);
 
 /* create */
-cli.command("create <project-name>", "Create a new SXO project").action(handleCreateCommand);
+cli.command("create [project-name]", "Create a new SXO project").action(handleCreateCommand);
 
 /* add */
 registerCommonOptions(cli.command("add <component>", "Add a component from SXO")).action(handleAddCommand);
 
 cli.parse();
+
+// Setup global shutdown handler for clean terminal output
+shutdownHandler();

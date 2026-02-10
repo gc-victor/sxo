@@ -1,18 +1,19 @@
-/**
- * @fileoverview SXO CLI add command implementation.
- *
- * Provides functionality to fetch and install components from the basecoat library.
- *
- * @module cli/commands/add
- */
-
 import fsp from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 
-import { resolveConfig } from "../../config.js";
+import { resolveConfig } from "../../config/resolve.js";
 import { ensureDir, prepareFlags } from "../cli-helpers.js";
 import { log } from "../ui.js";
+
+/**
+ * Regex for safe component names.
+ * Only allows lowercase alphanumeric characters and hyphens.
+ * Must start with a letter or number.
+ *
+ * @constant {RegExp}
+ */
+const SAFE_COMPONENT = /^[a-z0-9][a-z0-9-]*$/;
 
 /**
  * Fetches a component from GitHub or local fallback and installs it to the components directory.
@@ -27,6 +28,11 @@ import { log } from "../ui.js";
  * @throws {Error} If file operations fail
  */
 export async function addComponent(component, componentsDir) {
+    // Validate component name to prevent path traversal
+    if (!SAFE_COMPONENT.test(component)) {
+        throw new Error(`Invalid component name: ${component}`);
+    }
+
     const baseUrl = "https://raw.githubusercontent.com/gc-victor/sxo/main/components/src/components/";
     const baseDir = path.join(process.cwd(), "components/src/components"); // fallback
     const extensions = [".jsx", ".client.js", ".css"];
@@ -51,6 +57,7 @@ export async function addComponent(component, componentsDir) {
         if (!content) {
             try {
                 const localPath = path.join(baseDir, `${component}${ext}`);
+
                 await fsp.access(localPath);
                 content = await fsp.readFile(localPath, "utf8");
                 source = "local basecoat";
@@ -78,7 +85,7 @@ export async function addComponent(component, componentsDir) {
  *
  * @function handleAddCommand
  * @param {string} component - Component name to install
- * @param {object} flags - Command flags
+ * @param {Record<string, unknown>} flags - Command flags
  * @returns {Promise<void>}
  */
 export async function handleAddCommand(component, flags) {
@@ -105,5 +112,6 @@ export async function handleAddCommand(component, flags) {
         const msg = e && typeof e === "object" && "message" in e ? e.message : String(e);
         log.error(`add failed: ${msg}`);
         process.exitCode = 1;
+        throw e; // Re-throw to allow test assertions
     }
 }

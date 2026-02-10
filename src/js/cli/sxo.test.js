@@ -1,16 +1,11 @@
-/**
- * @fileoverview Tests for CLI command error messages and failure modes.
- *
- * These tests verify that specific error messages are logged when commands fail,
- * by invoking the actual command handlers with mocked dependencies.
- *
- * @module cli/sxo.test
- */
-
 import assert from "node:assert/strict";
 import { after, before, beforeEach, describe, it, mock } from "node:test";
 
-import { handleBuildCommand, handleCleanCommand, handleDevCommand, handleGenerateCommand, handleStartCommand } from "./commands.js";
+import { handleBuildCommand } from "./commands/build.js";
+import { handleCleanCommand } from "./commands/clean.js";
+import { handleDevCommand } from "./commands/dev.js";
+import { handleGenerateCommand } from "./commands/generate.js";
+import { handleStartCommand } from "./commands/start.js";
 import { log } from "./ui.js";
 
 /**
@@ -72,7 +67,6 @@ describe("cli/sxo error messages", () => {
 
     describe("build command error messages", () => {
         it('logs "esbuild process failed" when build fails', async () => {
-            // Arrange: mock dependencies to trigger esbuild failure
             const inject = {
                 resolveConfig: createMockResolveConfig(),
                 validatePagesFolder: async () => {},
@@ -81,10 +75,8 @@ describe("cli/sxo error messages", () => {
                 printBuildSummary: async () => {},
             };
 
-            // Act: invoke the actual build command handler
             await handleBuildCommand({}, inject);
 
-            // Assert: verify the exact error message was logged
             const errorCalls = logMocks.error.mock.calls;
             assert.ok(errorCalls.length >= 1, "Expected at least one error log call");
 
@@ -98,7 +90,6 @@ describe("cli/sxo error messages", () => {
         });
 
         it("logs missing routes.json error when routes file not created", async () => {
-            // Arrange: mock esbuild success but routes.json missing
             const inject = {
                 resolveConfig: createMockResolveConfig(),
                 validatePagesFolder: async () => {},
@@ -107,10 +98,8 @@ describe("cli/sxo error messages", () => {
                 printBuildSummary: async () => {},
             };
 
-            // Act
             await handleBuildCommand({}, inject);
 
-            // Assert
             const errorCalls = logMocks.error.mock.calls;
             assert.ok(errorCalls.length >= 1, "Expected at least one error log call");
 
@@ -125,7 +114,6 @@ describe("cli/sxo error messages", () => {
 
     describe("dev command error messages", () => {
         it('logs "Couldn\'t generate routes with esbuild" message on prebuild failure', async () => {
-            // Arrange: mock prebuild failure
             const inject = {
                 resolveConfig: createMockResolveConfig(),
                 validatePagesFolder: async () => {},
@@ -138,10 +126,8 @@ describe("cli/sxo error messages", () => {
                 openWhenReady: async () => ({ opened: false, timedOut: false }),
             };
 
-            // Act
             await handleDevCommand({}, inject);
 
-            // Assert
             const errorCalls = logMocks.error.mock.calls;
             assert.ok(errorCalls.length >= 1, "Expected at least one error log call");
 
@@ -155,7 +141,6 @@ describe("cli/sxo error messages", () => {
         });
 
         it("logs PAGES_DIR hint when prebuild fails", async () => {
-            // Arrange: mock prebuild failure
             const pagesDir = "src/pages";
             const inject = {
                 resolveConfig: createMockResolveConfig({ pagesDir }),
@@ -169,10 +154,8 @@ describe("cli/sxo error messages", () => {
                 openWhenReady: async () => ({ opened: false, timedOut: false }),
             };
 
-            // Act
             await handleDevCommand({}, inject);
 
-            // Assert
             const infoCalls = logMocks.info.mock.calls;
             const infoMessages = infoCalls.map((c) => c.arguments[0]);
 
@@ -189,7 +172,6 @@ describe("cli/sxo error messages", () => {
 
     describe("start command error messages", () => {
         it('logs "Missing routes.json" and build hint', async () => {
-            // Arrange: mock missing routes.json
             const inject = {
                 resolveConfig: createMockResolveConfig(),
                 spawnRuntime: () => ({
@@ -198,10 +180,8 @@ describe("cli/sxo error messages", () => {
                 pathExists: async () => false, // routes.json missing
             };
 
-            // Act
             await handleStartCommand({}, inject);
 
-            // Assert
             const errorCalls = logMocks.error.mock.calls;
             assert.ok(errorCalls.length >= 1, "Expected at least one error log call");
 
@@ -223,7 +203,6 @@ describe("cli/sxo error messages", () => {
 
     describe("clean command error messages", () => {
         it('logs "Nothing to clean" when output dir does not exist', async () => {
-            // Arrange: mock output dir doesn't exist
             const targetPath = "dist";
             const inject = {
                 resolveConfig: createMockResolveConfig({ outDir: targetPath }),
@@ -232,10 +211,8 @@ describe("cli/sxo error messages", () => {
                 rm: async () => {},
             };
 
-            // Act
             await handleCleanCommand({}, inject);
 
-            // Assert
             const infoCalls = logMocks.info.mock.calls;
             const infoMessages = infoCalls.map((c) => c.arguments[0]);
             assert.ok(
@@ -245,7 +222,6 @@ describe("cli/sxo error messages", () => {
         });
 
         it('logs "Cancelled" when user declines cleanup', async () => {
-            // Arrange: mock output dir exists but user declines
             const inject = {
                 resolveConfig: createMockResolveConfig({ outDir: "dist" }),
                 pathExists: async () => true, // output dir exists
@@ -253,10 +229,8 @@ describe("cli/sxo error messages", () => {
                 rm: async () => {},
             };
 
-            // Act
             await handleCleanCommand({}, inject);
 
-            // Assert
             const warnCalls = logMocks.warn.mock.calls;
             const warnMessages = warnCalls.map((c) => c.arguments[0]);
             assert.ok(
@@ -268,17 +242,14 @@ describe("cli/sxo error messages", () => {
 
     describe("generate command error messages", () => {
         it("logs missing routes.json error with build hint", async () => {
-            // Arrange: mock missing routes.json
             const inject = {
                 resolveConfig: createMockResolveConfig(),
                 pathExists: async () => false, // routes.json missing
                 importGenerate: async () => ({ generate: async () => ({ ok: true }) }),
             };
 
-            // Act
             await handleGenerateCommand({}, inject);
 
-            // Assert
             const errorCalls = logMocks.error.mock.calls;
             assert.ok(errorCalls.length >= 1, "Expected at least one error log call");
 

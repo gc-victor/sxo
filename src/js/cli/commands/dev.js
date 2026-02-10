@@ -1,25 +1,22 @@
-/**
- * @fileoverview SXO CLI dev command implementation.
- *
- * @module cli/commands/dev
- */
-
+import { existsSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 
-import { resolveConfig } from "../../config.js";
-import { absoluteScript, ensureDir, getUrl, prepareFlags, toPosixPath, validatePagesFolder } from "../cli-helpers.js";
+import { resolveConfig } from "../../config/resolve.js";
+import { detectRuntime } from "../../server/shared/runtime.js";
+import { convertToPosixSlashes } from "../../shared/path-utils.js";
+import { absoluteScript, ensureDir, getUrl, prepareFlags, validatePagesFolder } from "../cli-helpers.js";
 import { openWhenReady } from "../open.js";
 import { runRuntime, spawnRuntime } from "../spawn.js";
 import { createSpinner, log } from "../ui.js";
 import { getCliScriptPaths, getErrorMessage } from "./utils.js";
 
-const { ESBUILD_CONFIG_FILE, SERVER_DEV_FILE } = getCliScriptPaths(import.meta.url);
+const { ESBUILD_CONFIG_FILE, RESOLVE_ALIASES_HOOK, SERVER_DEV_FILE } = getCliScriptPaths(import.meta.url);
 
 /**
  * Handle the dev command logic.
  *
- * @param {object} flags - Command flags
+ * @param {Record<string, unknown>} flags - Command flags
  * @param {object} [inject] - Injectable dependencies for testing
  * @param {typeof resolveConfig} [inject.resolveConfig]
  * @param {typeof runRuntime} [inject.runRuntime]
@@ -63,7 +60,7 @@ export async function handleDevCommand(flags, inject = {}) {
         if (!prebuildRes.success) {
             prebuildSpinner.fail("Prebuild failed");
             log.error("Couldn't generate routes with esbuild. Check the error above for details.");
-            log.info(`- PAGES_DIR: ${toPosixPath(cfg.pagesDir)}`);
+            log.info(`- PAGES_DIR: ${convertToPosixSlashes(cfg.pagesDir)}`);
             log.info("- Hint: run with --pages-dir or set PAGES_DIR to your pages root.");
             process.exitCode = prebuildRes.code ?? 1;
             return;
@@ -74,10 +71,19 @@ export async function handleDevCommand(flags, inject = {}) {
         await impl.ensureDir(cfg.outDir);
 
         // Spawn dev server (auto-detects runtime internally)
+        const runtimeOptions = [];
+        // Register tsconfig path alias resolver for Node.js runtime
+        if (detectRuntime() === "node" && existsSync(RESOLVE_ALIASES_HOOK)) {
+            const tsconfigPath = path.join(root, "tsconfig.json");
+            if (existsSync(tsconfigPath)) {
+                runtimeOptions.push("--import", RESOLVE_ALIASES_HOOK);
+            }
+        }
         const { child, wait } = impl.spawnRuntime(absoluteScript(root, SERVER_DEV_FILE), {
             cwd: root,
             env: cfg.env,
             stdio: "inherit",
+            runtimeOptions,
         });
 
         // Auto-open if configured
@@ -89,7 +95,7 @@ export async function handleDevCommand(flags, inject = {}) {
                 pathname: "/",
                 timeoutMs: 12000,
                 signal: ctrl.signal,
-                verbose: !!cfg.verbose,
+                verbose: Boolean(cfg.verbose),
             });
 
             if (res.timedOut) {

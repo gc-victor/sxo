@@ -1,9 +1,3 @@
-/**
- * @fileoverview Tests for clean command handler.
- *
- * @module cli/commands/clean.test
- */
-
 import assert from "node:assert/strict";
 import { after, before, beforeEach, describe, it, mock } from "node:test";
 import { log } from "../ui.js";
@@ -81,7 +75,7 @@ describe("cli/commands/clean", () => {
             },
         };
 
-        await handleCleanCommand({}, inject);
+        await handleCleanCommand({ yes: true }, inject);
 
         assert.ok(rmWasCalled, "Should call rm when user confirms");
         assert.equal(removedPath, "dist", "Should remove correct directory");
@@ -180,8 +174,51 @@ describe("cli/commands/clean", () => {
             },
         };
 
-        await handleCleanCommand({}, inject);
+        await handleCleanCommand({ yes: true }, inject);
 
         assert.deepEqual(rmOptions, { recursive: true, force: true, maxRetries: 2 }, "Should pass correct rm options");
+    });
+
+    it("prompts user in TTY when --yes is not provided", async () => {
+        const originalIsTTY = process.stdout.isTTY;
+        Object.defineProperty(process.stdout, "isTTY", { value: true, configurable: true });
+
+        let askWasCalled = false;
+        const inject = {
+            resolveConfig: createMockResolveConfig(),
+            pathExists: async () => true,
+            askYesNo: async () => {
+                askWasCalled = true;
+                return true;
+            },
+            rm: async () => {},
+        };
+
+        try {
+            await handleCleanCommand({}, inject);
+            assert.ok(askWasCalled, "Should prompt user in TTY");
+        } finally {
+            Object.defineProperty(process.stdout, "isTTY", { value: originalIsTTY, configurable: true });
+        }
+    });
+
+    it("handles errors during clean", async () => {
+        const inject = {
+            resolveConfig: createMockResolveConfig(),
+            pathExists: async () => true,
+            askYesNo: async () => true,
+            rm: async () => {
+                throw new Error("Delete failed");
+            },
+        };
+
+        await handleCleanCommand({ yes: true }, inject);
+
+        assert.strictEqual(process.exitCode, 1, "Should set exitCode on failure");
+        const errorCalls = logMocks.error.mock.calls;
+        assert.ok(
+            errorCalls.some((c) => c.arguments[0].includes("clean failed: Delete failed")),
+            "Should log error message",
+        );
     });
 });

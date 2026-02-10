@@ -1,13 +1,7 @@
-/**
- * @fileoverview SXO CLI build command implementation.
- *
- * @module cli/commands/build
- */
-
 import path from "node:path";
 import process from "node:process";
 
-import { resolveConfig } from "../../config.js";
+import { resolveConfig } from "../../config/resolve.js";
 import { pathExists, prepareFlags, printBuildSummary, validatePagesFolder } from "../cli-helpers.js";
 import { runRuntime } from "../spawn.js";
 import { createSpinner, log } from "../ui.js";
@@ -18,7 +12,7 @@ const { ESBUILD_CONFIG_FILE } = getCliScriptPaths(import.meta.url);
 /**
  * Handle the build command logic.
  *
- * @param {object} flags - Command flags
+ * @param {Record<string, unknown>} flags - Command flags
  * @param {object} [inject] - Injectable dependencies for testing
  * @param {typeof resolveConfig} [inject.resolveConfig]
  * @param {typeof runRuntime} [inject.runRuntime]

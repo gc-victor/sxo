@@ -1,24 +1,20 @@
-/**
- * @fileoverview SXO CLI start command implementation.
- *
- * @module cli/commands/start
- */
-
+import { existsSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 
-import { resolveConfig } from "../../config.js";
+import { resolveConfig } from "../../config/resolve.js";
+import { detectRuntime } from "../../server/shared/runtime.js";
 import { absoluteScript, pathExists, prepareFlags } from "../cli-helpers.js";
 import { spawnRuntime } from "../spawn.js";
 import { log } from "../ui.js";
 import { getCliScriptPaths, getErrorMessage, routesJsonExists, routesJsonRelative } from "./utils.js";
 
-const { SERVER_PROD_FILE } = getCliScriptPaths(import.meta.url);
+const { RESOLVE_ALIASES_HOOK, SERVER_PROD_FILE } = getCliScriptPaths(import.meta.url);
 
 /**
  * Handle the start command logic.
  *
- * @param {object} flags - Command flags
+ * @param {Record<string, unknown>} flags - Command flags
  * @param {object} [inject] - Injectable dependencies for testing
  * @param {typeof resolveConfig} [inject.resolveConfig]
  * @param {typeof spawnRuntime} [inject.spawnRuntime]
@@ -48,10 +44,18 @@ export async function handleStartCommand(flags, inject = {}) {
             return;
         }
 
+        const runtimeOptions = [];
+        if (detectRuntime() === "node" && existsSync(RESOLVE_ALIASES_HOOK)) {
+            const tsconfigPath = path.join(root, "tsconfig.json");
+            if (existsSync(tsconfigPath)) {
+                runtimeOptions.push("--import", RESOLVE_ALIASES_HOOK);
+            }
+        }
         const { wait } = impl.spawnRuntime(absoluteScript(root, SERVER_PROD_FILE), {
             cwd: root,
             env: { ...cfg.env, NODE_ENV: "production" },
             stdio: "inherit",
+            runtimeOptions,
         });
 
         const result = await wait;
