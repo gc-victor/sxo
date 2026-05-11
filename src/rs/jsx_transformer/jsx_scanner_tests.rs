@@ -152,4 +152,27 @@ const t = `X ${ `Y ${ /* c */ 1 }` } Z`;
         let at = find_next_jsx_start(src, 0).unwrap();
         assert_eq!(at, src.find("<x").unwrap());
     }
+
+    #[test]
+    fn ignores_ts_generics_adjacent_to_identifier() {
+        // TypeScript generics like Record<string, string> should not be treated as JSX
+        let src = "function f(x: Record<string, string>): Response { return <div/>; }";
+        let at = find_next_jsx_start(src, 0).unwrap();
+        assert_eq!(at, src.find("<div").unwrap());
+    }
+
+    #[test]
+    fn ignores_multiple_ts_generics() {
+        let src = "type A = Map<string, number>; type B = Promise<Response>; const x = <p/>;";
+        let positions = collect_jsx_starts(src);
+        assert_eq!(positions, vec![src.find("<p").unwrap()]);
+    }
+
+    #[test]
+    fn ignores_ts_generic_with_component_type() {
+        // Generic with uppercase type name (e.g. JSX.Element) should also be skipped
+        let src = "function f(): React.Component<Props, State> { return <div/>; }";
+        let at = find_next_jsx_start(src, 0).unwrap();
+        assert_eq!(at, src.find("<div").unwrap());
+    }
 }

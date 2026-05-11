@@ -129,6 +129,13 @@ impl<'a> Scanner<'a> {
 
                     // JSX detection: only treat '<' as JSX when next char plausibly starts a tag or fragment
                     if self.peek_byte() == Some(b'<') {
+                        // Heuristic: if '<' immediately follows an identifier character (no whitespace),
+                        // it is almost certainly a TypeScript generic (e.g. Record<string, string>)
+                        // or a comparison operator, not JSX. Skip it.
+                        if self.i > 0 && is_ident_part(self.bytes[self.i - 1]) {
+                            self.bump_normal_and_update_ctx();
+                            continue;
+                        }
                         let next = if self.i + 1 < self.len {
                             Some(self.bytes[self.i + 1])
                         } else {
