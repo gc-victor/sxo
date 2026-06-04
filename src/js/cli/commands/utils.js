@@ -50,7 +50,7 @@ export async function routesJsonExists(cfg, impl) {
 export function getCliScriptPaths(fromUrl) {
     return {
         ESBUILD_CONFIG_FILE: fileURLToPath(new URL("../../esbuild/esbuild.config.js", fromUrl)),
-        RESOLVE_ALIASES_HOOK: fileURLToPath(new URL("../../server/hooks/resolve-aliases.js", fromUrl)),
+        RESOLVE_ALIASES_HOOK: fileURLToPath(new URL("../../config/resolve-aliases.js", fromUrl)),
         SERVER_DEV_FILE: fileURLToPath(new URL("../../server/dev.js", fromUrl)),
         SERVER_PROD_FILE: fileURLToPath(new URL("../../server/prod.js", fromUrl)),
     };
