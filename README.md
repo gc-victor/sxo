@@ -584,12 +584,13 @@ export default await createHandler({
 
 **Custom Error Pages (Cloudflare)**:
 
-Unlike Node/Bun/Deno adapters which automatically load `PAGES_DIR/404.*` and `PAGES_DIR/500.*`, the Cloudflare adapter requires explicit render functions:
+Unlike Node/Bun/Deno adapters which automatically load custom error pages from `PAGES_DIR`, the Cloudflare adapter requires explicit render functions:
 
 ```javascript
 import { createHandler } from "sxo/cloudflare";
 import middleware from "./src/middleware.js";
 // Import your custom error page modules explicitly
+// Supports flat files (404.jsx) or folder-based (404/index.jsx)
 import { default as render404 } from "./src/pages/404.jsx";
 import { default as render500 } from "./src/pages/500.jsx";
 
@@ -650,25 +651,130 @@ Note: Pages must return a full `<html>...</html>` document (including `<head>` a
 
 SXO uses one middleware contract across dev, prod, and platform adapters.
 
-**Signature**: `(request: Request, env?: object) => Response | void | Promise<Response | void>`
+**Signature**: `(request: Request, env?: object, context?: MiddlewareContext) => Response | void | Promise<Response | void>`
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `request` | `Request` | The incoming Web Standard Request |
+| `env` | `object` | Platform-specific environment bindings |
+| `context` | `{ render }` | Optional context object (see below) |
 
 - Return a `Response` to short-circuit the request.
 - Return nothing to continue to the next middleware or route handler.
 
+### Rendering JSX Modules from Middleware
+
+Middleware can render any page module (`.jsx`/`.tsx`) by calling `context.render(jsxPath, params?)`. The function loads the compiled module, executes its render function with the provided params, and returns the HTML string (with `<!doctype html>` prepended if the output starts with `<html>`).
+
+#### Signature
+
+```typescript
+render(jsxPath: string, params?: Record<string, string>): Promise<string>
+```
+
+| Argument | Type | Description |
+|----------|------|-------------|
+| `jsxPath` | `string` | Source path to the page module (e.g., `"src/pages/custom.jsx"`) |
+| `params` | `Record<string, string>` | Optional route parameters passed to the page's render function |
+
+**Returns**: A string containing the rendered HTML. If the module's output starts with `<html`, the string is automatically prefixed with `<!doctype html>\n`. Non-string return values (numbers, null, undefined) are coerced to string.
+
+**Throws**: When the module path is not found in the loaded modules, or when the module has no `default` or `jsx` export, or when the render function itself throws.
+
+#### Basic Usage
+
+Render a page module at a custom path and return it as a full HTML response:
+
 ```javascript
 // src/middleware.js
-export default function (request, env) {
+export default async function (request, env, { render }) {
   const url = new URL(request.url);
-  if (url.pathname === "/ping") {
-    return new Response("pong");
+
+  if (url.pathname === "/custom-page") {
+    const html = await render("src/pages/custom.jsx", { title: "Custom" });
+    return new Response(html, {
+      status: 200,
+      headers: { "Content-Type": "text/html; charset=utf-8" },
+    });
   }
 
-  // Return nothing to continue.
+  // Return nothing to continue to the next middleware or route.
 }
 ```
 
+#### Dynamic Param-Based Rendering
+
+Use request data to select which module to render and what params to pass:
+
+```javascript
+// src/middleware.js
+export default async function (request, env, { render }) {
+  const url = new URL(request.url);
+
+  // Match a slug from the URL and render the corresponding page
+  const match = url.pathname.match(/^\/pages\/([a-z0-9-]+)$/);
+  if (match) {
+    const slug = match[1];
+    const html = await render("src/pages/dynamic.jsx", { slug });
+    return new Response(html, {
+      status: 200,
+      headers: { "Content-Type": "text/html; charset=utf-8" },
+    });
+  }
+
+  // Render different modules based on hostname or header
+  if (request.headers.get("X-Theme") === "dark") {
+    const html = await render("src/pages/theme-dark.jsx");
+    return new Response(html, {
+      status: 200,
+      headers: { "Content-Type": "text/html; charset=utf-8" },
+    });
+  }
+}
+```
+
+#### Error Handling
+
+Wrap `render` calls in try/catch to handle missing modules or rendering failures:
+
+```javascript
+// src/middleware.js
+export default async function (request, env, { render }) {
+  const url = new URL(request.url);
+
+  if (url.pathname === "/preview") {
+    try {
+      const html = await render("src/pages/preview.jsx", { id: "draft" });
+      return new Response(html, {
+        status: 200,
+        headers: { "Content-Type": "text/html; charset=utf-8" },
+      });
+    } catch {
+      return new Response("Preview not available", { status: 404 });
+    }
+  }
+}
+```
+
+#### How It Works
+
+The `render` function adapts to the current environment:
+
+- **Production**: Looks up the pre-loaded module from the `modules` map (loaded at startup from `modules.js`). No additional I/O.
+- **Development**: Loads the module lazily via `loadJsxModule`, which imports the compiled bundle from `dist/server/` with cache-busting.
+- **Runtime (Cloudflare Workers, etc.)**: Uses the `modules` map provided to `createCoreHandler`.
+
+In all cases, the middleware author writes the same code. The environment-specific resolution is handled internally.
+
+> **Note**: The `context` parameter is optional. Middleware that only uses `(request, env)` continues to work without changes. The `render` function is only available when explicitly destructured from the third argument.
+
 Use cases:
 
+- Custom page rendering (render any JSX module at any path)
+- A/B testing (render different modules based on cookies/headers)
+- Multi-tenant pages (select module by hostname)
+- Draft/preview rendering with custom error handling
+- Theme variants (render themed versions of a page)
 - CORS
 - Security headers / CSP
 - Compression (beyond static precompressed assets)
@@ -697,14 +803,20 @@ Readiness Probe:
 
 ## Custom Error Pages (404/500)
 
-- Location: `PAGES_DIR/404.(tsx|jsx|ts|js)` and `PAGES_DIR/500.(tsx|jsx|ts|js)`
-- Export shape: default export or named `jsx`; pages must return a full `<html>` document and include their own `<head>`
-- Not routable: compiled as server-only modules (not listed as public routes)
-- Build and generation: server build includes 404/500 SSR modules; not generated by `sxo generate`; no route asset mappings and no runtime asset injection (include any required CSS/JS inside the returned document).
+- Location (precedence order):
+  1. Flat file: `PAGES_DIR/404.tsx` / `PAGES_DIR/500.tsx`
+  2. Flat file: `PAGES_DIR/404.jsx` / `PAGES_DIR/500.jsx`
+  3. Folder with index: `PAGES_DIR/404/index.tsx` / `PAGES_DIR/500/index.tsx`
+  4. Folder with index: `PAGES_DIR/404/index.jsx` / `PAGES_DIR/500/index.jsx`
+- Export shape: default export or named `jsx`; pages must return a full `<html>` document and include their own `<head>`.
+- Not routable: compiled as server-only modules (not matched by URL routing).
+- Client assets: folder-based error pages support client entry files at `PAGES_DIR/404/client/index.js` (and `*.index.*` patterns). These are built and injected automatically, just like regular route client assets.
+- Build and generation: server build includes 404/500 SSR modules; not generated by `sxo generate`.
 - Response semantics:
   - HEAD requests: responses include headers only (no body) for 404/500 (custom or fallback).
   - Cache-Control: 404 → `public, max-age=0, must-revalidate`; 500 → `no-store`.
   - Doctype: when serving HTML documents, the server prepends `<!doctype html>`.
+  - Assets: folder-based error pages have their own asset mappings computed by the build; assets are injected automatically. Flat-file error pages receive assets from the first available regular route.
 
 ## Build Outputs & Manifest
 
