@@ -7,7 +7,7 @@
 - Build outputs: `dist/client` (public) and `dist/server` (private SSR bundles)
 - Route manifest: `dist/server/routes.json`
 - JSX: Rust/WASM transformer
-- Middleware entry: `src/middleware.js`
+- Middleware entry: `packages/server/src/server/middleware.js`
 
 ## Quick start
 
@@ -16,24 +16,27 @@
 - LCOV: `pnpm run test:lcov`
 - Lint: `npm run check`
 - Format: `npm run format`
-- CLI: `./bin/sxo.js create|add|dev|build|start|clean|generate`
+- CLI: `sxo create|add|dev|build|start|clean|generate`
 
 ## Non-negotiable rules
 
-- Modify only `src/js/**` unless the task explicitly requires another path.
+- Modify only `packages/{cli,server,client,components}/**` unless the task explicitly requires another path.
 - Never edit generated artifacts, including `dist/**`.
-- Never edit `jsx-transformer/jsx_transformer.js`.
+- Never edit `packages/cli/jsx-transformer/jsx_transformer.js`.
 - Avoid mega-refactors without confirmation: more than 300 LOC or more than 3 files.
 - Do not invent architecture. If behavior is unclear, inspect the source first.
 
 ## Project map
 
-- `src/js/cli/` - CLI commands and helpers
-- `src/js/config/` - config resolution and env precedence
-- `src/js/esbuild/` - route discovery, build orchestration, asset mapping
-- `src/js/server/` - dev/prod servers and shared server utilities
-- `src/js/runtime/` - core web-standard runtime handler
-- `src/js/generate/` - static generation
+- `packages/cli/src/cli/` - CLI commands and helpers
+- `packages/cli/src/esbuild/` - route discovery, build orchestration, asset mapping
+- `packages/cli/jsx-transformer/` - Rust/WASM JSX transformer
+- `packages/server/src/config/` - config resolution and env precedence
+- `packages/server/src/server/` - dev/prod servers and shared server utilities
+- `packages/server/src/runtime/` - core web-standard runtime handler
+- `packages/server/src/generate/` - static generation
+- `packages/client/src/` - client reactivity library (re-export shim)
+- `packages/components/` - SXOUI component library
 
 ## Architecture essentials
 
