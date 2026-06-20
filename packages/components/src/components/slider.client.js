@@ -11,7 +11,7 @@
  * @license MIT
  */
 
-import { define } from "@qery/reactive-component";
+import { define } from "@sxo/client";
 
 define("el-slider", function ElSlider({ $state, $compute, $effect, $element, $on }) {
     /**

@@ -52,7 +52,7 @@
  * - Runtime updates aria-selected and tabindex based on active state.
  *
  */
-import { define } from "@qery/reactive-component";
+import { define } from "@sxo/client";
 
 /**
  * @typedef {string} TabName

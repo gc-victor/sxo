@@ -25,7 +25,7 @@ jobs:
         uses: ./.github/actions/setup-node-pnpm
 
       - name: Install components dependencies
-        run: pnpm --filter ./components install --frozen-lockfile
+        run: pnpm --filter ./packages/components install --frozen-lockfile
 
       - name: Install web dependencies
         run: pnpm --filter ./web install --frozen-lockfile
@@ -38,7 +38,7 @@ jobs:
         run: pnpm build
 
       - name: Copy public folder
-        run: cp -r components/src/public web/public
+        run: cp -r packages/components/src/public web/public
 
       - name: Deploy to Cloudflare Workers via CLI
         working-directory: web

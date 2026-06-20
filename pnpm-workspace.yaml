@@ -1,11 +1,5 @@
 packages:
-  - packages/cli
-  - packages/server
-  - packages/client
-  - packages/components
-  - components
-  - components/e2e
-  - components/src
+  - packages/*
 
 allowBuilds:
   '@parcel/watcher': true

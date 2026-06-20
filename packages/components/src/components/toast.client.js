@@ -27,7 +27,7 @@
  *
  * @license MIT
  */
-import { define } from "@qery/reactive-component";
+import { define } from "@sxo/client";
 
 /**
  * el-toast: Template-based toast notification component

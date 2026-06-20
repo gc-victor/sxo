@@ -20,7 +20,7 @@ jobs:
         uses: ./.github/actions/setup-node-pnpm
 
       - name: Install components dependencies
-        run: pnpm --filter ./components install --frozen-lockfile
+        run: pnpm --filter ./packages/components install --frozen-lockfile
 
       - name: Setup Playwright
         uses: ./.github/actions/setup-playwright

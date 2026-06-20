@@ -30,7 +30,7 @@
  *
  * @license MIT
  */
-import { define } from "@qery/reactive-component";
+import { define } from "@sxo/client";
 
 define("el-select-menu", function SelectMenu({ $element, $state, $on, $effect }) {
     /**

@@ -1,5 +1,40 @@
 {
     "name": "@sxo/components",
+    "version": "0.0.0",
     "private": true,
-    "type": "module"
+    "type": "module",
+    "description": "A complete set of ready-to-use UI components built for SXO.",
+    "license": "MIT",
+    "scripts": {
+        "check": "biome check src/ e2e/",
+        "check:fix": "biome check --write --unsafe src/ e2e/",
+        "copy:public": "cp -r src/public dist/client",
+        "dev": "pnpm run \"/^(tailwind:watch|sxo:dev)$/\"",
+        "server": "pnpm run sxo:clean -y && pnpm run sxo:build && pnpm run sxo:start",
+        "sxo:help": "sxo --help",
+        "sxo:dev": "sxo dev",
+        "sxo:build": "pnpm run tailwind && sxo build",
+        "sxo:generate": "sxo generate",
+        "sxo:start": "sxo start --port 3001",
+        "sxo:clean": "sxo clean",
+        "playwright:install": "playwright install chromium --with-deps",
+        "test:e2e": "playwright test --workers 4",
+        "test:e2e:ui": "playwright test --ui",
+        "test:e2e:headed": "playwright test --headed",
+        "test:e2e:debug": "playwright test --debug",
+        "test:e2e:server": "sxo clean --yes && NODE_ENV=test sxo build && sxo start --port 3002",
+        "tailwind": "tailwindcss -i src/styles.css -o src/pages/global.css --minify",
+        "tailwind:watch": "pnpm run tailwind --watch"
+    },
+    "dependencies": {
+        "@sxo/client": "workspace:*"
+    },
+    "devDependencies": {
+        "@biomejs/biome": "^2.4.11",
+        "@playwright/test": "^1.59.1",
+        "@sxo/cli": "workspace:*",
+        "@tailwindcss/cli": "4.2.2",
+        "basecoat-css": "0.3.11",
+        "tailwindcss": "4.2.2"
+    }
 }

@@ -1,7 +1,10 @@
 node_modules/
 **/node_modules/
 dist/
-jsx-transformer/
+**/jsx-transformer/jsx_transformer*.js
+**/jsx-transformer/jsx_transformer*.wasm
+**/jsx-transformer/jsx_transformer*.wasm.d.ts
+**/jsx-transformer/package.json
 **/dist/
 *.local
 .env

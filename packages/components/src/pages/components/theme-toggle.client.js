@@ -8,7 +8,7 @@
  * @version 1.0.0
  */
 
-import { define } from "@qery/reactive-component";
+import { define } from "@sxo/client";
 
 define("el-theme-toggle", ({ $state, $on, $compute }) => {
     // Initialize theme state: check stored preference, fallback to system preference

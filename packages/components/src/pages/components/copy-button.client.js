@@ -7,7 +7,7 @@
  * @module ui/copy-button.client
  */
 
-import { define } from "@qery/reactive-component";
+import { define } from "@sxo/client";
 
 /**
  * Define the copy-button custom element with reactive copy functionality.

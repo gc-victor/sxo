@@ -23,7 +23,7 @@
  *
  * @license MIT
  */
-import { define } from "@qery/reactive-component";
+import { define } from "@sxo/client";
 
 define("el-dropdown-menu", function DropdownMenu({ $element, $on, $effect }) {
     /**

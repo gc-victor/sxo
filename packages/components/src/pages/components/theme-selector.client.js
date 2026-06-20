@@ -8,7 +8,7 @@
  * @version 1.0.0
  */
 
-import { define } from "@qery/reactive-component";
+import { define } from "@sxo/client";
 
 define("el-theme-selector", ({ $state, $effect }) => {
     // Initialize selected theme state: fallback to default (empty string)

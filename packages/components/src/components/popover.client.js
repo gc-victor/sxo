@@ -41,7 +41,7 @@
  * @version 1.0.0
  */
 
-import { define } from "@qery/reactive-component";
+import { define } from "@sxo/client";
 
 define("el-popover", function ReactivePopover({ $state, $on, $ref, $effect, $compute, $element }) {
     // Initialize reactive state

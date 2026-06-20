@@ -2,7 +2,7 @@
  * @fileoverview Alert dialog reactive component using native <dialog> showModal()
  */
 
-import { define } from "@qery/reactive-component";
+import { define } from "@sxo/client";
 
 define("el-alert-dialog", ({ $element, $on }) => {
     /**
