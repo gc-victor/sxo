@@ -74,7 +74,20 @@ importers:
         specifier: 4.2.2
         version: 4.2.2
 
-  packages/cli: {}
+  packages/cli:
+    dependencies:
+      '@sxo/client':
+        specifier: workspace:*
+        version: link:../client
+      '@sxo/server':
+        specifier: workspace:*
+        version: link:../server
+      cac:
+        specifier: ^7.0.0
+        version: 7.0.0
+      esbuild:
+        specifier: ^0.28.0
+        version: 0.28.0
 
   packages/client:
     dependencies:

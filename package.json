@@ -18,12 +18,12 @@
     "license": "MIT",
     "type": "module",
     "exports": {
-        ".": "./bin/sxo.js",
-        "./runtime": "./src/js/runtime/handler.js",
-        "./cloudflare": "./src/js/server/prod/cloudflare.js",
-        "./dev-node": "./src/js/server/dev/node.js",
-        "./dev-bun": "./src/js/server/dev/bun.js",
-        "./dev-deno": "./src/js/server/dev/deno.js"
+        ".": "./packages/cli/bin/sxo.js",
+        "./runtime": "./packages/server/src/runtime/handler.js",
+        "./cloudflare": "./packages/server/src/server/prod/cloudflare.js",
+        "./dev-node": "./packages/server/src/server/dev/node.js",
+        "./dev-bun": "./packages/server/src/server/dev/bun.js",
+        "./dev-deno": "./packages/server/src/server/dev/deno.js"
     },
     "repository": {
         "type": "git",
@@ -34,17 +34,17 @@
         "url": "https://github.com/gc-victor/sxo/issues"
     },
     "bin": {
-        "sxo": "bin/sxo.js"
+        "sxo": "packages/cli/bin/sxo.js"
     },
     "engines": {
         "node": ">=20"
     },
     "scripts": {
-        "help": "./bin/sxo.js --help",
+        "help": "sxo --help",
         "wasm-build": "node scripts/wasm-build.js",
-        "format": "biome format src/js --write",
-        "check": "biome check src/js components/e2e components/src",
-        "check:fix": "biome check --write --unsafe src/js components/e2e components/src",
+        "format": "biome format packages/cli/src packages/server/src packages/client/src --write",
+        "check": "biome check packages/cli/src packages/server/src packages/client/src components/e2e components/src",
+        "check:fix": "biome check --write --unsafe packages/cli/src packages/server/src packages/client/src components/e2e components/src",
         "components:dev": "pnpm run --filter ./components dev",
         "components:build": "pnpm run --filter ./components sxo:build",
         "components:start": "pnpm run --filter ./components sxo:start",

@@ -168,7 +168,7 @@ const REPORTERS = {
 };
 
 async function main() {
-    const srcDir = resolve(projectRoot, "src", "js");
+    const srcDir = resolve(projectRoot, "packages");
     const { mode, paths } = parseArgs(process.argv.slice(2));
 
     // Validate paths before any processing

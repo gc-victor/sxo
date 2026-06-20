@@ -5,12 +5,11 @@
         "lib": ["ESNext", "DOM"],
         "types": ["node", "deno", "bun"],
         "paths": {
-            "#cli/*": ["./src/js/cli/*"],
-            "#config": ["./src/js/config/*"],
-            "#server/*": ["./src/js/server/*"],
-            "#runtime/*": ["./src/js/runtime/*"],
-            "#esbuild/*": ["./src/js/esbuild/*"],
-            "#utils/*": ["./src/js/utils/*"]
+            "#cli/*": ["./packages/cli/src/cli/*"],
+            "#config": ["./packages/server/src/config/*"],
+            "#server/*": ["./packages/server/src/server/*"],
+            "#runtime/*": ["./packages/server/src/runtime/*"],
+            "#esbuild/*": ["./packages/cli/src/esbuild/*"]
         },
         "module": "esnext",
         "target": "esnext",
@@ -32,8 +31,8 @@
         "jsxFragmentFactory": "Fragment",
         "allowSyntheticDefaultImports": true,
         "forceConsistentCasingInFileNames": true,
-        "typeRoots": ["./node_modules/@types", "./src/js/types"]
+        "typeRoots": ["./node_modules/@types", "./packages/server/src/types"]
     },
-    "include": ["src/js/**/*", "src/lib.rs", "src/middleware.js", "src/js/types/index.d.ts"],
+    "include": ["packages/cli/src/**/*", "packages/server/src/**/*", "packages/client/src/**/*", "packages/cli/jsx-transformer/src/lib.rs"],
     "exclude": ["node_modules", "dist/**/*", "**/*.test.js"]
 }

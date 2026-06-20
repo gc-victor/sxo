@@ -71,8 +71,8 @@ function fixNodeImports(bgFilePath) {
     }
 }
 
-const crateDir = process.env.CRATE_DIR || ".";
-const outNode = process.env.OUT_NODE || "jsx-transformer";
+const crateDir = process.env.CRATE_DIR || "packages/cli/jsx-transformer";
+const outNode = process.env.OUT_NODE || ".";
 
 const crateRoot = path.resolve(process.cwd(), crateDir);
 const manifest = path.join(crateRoot, "Cargo.toml");

@@ -103,8 +103,8 @@ function formatCoverageTable(coverageData) {
             relativePath = file.path.slice(workingDir.length + 1);
         }
 
-        // Filter to only src/js files
-        if (!relativePath.startsWith("src/js")) continue;
+        // Filter to only package source files
+        if (!relativePath.startsWith("packages/")) continue;
 
         // Apply user filters
         if (testFilters.length > 0) {

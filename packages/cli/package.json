@@ -4,5 +4,14 @@
     "type": "module",
     "bin": {
         "sxo": "./bin/sxo.js"
+    },
+    "exports": {
+        ".": "./bin/sxo.js"
+    },
+    "dependencies": {
+        "@sxo/server": "workspace:*",
+        "@sxo/client": "workspace:*",
+        "cac": "^7.0.0",
+        "esbuild": "^0.28.0"
     }
 }

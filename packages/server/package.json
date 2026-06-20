@@ -9,6 +9,11 @@
         "./dev-node": "./src/server/dev/node.js",
         "./dev-bun": "./src/server/dev/bun.js",
         "./dev-deno": "./src/server/dev/deno.js",
-        "./config": "./src/config/resolve.js"
+        "./config": "./src/config/resolve.js",
+        "./config/aliases": "./src/config/aliases.js",
+        "./constants": "./src/constants.js",
+        "./shared/runtime": "./src/server/shared/runtime.js",
+        "./shared/file-readers": "./src/server/shared/file-readers.js",
+        "./utils/route-match": "./src/server/utils/route-match.js"
     }
 }
