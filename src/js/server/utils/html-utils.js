@@ -12,11 +12,43 @@ export function escapeHtml(str) {
 }
 
 /**
+ * Walk the cause chain of an error, returning a human-readable string.
+ * Returns empty string for null/undefined/primitive inputs.
+ * @param {unknown} err
+ * @returns {string}
+ */
+function errorChain(err) {
+    if (err === null || err === undefined) return "";
+    let result = String(err);
+    if (result === "null" || result === "undefined") return "";
+    let current = /** @type {Error | undefined} */ (err && typeof err === "object" ? err.cause : undefined);
+    let depth = 0;
+    while (current && depth < 10) {
+        if (typeof AggregateError !== "undefined" && current instanceof AggregateError && current.errors) {
+            result += `\n\nAggregateError with ${current.errors.length} error(s):`;
+            for (let i = 0; i < current.errors.length; i++) {
+                result += `\n  [${i}]: ${String(current.errors[i])}`;
+            }
+            if (current.cause) {
+                current = /** @type {Error | undefined} */ (current.cause);
+                continue;
+            }
+            break;
+        }
+        result += `\n\nCaused by: ${String(current)}`;
+        current = /** @type {Error | undefined} */ (current.cause);
+        depth++;
+    }
+    return result;
+}
+
+/**
  * Render a styled error message placed inside the #page container.
  * The message is escaped to avoid script/style injection.
  * @param {unknown} message
  * @returns {string}
  */
 export function renderErrorHtml(message) {
-    return `<body><div id="page"><pre style="padding:32px;color:red;">✘ [ERROR]: ${escapeHtml(message)}</pre></div>`;
+    const fullMessage = errorChain(message);
+    return `<body><div id="page"><pre style="padding:32px;color:red;">✘ [ERROR]: ${escapeHtml(fullMessage)}</pre></div>`;
 }
