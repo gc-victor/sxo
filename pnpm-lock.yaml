@@ -8,6 +8,15 @@ importers:
 
   .:
     dependencies:
+      '@sxo/cli':
+        specifier: workspace:*
+        version: link:packages/cli
+      '@sxo/client':
+        specifier: workspace:*
+        version: link:packages/client
+      '@sxo/server':
+        specifier: workspace:*
+        version: link:packages/server
       cac:
         specifier: ^7.0.0
         version: 7.0.0
@@ -64,6 +73,18 @@ importers:
       tailwindcss:
         specifier: 4.2.2
         version: 4.2.2
+
+  packages/cli: {}
+
+  packages/client:
+    dependencies:
+      '@qery/reactive-component':
+        specifier: ^0.8.0
+        version: 0.8.0
+
+  packages/components: {}
+
+  packages/server: {}
 
 packages:
 

@@ -1,0 +1,8 @@
+{
+    "name": "@sxo/cli",
+    "private": true,
+    "type": "module",
+    "bin": {
+        "sxo": "./bin/sxo.js"
+    }
+}

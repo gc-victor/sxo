@@ -1,0 +1,14 @@
+{
+    "name": "@sxo/server",
+    "private": true,
+    "type": "module",
+    "exports": {
+        ".": "./src/server/dev.js",
+        "./runtime": "./src/runtime/handler.js",
+        "./cloudflare": "./src/server/prod/cloudflare.js",
+        "./dev-node": "./src/server/dev/node.js",
+        "./dev-bun": "./src/server/dev/bun.js",
+        "./dev-deno": "./src/server/dev/deno.js",
+        "./config": "./src/config/resolve.js"
+    }
+}

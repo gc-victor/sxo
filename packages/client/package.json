@@ -1,0 +1,19 @@
+{
+    "name": "@sxo/client",
+    "private": true,
+    "type": "module",
+    "exports": {
+        ".": "./src/index.ts"
+    },
+    "scripts": {
+        "test": "vitest run",
+        "test:watch": "vitest --watch"
+    },
+    "dependencies": {
+        "alien-signals": "^3.2.1"
+    },
+    "devDependencies": {
+        "happy-dom": "^20.10.6",
+        "vitest": "^4.1.9"
+    }
+}

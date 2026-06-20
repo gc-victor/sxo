@@ -68,6 +68,9 @@
         "typescript": "^6.0.3"
     },
     "dependencies": {
+        "@sxo/cli": "workspace:*",
+        "@sxo/server": "workspace:*",
+        "@sxo/client": "workspace:*",
         "cac": "^7.0.0",
         "esbuild": "^0.28.0",
         "pino": "^10.3.1",
