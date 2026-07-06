@@ -26,6 +26,14 @@ let versionObserver = null;
 /** True while a hot-reload body replacement is in progress to prevent
  *  the observer from upgrading elements with stale constructors. */
 let hotReloading = false;
+/** Captured customElements.define before hot-replace override.
+ *  upgradeRuntimeElement uses this to register fresh versioned names so the
+ *  platform upgrades populated elements in place (ctor sees children). */
+let originalCustomElementsDefine = null;
+/** Map of unversioned tag → author constructor.
+ *  upgradeRuntimeElement extends this directly to keep the subclass chain flat
+ *  across repeated runtime inserts without an intervening HMR. */
+const _versionedAuthorCtors = {};
 const HRC_STATE_GLOBAL_KEY = "___hrcStates";
 const HRC_SELECTOR = "[data-hrc]";
 const SCROLL_ATTR = "data-hot-replace-scroll";
@@ -274,6 +282,7 @@ function installCustomElementRedefinition() {
     installCustomElementRedefinition._installed = true;
 
     const originalDefine = customElements.define;
+    originalCustomElementsDefine = originalDefine;
     const win = /** @type {HotReplaceGlobal & Window} */ (window);
     win.__customElementVersions ||= {};
 
@@ -287,6 +296,7 @@ function installCustomElementRedefinition() {
             const versionedTagName = `${tagName}-${version}`;
 
             /** @type {VersionedCustomElementConstructor} */ (ctr).__version = version;
+            _versionedAuthorCtors[tagName] = ctr;
 
             // HMR: fragment.ts's upgradePageElements may have already upgraded
             // these with a stale version number before define() ran. Include
@@ -338,7 +348,7 @@ function installCustomElementRedefinition() {
  * runtime-inserted elements that use unversioned tags.
  * @param {Element} el
  */
-function upgradeRuntimeElement(el) {
+export function upgradeRuntimeElement(el) {
     const tag = el.tagName.toLowerCase();
     if (!tag.includes("-")) return;
 
@@ -358,17 +368,39 @@ function upgradeRuntimeElement(el) {
     // Check if the element is already a versioned instance of itself.
     const VersionedCtr = customElements.get(versionedTagName);
     if (el instanceof VersionedCtr) return;
+    if (!el.parentNode) return;
 
-    const newEl = document.createElement(versionedTagName);
+    // Use an unregistered name so document.createElement returns an
+    // unupgraded element (ctor doesn't run yet). Move children in first,
+    // then register so the platform upgrades the populated element in place —
+    // ctor sees its children. Using the registered versionedTagName would
+    // run ctor before children are moved, so components that capture child
+    // refs in their definition body (e.g. $element.querySelector("dialog"))
+    // would capture nulls.
+    const newVer = ver + 1;
+    versions[tag] = newVer; // bumps counter independently of define() — the override's v < version sweep picks these up
+    const newVersionedTagName = `${tag}-${newVer}`;
+    const newEl = document.createElement(newVersionedTagName);
     Array.from(el.attributes).forEach((attr) => {
         newEl.setAttribute(attr.name, attr.value);
     });
-    if (!el.parentNode) return;
-
     while (el.firstChild) {
         newEl.appendChild(el.firstChild);
     }
     el.replaceWith(newEl);
+
+    // originalCustomElementsDefine is always present because
+    // customElements.get(versionedTagName) was truthy earlier,
+    // which requires installCustomElementRedefinition to have run.
+    if (!customElements.get(newVersionedTagName) && originalCustomElementsDefine) {
+        // Platform forbids registering the same constructor under two names.
+        // Subclass the author constructor (not the latest versioned one) to
+        // keep the chain flat across repeated runtime inserts. The inherited
+        // static __definition makes the define body run on upgrade.
+        const BaseCtr = _versionedAuthorCtors[tag] || VersionedCtr;
+        class UpgradedVersion extends BaseCtr {}
+        originalCustomElementsDefine.call(customElements, newVersionedTagName, UpgradedVersion);
+    }
 }
 
 /**

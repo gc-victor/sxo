@@ -220,29 +220,6 @@ function setupDomStubs() {
     });
 }
 
-let upgradeHotReloading = false;
-
-function upgradeRuntimeElement(el) {
-    const tag = el.tagName.toLowerCase();
-    if (!tag.includes("-")) return;
-    if (upgradeHotReloading) return;
-    const versions = globalThis.__customElementVersions;
-    const ver = versions?.[tag];
-    if (!ver) return;
-    const versionedTagName = `${tag}-${ver}`;
-    if (!customElements.get(versionedTagName)) return;
-    const VersionedCtr = customElements.get(versionedTagName);
-    if (el instanceof VersionedCtr) return;
-    const newEl = document.createElement(versionedTagName);
-    Array.from(el.attributes).forEach((attr) => {
-        newEl.setAttribute(attr.name, attr.value);
-    });
-    while (el.firstChild) {
-        newEl.appendChild(el.firstChild);
-    }
-    el.replaceWith(newEl);
-}
-
 function scripts(data, onFirstLoaded) {
     const paths = data.assets?.js;
     if (!paths?.length) {
@@ -259,7 +236,6 @@ function scripts(data, onFirstLoaded) {
         onFirstLoaded?.();
     }
     const fallbackTimer = setTimeout(() => {
-        upgradeHotReloading = false;
         resolve();
     }, 30000);
     paths.forEach((path) => {
@@ -295,7 +271,6 @@ before(() => {
 afterEach(() => {
     delete globalThis.___hrcStates;
     delete globalThis.__customElementVersions;
-    upgradeHotReloading = false;
     globalThis.__customElementVersions = {};
     for (const key of Object.keys(registry)) delete registry[key];
     if (stubs.EventSource._lastInstance) {
@@ -311,20 +286,20 @@ afterEach(() => {
 describe("upgradeRuntimeElement", () => {
     test("skips non-custom elements (tag without hyphen)", () => {
         const el = new MockElement("DIV");
-        upgradeRuntimeElement(el);
+        mod.upgradeRuntimeElement(el);
         ok(true, "no error for non-custom element");
     });
 
     test("skips when no version is registered for the tag", () => {
         const el = new MockElement("my-component");
-        upgradeRuntimeElement(el);
+        mod.upgradeRuntimeElement(el);
         ok(true, "no error when no version registered");
     });
 
     test("skips when versioned constructor is not defined", () => {
         globalThis.__customElementVersions = { "my-component": 1 };
         const el = new MockElement("my-component");
-        upgradeRuntimeElement(el);
+        mod.upgradeRuntimeElement(el);
         ok(true, "no error when versioned constructor missing");
     });
 
@@ -333,7 +308,7 @@ describe("upgradeRuntimeElement", () => {
         registry["x-el-1"] = VerCtr;
         globalThis.__customElementVersions = { "x-el": 1 };
         const el = new MockElement("x-el-1", { constructorFn: VerCtr });
-        upgradeRuntimeElement(el);
+        mod.upgradeRuntimeElement(el);
         ok(true, "no error for already-upgraded element");
     });
 
@@ -351,10 +326,10 @@ describe("upgradeRuntimeElement", () => {
         const parent = new MockElement("div");
         parent.appendChild(el);
 
-        upgradeRuntimeElement(el);
+        mod.upgradeRuntimeElement(el);
 
         ok(parent.firstChild !== el, "original element was replaced");
-        strictEqual(parent.firstChild?.tagName, "MY-COMPONENT-1", "replaced with versioned tag");
+        strictEqual(parent.firstChild?.tagName, "MY-COMPONENT-2", "replaced with versioned tag");
         strictEqual(parent.firstChild?.getAttribute("foo"), "bar", "attributes preserved");
     });
 });
@@ -622,5 +597,67 @@ describe("getDataset", () => {
 
     test("returns null for null", () => {
         strictEqual(getDataset(null), null);
+    });
+});
+
+describe("upgradeRuntimeElement (real module)", () => {
+    let savedDefine;
+
+    beforeEach(() => {
+        // Install hot-replace override so originalCustomElementsDefine is active.
+        savedDefine = stubs.customElements.define;
+        mod.hotReplace("/upgrade-test");
+        // Clear any leftover body nodes from prior tests.
+        if (globalThis.document?.body) {
+            globalThis.document.body.childNodes = [];
+            globalThis.document.body._updateEdgeChildren();
+        }
+    });
+
+    afterEach(() => {
+        stubs.customElements.define = savedDefine;
+    });
+
+    test("bumps versioned name and registers subclass (avoids empty-ctor upgrade)", () => {
+        const OriginalCtr = class extends MockElement {};
+        customElements.define("my-comp", OriginalCtr);
+        strictEqual(customElements.get("my-comp-1"), OriginalCtr, "v1 registered via override");
+
+        const el = new MockElement("my-comp");
+        el.setAttribute("foo", "bar");
+        const child = new MockElement("span");
+        el.appendChild(child);
+        globalThis.document.body.appendChild(el);
+
+        mod.upgradeRuntimeElement(el);
+
+        const upgraded = globalThis.document.body.childNodes.find((n) => n instanceof MockElement && n.tagName === "MY-COMP-2");
+        ok(upgraded, "element replaced with my-comp-2");
+        strictEqual(upgraded.getAttribute("foo"), "bar", "attributes preserved");
+        ok(upgraded.firstChild === child, "children moved into the upgraded element");
+
+        const Registered = customElements.get("my-comp-2");
+        ok(typeof Registered === "function", "my-comp-2 registered");
+        ok(Registered !== OriginalCtr, "registered ctor is distinct from original");
+        ok(Object.getPrototypeOf(Registered) === OriginalCtr, "registered ctor subclasses original");
+        strictEqual(globalThis.__customElementVersions?.["my-comp"], 2, "version bumped to 2");
+
+        // Second runtime upgrade — must extend OriginalCtr, not a subclass chain.
+        const el2 = new MockElement("my-comp");
+        globalThis.document.body.appendChild(el2);
+        mod.upgradeRuntimeElement(el2);
+
+        const upgraded2 = globalThis.document.body.childNodes.find((n) => n instanceof MockElement && n.tagName === "MY-COMP-3");
+        ok(upgraded2, "element replaced with my-comp-3");
+
+        const Registered2 = customElements.get("my-comp-3");
+        ok(typeof Registered2 === "function", "my-comp-3 registered");
+        ok(Registered2 !== OriginalCtr, "registered ctor is distinct from the original");
+        strictEqual(
+            Object.getPrototypeOf(Registered2),
+            OriginalCtr,
+            "second upgrade extends OriginalCtr directly",
+        );
+        strictEqual(globalThis.__customElementVersions?.["my-comp"], 3, "version bumped to 3");
     });
 });
