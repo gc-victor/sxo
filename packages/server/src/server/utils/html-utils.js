@@ -2,6 +2,17 @@
 export const DIV_APP_REGEX = /<div\s+id=["']page["'][^>]*>[\s\S]*?<\/div>/i;
 
 /**
+ * Build a minimal HTML error page with semantic structure.
+ *
+ * @param {string} title - Page title and <h1> content
+ * @param {string} message - <p> body text
+ * @returns {string} Complete HTML error page
+ */
+export function htmlErrorPage(title, message) {
+    return `<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><title>${title}</title></head><body><h1>${title}</h1><p>${message}</p></body></html>`;
+}
+
+/**
  * Escape HTML-sensitive characters to avoid injection when rendering messages or inline content.
  * @param {unknown} str
  * @returns {string}

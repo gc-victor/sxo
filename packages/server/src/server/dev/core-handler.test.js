@@ -238,7 +238,7 @@ describe("core-handler.js", () => {
                     const response = await handler(makeRequest("/"));
                     deepStrictEqual(response.status, 500);
                     const body = await response.text();
-                    deepStrictEqual(body, "Internal Server Error");
+                    deepStrictEqual(body.includes("[ERROR]"), true);
                 }
             });
         });

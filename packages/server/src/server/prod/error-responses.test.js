@@ -12,13 +12,13 @@ import {
 
 describe("error-responses", () => {
     describe("send404", () => {
-        it("should return 404 status and plain text by default", async () => {
+        it("should return 404 status and HTML by default", async () => {
             const response = await send404();
             assert.equal(response.status, HTTP_STATUS_NOT_FOUND);
-            assert.equal(response.headers.get(HTTP_HEADER_CONTENT_TYPE), "text/plain; charset=utf-8");
+            assert.equal(response.headers.get(HTTP_HEADER_CONTENT_TYPE), "text/html; charset=utf-8");
             assert.equal(response.headers.get(HTTP_HEADER_CACHE_CONTROL), "public, max-age=0, must-revalidate");
             const body = await response.text();
-            assert.equal(body, "Not found");
+            assert.ok(body.includes("<title>Not Found</title>"));
         });
 
         it("should strip body for HEAD requests", async () => {
@@ -55,7 +55,10 @@ describe("error-responses", () => {
             assert.equal(response.headers.get(HTTP_HEADER_CONTENT_TYPE), "text/html; charset=utf-8");
             assert.equal(response.headers.get(HTTP_HEADER_CACHE_CONTROL), "no-store");
             const body = await response.text();
-            assert.equal(body, "Internal Server Error");
+            assert.equal(
+                body,
+                '<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><title>Internal Server Error</title></head><body><h1>Internal Server Error</h1><p>The server encountered an internal error.</p></body></html>',
+            );
         });
 
         it("should strip body for HEAD requests", async () => {
@@ -76,16 +79,53 @@ describe("error-responses", () => {
     });
 
     describe("badRequestResponse", () => {
-        it("should return 400 status", () => {
+        it("should return 400 status and HTML by default", async () => {
             const response = badRequestResponse();
             assert.equal(response.status, HTTP_STATUS_BAD_REQUEST);
+            assert.equal(response.headers.get(HTTP_HEADER_CONTENT_TYPE), "text/html; charset=utf-8");
+            const body = await response.text();
+            assert.ok(body.includes("<title>Bad Request</title>"));
+        });
+
+        it("should support custom message with HTML response", async () => {
+            const response = badRequestResponse(null, { message: "Custom error" });
+            assert.equal(response.status, HTTP_STATUS_BAD_REQUEST);
+            assert.equal(response.headers.get(HTTP_HEADER_CONTENT_TYPE), "text/html; charset=utf-8");
+            const body = await response.text();
+            assert.ok(body.includes("Custom error"));
+        });
+
+        it("should escape HTML in custom message to prevent XSS", async () => {
+            const response = badRequestResponse(null, { message: "<script>alert(1)</script>" });
+            assert.equal(response.status, HTTP_STATUS_BAD_REQUEST);
+            assert.equal(response.headers.get(HTTP_HEADER_CONTENT_TYPE), "text/html; charset=utf-8");
+            const body = await response.text();
+            assert.ok(body.includes("&lt;script&gt;alert(1)&lt;/script&gt;"));
+            assert.ok(!body.includes("<script>"));
+        });
+
+        it("should strip body for HEAD requests", async () => {
+            const request = new Request("http://test", { method: "HEAD" });
+            const response = badRequestResponse(request, { message: "Bad Request" });
+            assert.equal(response.status, HTTP_STATUS_BAD_REQUEST);
+            assert.equal(response.body, null);
         });
     });
 
     describe("uriTooLongResponse", () => {
-        it("should return 414 status", () => {
+        it("should return 414 status and HTML by default", async () => {
             const response = uriTooLongResponse();
             assert.equal(response.status, HTTP_STATUS_URI_TOO_LONG);
+            assert.equal(response.headers.get(HTTP_HEADER_CONTENT_TYPE), "text/html; charset=utf-8");
+            const body = await response.text();
+            assert.ok(body.includes("<title>URI Too Long</title>"));
+        });
+
+        it("should strip body for HEAD requests", async () => {
+            const request = new Request("http://test", { method: "HEAD" });
+            const response = uriTooLongResponse(request);
+            assert.equal(response.status, HTTP_STATUS_URI_TOO_LONG);
+            assert.equal(response.body, null);
         });
     });
 });

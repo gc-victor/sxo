@@ -52,7 +52,7 @@ describe("createCoreHandler", () => {
         strictEqual(result, null, "should return null for unmatched route");
     });
 
-    test("handler returns 400 for invalid slug", async () => {
+    test("handler returns 400 HTML page for invalid slug", async () => {
         const handler = createCoreHandler({
             routes: mockRoutes,
             modules: mockModules,
@@ -63,8 +63,7 @@ describe("createCoreHandler", () => {
 
         ok(response instanceof Response, "should return a Response");
         strictEqual(response.status, 400);
-        const text = await response.text();
-        ok(text.includes("Invalid"), "should contain 'Invalid' in error message");
+        ok(response.headers.get("Content-Type")?.includes("text/html"), "should return HTML content type");
     });
 
     test("handler calls SSR module render function with params", async () => {

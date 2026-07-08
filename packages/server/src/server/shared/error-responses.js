@@ -4,6 +4,7 @@
  * @module server/shared/error-responses
  */
 
+import { escapeHtml, htmlErrorPage } from "../utils/html-utils.js";
 import { injectAssets, normalizePublicPath } from "../utils/inject-assets.js";
 import { logger } from "../utils/logger.js";
 import { maybeHeadResponse } from "./http-adapters.js";
@@ -16,7 +17,6 @@ import {
     HTTP_STATUS_SERVER_ERROR,
     HTTP_STATUS_URI_TOO_LONG,
     MIME_TYPE_HTML_UTF8,
-    MIME_TYPE_PLAIN_UTF8,
 } from "./http-constants.js";
 import { withSecurityHeaders } from "./security-headers.js";
 
@@ -26,7 +26,7 @@ import { withSecurityHeaders } from "./security-headers.js";
  * @param {Request | import("node:http").IncomingMessage | {method: string} | null | undefined} request - Optional request for HEAD handling
  * @param {object} options
  * @param {number} options.status - HTTP status code
- * @param {string} options.fallbackBody - Plain text fallback body
+ * @param {string} options.fallbackBody - HTML fallback body
  * @param {string} options.cacheControl - Cache-Control header value
  * @param {string} options.contentType - Content-Type header value
  * @param {boolean} [options.renderCustom=false] - Whether to render custom page
@@ -95,9 +95,9 @@ async function buildErrorResponse(
 /**
  * Send 404 Not Found response with appropriate headers.
  *
- * Returns a plain text "Not Found" response with:
+ * Returns an HTML "Not Found" response with:
  * - Status: 404
- * - Content-Type: text/plain; charset=utf-8
+ * - Content-Type: text/html; charset=utf-8
  * - Cache-Control: public, max-age=0, must-revalidate
  *
  * If a request is provided, automatically handles HEAD requests by stripping body.
@@ -117,9 +117,9 @@ export async function send404(
 ) {
     return await buildErrorResponse(request, {
         status: HTTP_STATUS_NOT_FOUND,
-        fallbackBody: "Not found",
+        fallbackBody: htmlErrorPage("Not Found", "The requested resource was not found."),
         cacheControl: "public, max-age=0, must-revalidate",
-        contentType: MIME_TYPE_PLAIN_UTF8,
+        contentType: MIME_TYPE_HTML_UTF8,
         renderCustom: renderCustom404,
         renderFn: render404Fn,
         securityHeaders,
@@ -131,7 +131,7 @@ export async function send404(
 /**
  * Send 500 Internal Server Error response with appropriate headers.
  *
- * Returns a plain text "Internal Server Error" response with:
+ * Returns an HTML "Internal Server Error" response with:
  * - Status: 500
  * - Content-Type: text/html; charset=utf-8
  * - Cache-Control: no-store
@@ -153,7 +153,7 @@ export async function send500(
 ) {
     return await buildErrorResponse(request, {
         status: HTTP_STATUS_SERVER_ERROR,
-        fallbackBody: "Internal Server Error",
+        fallbackBody: htmlErrorPage("Internal Server Error", "The server encountered an internal error."),
         cacheControl: "no-store",
         contentType: MIME_TYPE_HTML_UTF8,
         renderCustom: renderCustom500,
@@ -165,11 +165,45 @@ export async function send500(
 }
 
 /**
+ * Send 400 Bad Request response with an optional custom page and no-store cache.
+ *
+ * Returns an HTML "Bad Request" response with:
+ * - Status: 400
+ * - Content-Type: text/html; charset=utf-8
+ * - Cache-Control: no-store
+ *
+ * When `renderFn` is provided and succeeds, its output is served (with asset
+ * injection for HTML pages); otherwise a static HTML 400 page is returned.
+ * If a request is provided, HEAD requests get an empty body.
+ *
+ * @param {Request | import("node:http").IncomingMessage | {method: string}} [request] - Optional request for HEAD handling
+ * @param {object} [options] - Options object
+ * @param {Function | null} [options.renderFn=null] - Custom render function (rendered with status 400)
+ * @param {Record<string, string> | null} [options.securityHeaders=null] - Custom security headers (overrides defaults)
+ * @param {{ css?: string[], js?: string[] } | null} [options.assets=null] - Built assets to inject (client-relative paths)
+ * @param {string} [options.publicPath="/"] - Public path prefix for assets
+ * @returns {Promise<Response>} 400 response
+ */
+export async function send400(request, { renderFn = null, securityHeaders = null, assets = null, publicPath = "/" } = {}) {
+    return await buildErrorResponse(request, {
+        status: HTTP_STATUS_BAD_REQUEST,
+        fallbackBody: htmlErrorPage("Bad Request", "The request contains invalid route parameters."),
+        cacheControl: "no-store",
+        contentType: MIME_TYPE_HTML_UTF8,
+        renderCustom: renderFn !== null,
+        renderFn,
+        securityHeaders,
+        assets,
+        publicPath,
+    });
+}
+
+/**
  * Send 400 Bad Request response with appropriate headers.
  *
- * Returns a plain text "Bad Request" response with:
+ * Returns an HTML "Bad Request" response with:
  * - Status: 400
- * - Content-Type: text/plain; charset=utf-8
+ * - Content-Type: text/html; charset=utf-8
  *
  * If a request is provided, automatically handles HEAD requests by stripping body.
  *
@@ -182,12 +216,14 @@ export async function send500(
 export function badRequestResponse(request, { message = "Bad Request", securityHeaders = null } = {}) {
     const headers = withSecurityHeaders(
         {
-            [HTTP_HEADER_CONTENT_TYPE]: MIME_TYPE_PLAIN_UTF8,
+            [HTTP_HEADER_CONTENT_TYPE]: MIME_TYPE_HTML_UTF8,
         },
         securityHeaders ?? undefined,
     );
 
-    const response = new Response(message, {
+    const escaped = escapeHtml(message);
+    const body = htmlErrorPage("Bad Request", escaped);
+    const response = new Response(body, {
         status: HTTP_STATUS_BAD_REQUEST,
         headers,
     });
@@ -198,9 +234,9 @@ export function badRequestResponse(request, { message = "Bad Request", securityH
 /**
  * Send 414 URI Too Long response with appropriate headers.
  *
- * Returns a plain text "URI Too Long" response with:
+ * Returns an HTML "URI Too Long" response with:
  * - Status: 414
- * - Content-Type: text/plain; charset=utf-8
+ * - Content-Type: text/html; charset=utf-8
  *
  * If a request is provided, automatically handles HEAD requests by stripping body.
  *
@@ -212,12 +248,12 @@ export function badRequestResponse(request, { message = "Bad Request", securityH
 export function uriTooLongResponse(request, { securityHeaders = null } = {}) {
     const headers = withSecurityHeaders(
         {
-            [HTTP_HEADER_CONTENT_TYPE]: MIME_TYPE_PLAIN_UTF8,
+            [HTTP_HEADER_CONTENT_TYPE]: MIME_TYPE_HTML_UTF8,
         },
         securityHeaders ?? undefined,
     );
 
-    const response = new Response("URI Too Long", {
+    const response = new Response(htmlErrorPage("URI Too Long", "The requested URI is too long."), {
         status: HTTP_STATUS_URI_TOO_LONG,
         headers,
     });

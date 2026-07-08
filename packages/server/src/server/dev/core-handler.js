@@ -12,7 +12,7 @@ import { executeMiddleware } from "../../shared/middleware-executor.js";
 import { decodeURIComponentSafe } from "../../shared/url-validator.js";
 import { badRequestResponse, uriTooLongResponse } from "../shared/error-responses.js";
 import { optionsResponse } from "../shared/http-adapters.js";
-import { HTTP_HEADER_CONTENT_TYPE, HTTP_METHOD_HEAD, HTTP_METHOD_OPTIONS, MIME_TYPE_PLAIN } from "../shared/http-constants.js";
+import { HTTP_METHOD_HEAD, HTTP_METHOD_OPTIONS } from "../shared/http-constants.js";
 import { injectAssets, normalizePublicPath } from "../utils/inject-assets.js";
 import { logger } from "../utils/logger.js";
 import { routeMatch } from "../utils/route-match.js";
@@ -156,10 +156,7 @@ export function createDevHandler(config) {
             }
         } catch (err) {
             logger.error({ err: /** @type {Error} */ (err), url: request.url }, "Middleware execution failed");
-            return new Response("Internal Server Error", {
-                status: 500,
-                headers: { [HTTP_HEADER_CONTENT_TYPE]: MIME_TYPE_PLAIN },
-            });
+            return await ssrHandler.handle500(/** @type {Error} */ (err), isHead);
         }
 
         let decodedPathname;
@@ -177,10 +174,8 @@ export function createDevHandler(config) {
         }
 
         if ("invalid" in found && found.invalid) {
-            return new Response("Invalid parameters", {
-                status: 400,
-                headers: { [HTTP_HEADER_CONTENT_TYPE]: MIME_TYPE_PLAIN },
-            });
+            const err = new Error(`Invalid route parameters: ${decodedPathname}`);
+            return await ssrHandler.handle500(err, isHead, 400);
         }
 
         const { route, params } = /** @type {{route: Route, params: Record<string, string>}} */ (found);

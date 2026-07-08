@@ -653,11 +653,7 @@ describe("upgradeRuntimeElement (real module)", () => {
         const Registered2 = customElements.get("my-comp-3");
         ok(typeof Registered2 === "function", "my-comp-3 registered");
         ok(Registered2 !== OriginalCtr, "registered ctor is distinct from the original");
-        strictEqual(
-            Object.getPrototypeOf(Registered2),
-            OriginalCtr,
-            "second upgrade extends OriginalCtr directly",
-        );
+        strictEqual(Object.getPrototypeOf(Registered2), OriginalCtr, "second upgrade extends OriginalCtr directly");
         strictEqual(globalThis.__customElementVersions?.["my-comp"], 3, "version bumped to 3");
     });
 });

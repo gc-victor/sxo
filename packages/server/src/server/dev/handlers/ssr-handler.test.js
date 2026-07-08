@@ -92,19 +92,22 @@ describe("handleSSR", () => {
             const response = await handler.handleSSR(makeRequest("/unknown"), false);
 
             if (response.status === 404) {
-                strictEqual(response.headers.get("Content-Type"), "text/plain");
-                strictEqual(await response.text(), "Not found");
+                strictEqual(response.headers.get("Content-Type"), "text/html; charset=utf-8");
+                strictEqual(
+                    await response.text(),
+                    '<html lang="en"><head><meta charset="utf-8"><title>Not Found</title></head><body><h1>Not Found</h1><p>The requested resource was not found.</p></body></html>',
+                );
             }
         });
 
-        test("should return 400 for invalid slug parameters", async () => {
+        test("should return 400 HTML page for invalid slug parameters", async () => {
             const handler = createHandler({
                 getRoutes: () => [createMockRoute({ path: "blog/[slug]" })],
             });
             const response = await handler.handleSSR(makeRequest("/blog/%20"), false);
 
             assertStatus(response, 400);
-            strictEqual(await response.text(), "Invalid parameters");
+            strictEqual(response.headers.get("Content-Type"), "text/html; charset=utf-8");
         });
 
         test("should return 400 or 404 for malformed parameters", async () => {
@@ -253,7 +256,7 @@ describe("handle404", () => {
         strictEqual(response.headers.get("Cache-Control"), "public, max-age=0, must-revalidate");
     });
 
-    test("should fall back to plain text when custom 404 page fails to load", async () => {
+    test("should fall back to HTML when custom 404 page fails to load", async () => {
         const errorMock = mock.method(logger, "error", () => {});
         const handler = createHandler({
             getRoutes: () => [],
@@ -265,7 +268,10 @@ describe("handle404", () => {
         const response = await handler.handle404(false);
 
         assertStatus(response, 404);
-        strictEqual(await response.text(), "Not found");
+        strictEqual(
+            await response.text(),
+            '<html lang="en"><head><meta charset="utf-8"><title>Not Found</title></head><body><h1>Not Found</h1><p>The requested resource was not found.</p></body></html>',
+        );
         strictEqual(errorMock.mock.callCount(), 1);
         strictEqual(errorMock.mock.calls[0].arguments[1], "Failed to render custom 404 page");
         errorMock.mock.restore();

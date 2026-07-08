@@ -57,6 +57,6 @@ describe("core-handler.js coverage", () => {
         const request = new Request("http://localhost:3000/blog/%20");
         const response = await handler(request);
         strictEqual(response.status, 400);
-        strictEqual(await response.text(), "Invalid parameters");
+        strictEqual(response.headers.get("Content-Type"), "text/html; charset=utf-8");
     });
 });

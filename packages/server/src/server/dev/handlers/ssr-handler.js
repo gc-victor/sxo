@@ -81,10 +81,8 @@ export function createSSRHandler(config) {
 
         // --- Invalid slug ---
         if ("invalid" in found && found.invalid) {
-            return new Response("Invalid parameters", {
-                status: 400,
-                headers: { [HTTP_HEADER_CONTENT_TYPE]: "text/plain" },
-            });
+            const err = new Error(`Invalid route parameters: ${decodedPathname}`);
+            return await handle500(err, isHead, 400);
         }
 
         const { route: matchedRoute, params: matchedParams } = /** @type {RouteMatchSuccess} */ (found);
@@ -202,26 +200,33 @@ export function createSSRHandler(config) {
                 }
             } catch (err) {
                 logger.error({ err: /** @type {Error} */ (err) }, "Failed to render custom 404 page");
-                // Fall back to plain text 404 on error
+                // Fall back to HTML 404 on error
             }
         }
 
-        // Default plain text 404
-        const headers = { [HTTP_HEADER_CONTENT_TYPE]: "text/plain" };
+        // Default HTML 404
+        const headers = {
+            [HTTP_HEADER_CONTENT_TYPE]: MIME_TYPE_HTML_UTF8,
+            [HTTP_HEADER_CACHE_CONTROL]: "public, max-age=0, must-revalidate",
+        };
         if (isHead) {
             return new Response(null, { status: 404, headers });
         }
-        return new Response("Not found", { status: 404, headers });
+        return new Response(
+            '<html lang="en"><head><meta charset="utf-8"><title>Not Found</title></head><body><h1>Not Found</h1><p>The requested resource was not found.</p></body></html>',
+            { status: 404, headers },
+        );
     }
 
     /**
-     * Handle 500 response with optional custom page.
+     * Handle error response with optional custom page.
      *
      * @param {Error} err - Error object
      * @param {boolean} isHead - Whether this is a HEAD request
-     * @returns {Promise<Response>} 500 response
+     * @param {number} [status=500] - HTTP status code for the response
+     * @returns {Promise<Response>} Error response
      */
-    async function handle500(err, isHead) {
+    async function handle500(err, isHead, status = 500) {
         // Try to resolve and render custom 500 page
         if (resolve500Page) {
             try {
@@ -241,9 +246,9 @@ export function createSSRHandler(config) {
                         [HTTP_HEADER_CACHE_CONTROL]: "no-store",
                     };
                     if (isHead) {
-                        return new Response(null, { status: 500, headers });
+                        return new Response(null, { status, headers });
                     }
-                    return new Response(`<!doctype html>\n${page}`, { status: 500, headers });
+                    return new Response(`<!doctype html>\n${page}`, { status, headers });
                 }
             } catch (renderErr) {
                 logger.error({ err: /** @type {Error} */ (renderErr) }, "Failed to render custom 500 page");
@@ -257,9 +262,9 @@ export function createSSRHandler(config) {
             [HTTP_HEADER_CACHE_CONTROL]: "no-store",
         };
         if (isHead) {
-            return new Response(null, { status: 500, headers });
+            return new Response(null, { status, headers });
         }
-        return new Response(renderErrorHtml(err), { status: 500, headers });
+        return new Response(renderErrorHtml(err), { status, headers });
     }
 
     return {

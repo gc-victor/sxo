@@ -210,7 +210,7 @@ describe("createHandler integration & methods", () => {
 describe("createHandler error fallbacks", () => {
     const fallbackCases = [
         {
-            name: "falls back to plain text 404 when custom render404 throws",
+            name: "falls back to HTML 404 when custom render404 throws",
             setup: {
                 render404: () => {
                     throw new Error("404 fail");
@@ -218,10 +218,10 @@ describe("createHandler error fallbacks", () => {
             },
             url: "https://example.com/404",
             expectedStatus: 404,
-            expectedText: "Not found",
+            expectedIncludes: "<title>Not Found</title>",
         },
         {
-            name: "falls back to plain text 500 when custom render500 throws",
+            name: "falls back to default 500 HTML when custom render500 throws",
             setup: {
                 routes: [{ filename: "err.html", jsx: "err.jsx", path: "err", assets: { css: [], js: [] } }],
                 modules: {
@@ -237,7 +237,7 @@ describe("createHandler error fallbacks", () => {
             },
             url: "https://example.com/err",
             expectedStatus: 500,
-            expectedText: "Internal Server Error",
+            expectedIncludes: "Internal Server Error",
         },
         {
             name: "returns 500 when middleware throws",
@@ -250,7 +250,8 @@ describe("createHandler error fallbacks", () => {
             },
             url: "https://example.com/",
             expectedStatus: 500,
-            expectedText: "Internal Server Error",
+            expectedText:
+                '<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><title>Internal Server Error</title></head><body><h1>Internal Server Error</h1><p>The server encountered an internal error.</p></body></html>',
         },
         {
             name: "returns 500 for unexpected errors in core handler",
@@ -266,7 +267,7 @@ describe("createHandler error fallbacks", () => {
             },
             url: "https://example.com/",
             expectedStatus: 500,
-            expectedText: "Internal Server Error",
+            expectedIncludes: "Internal Server Error",
         },
         {
             name: "returns 404 for non-existent route",
@@ -276,12 +277,14 @@ describe("createHandler error fallbacks", () => {
         },
     ];
 
-    for (const { name, setup, url, expectedStatus, expectedText } of fallbackCases) {
+    for (const { name, setup, url, expectedStatus, expectedText, expectedIncludes } of fallbackCases) {
         test(name, async () => {
             const handler = await createHandler({ routes: [], modules: {}, ...setup });
             const response = await handler.fetch(new Request(url), { ASSETS: createMockAssets() }, createMockContext());
             strictEqual(response.status, expectedStatus);
-            if (expectedText) strictEqual(await response.text(), expectedText);
+            const body = await response.text();
+            if (expectedText) strictEqual(body, expectedText);
+            if (expectedIncludes) ok(body.includes(expectedIncludes));
         });
     }
 });
@@ -342,7 +345,10 @@ describe("createHandler edge cases", () => {
         // @ts-expect-error - testing invalid input
         const response = await handler.fetch(mockRequest, {}, {});
         strictEqual(response.status, 500);
-        strictEqual(await response.text(), "Internal Server Error");
+        strictEqual(
+            await response.text(),
+            '<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><title>Internal Server Error</title></head><body><h1>Internal Server Error</h1><p>The server encountered an internal error.</p></body></html>',
+        );
     });
 
     test("tryServeGeneratedRoute falls through to SSR when ASSETS.fetch throws", async () => {

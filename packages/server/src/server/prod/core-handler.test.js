@@ -389,12 +389,11 @@ describe("createProdHandler", () => {
             assert.equal(body, "");
         });
 
-        it("returns 400 for invalid slug", async () => {
+        it("returns 400 HTML page for invalid slug", async () => {
             const result = await executeRequest(config, "http://localhost:3000/posts/<script>");
             const response = await assertResponseResult(result, 400);
-            const body = await response.text();
 
-            assert.ok(body.toLowerCase().includes("invalid"));
+            assert.ok(response.headers.get("Content-Type")?.includes("text/html"));
         });
     });
 
@@ -443,7 +442,8 @@ describe("createProdHandler", () => {
                     }),
                 url: "http://localhost:3000/nonexistent",
                 expectedStatus: 404,
-                expectedBody: "Not found",
+                expectedBody:
+                    '<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><title>Not Found</title></head><body><h1>Not Found</h1><p>The requested resource was not found.</p></body></html>',
             },
             {
                 name: "500",
@@ -462,12 +462,13 @@ describe("createProdHandler", () => {
                     }),
                 url: "http://localhost:3000/",
                 expectedStatus: 500,
-                expectedBody: "Internal Server Error",
+                expectedBody:
+                    '<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><title>Internal Server Error</title></head><body><h1>Internal Server Error</h1><p>The server encountered an internal error.</p></body></html>',
             },
         ];
 
         for (const { name, setup, url, expectedStatus, expectedBody } of fallbackTestCases) {
-            it(`falls back to plain ${name} when custom render fails`, async () => {
+            it(`falls back to HTML ${name} when custom render fails`, async () => {
                 const customConfig = setup();
                 const result = await executeRequest(customConfig, url);
                 const response = await assertResponseResult(result, expectedStatus);

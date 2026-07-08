@@ -21,7 +21,7 @@
 
 import { executeMiddleware } from "../../shared/middleware-executor.js";
 import { decodeURIComponentSafe } from "../../shared/url-validator.js";
-import { badRequestResponse, send404, send500, uriTooLongResponse } from "../shared/error-responses.js";
+import { badRequestResponse, send400, send404, send500, uriTooLongResponse } from "../shared/error-responses.js";
 import { optionsResponse } from "../shared/http-adapters.js";
 import {
     HTTP_HEADER_CACHE_CONTROL,
@@ -157,15 +157,30 @@ async function handleRouteNotFound(request, render404, securityHeaders, assets, 
 }
 
 /**
- * Handle invalid route parameters (400).
+ * Render error page for invalid route parameters.
+ *
+ * Delegates to the shared `send400` builder: when a custom 500 renderer is
+ * available it is rendered with status 400, otherwise a static HTML 400 page
+ * is returned.
+ *
  * @param {Request} request
- * @param {string} pathname
+ * @param {Function | null} render500
  * @param {Record<string, string> | null} securityHeaders
- * @returns {Response}
+ * @param {{ css?: string[], js?: string[] } | null} assets
+ * @param {string} publicPath
+ * @returns {Promise<Response>}
  */
-function handleInvalidParams(request, pathname, securityHeaders) {
-    logger.warn({ method: request.method, url: request.url, pathname }, "Bad Request: invalid route parameters");
-    return badRequestResponse(request, { message: "Invalid parameters", securityHeaders });
+async function renderInvalidParamsPage(request, render500, securityHeaders, assets, publicPath) {
+    logger.warn(
+        { method: request.method, url: request.url, pathname: new URL(request.url).pathname },
+        "Bad Request: invalid route parameters",
+    );
+    return send400(request, {
+        renderFn: render500,
+        securityHeaders,
+        assets,
+        publicPath,
+    });
 }
 
 /**
@@ -340,7 +355,7 @@ export function createProdHandler(config) {
 
         // Invalid slug -> 400
         if ("invalid" in match) {
-            const response = handleInvalidParams(request, decodedPathname, securityHeaders);
+            const response = await renderInvalidParamsPage(request, render500, securityHeaders, errorPageAssets500, publicPath);
             return { type: "response", response };
         }
 

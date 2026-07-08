@@ -1,3 +1,10 @@
+import {
+    HTTP_HEADER_CACHE_CONTROL,
+    HTTP_HEADER_CONTENT_TYPE,
+    HTTP_METHOD_HEAD,
+    MIME_TYPE_HTML_UTF8,
+} from "../server/shared/http-constants.js";
+import { htmlErrorPage } from "../server/utils/html-utils.js";
 import { injectAssets, normalizePublicPath } from "../server/utils/inject-assets.js";
 import { routeMatch } from "../server/utils/route-match.js";
 import { executeMiddleware } from "../shared/middleware-executor.js";
@@ -147,6 +154,31 @@ export function createCoreHandler(/** @type {HandlerConfig} */ config) {
     // Normalize public path once at creation time
     const normalizedPublicPath = normalizePublicPath(publicPath);
 
+    // Static error pages for the SSR-only runtime. Bodies are kept here rather
+    // than pulled from the shared module so this handler stays free of the
+    // security-header/logger dependencies the full server adds on top.
+
+    const INTERNAL_ERROR_HTML = htmlErrorPage("Internal Server Error", "500 — Internal Server Error");
+    const BAD_REQUEST_HTML = htmlErrorPage("Bad Request", "Bad Request");
+
+    /**
+     * Build a no-store HTML error response, stripping the body for HEAD.
+     *
+     * @param {string} html - Response body for non-HEAD requests
+     * @param {number} status - HTTP status code
+     * @param {Request} [request] - Original request (for HEAD detection)
+     * @returns {Response} Error response
+     */
+    function errorResponse(html, status, request) {
+        return new Response(request?.method === HTTP_METHOD_HEAD ? null : html, {
+            status,
+            headers: {
+                [HTTP_HEADER_CONTENT_TYPE]: MIME_TYPE_HTML_UTF8,
+                [HTTP_HEADER_CACHE_CONTROL]: "no-store",
+            },
+        });
+    }
+
     /**
      * Handle an incoming HTTP request.
      *
@@ -196,13 +228,7 @@ export function createCoreHandler(/** @type {HandlerConfig} */ config) {
                 }
             } catch (err) {
                 console.error("Middleware execution failed", err);
-                return new Response("Internal Server Error", {
-                    status: 500,
-                    headers: {
-                        "Content-Type": "text/plain; charset=utf-8",
-                        "Cache-Control": "no-store",
-                    },
-                });
+                return errorResponse(INTERNAL_ERROR_HTML, 500, request);
             }
         }
 
@@ -220,12 +246,7 @@ export function createCoreHandler(/** @type {HandlerConfig} */ config) {
 
         // Invalid slug -> 400
         if (Object.hasOwn(match, "invalid")) {
-            return new Response("Invalid parameters", {
-                status: 400,
-                headers: {
-                    "Content-Type": "text/plain; charset=utf-8",
-                },
-            });
+            return errorResponse(BAD_REQUEST_HTML, 400, request);
         }
 
         const { route, params } = /** @type {{route: Route, params: Record<string, string>}} */ (match);
@@ -251,20 +272,14 @@ export function createCoreHandler(/** @type {HandlerConfig} */ config) {
             return new Response(html, {
                 status: 200,
                 headers: {
-                    "Content-Type": "text/html; charset=utf-8",
-                    "Cache-Control": "public, max-age=0, must-revalidate",
+                    [HTTP_HEADER_CONTENT_TYPE]: MIME_TYPE_HTML_UTF8,
+                    [HTTP_HEADER_CACHE_CONTROL]: "public, max-age=0, must-revalidate",
                 },
             });
         } catch (err) {
             // SSR error -> 500
             console.error("SSR rendering error", err);
-            return new Response("Internal Server Error", {
-                status: 500,
-                headers: {
-                    "Content-Type": "text/plain; charset=utf-8",
-                    "Cache-Control": "no-store",
-                },
-            });
+            return errorResponse(INTERNAL_ERROR_HTML, 500, request);
         }
     };
 }
