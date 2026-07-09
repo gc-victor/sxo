@@ -60,6 +60,7 @@ import { SectionKbd } from "@pages/sections/section-kbd.jsx";
 import { SectionLabel } from "@pages/sections/section-label.jsx";
 import { SectionPagination } from "@pages/sections/section-pagination.jsx";
 import { SectionPopover } from "@pages/sections/section-popover.jsx";
+import { SectionProgress } from "@pages/sections/section-progress.jsx";
 import { SectionRadioGroup } from "@pages/sections/section-radio-group.jsx";
 import { SectionScrollbar } from "@pages/sections/section-scrollbar.jsx";
 import { SectionSelect } from "@pages/sections/section-select.jsx";
@@ -389,6 +390,7 @@ export default () => (
                                 <SectionLabel />
                                 <SectionPagination />
                                 <SectionPopover />
+                                <SectionProgress />
                                 <SectionRadioGroup />
                                 <SectionSelect />
                                 <SectionSelectMenu />
