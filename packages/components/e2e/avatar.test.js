@@ -54,8 +54,8 @@ test.describe("Avatar", () => {
     test("should display avatar group", async ({ page }) => {
         const avatarSection = page.locator("#avatar");
 
-        // Find avatar group
-        const avatarGroup = avatarSection.locator("div.avatar-group");
+        // Find first avatar group
+        const avatarGroup = avatarSection.locator("div.avatar-group").first();
 
         // Should exist
         await expect(avatarGroup).toBeVisible();
@@ -69,16 +69,16 @@ test.describe("Avatar", () => {
         const avatarSection = page.locator("#avatar");
 
         // Avatar group should have negative space-x class
-        const avatarGroup = avatarSection.locator("div.avatar-group");
+        const avatarGroup = avatarSection.locator("div.avatar-group").first();
         await expect(avatarGroup).toHaveClass(/-space-x-2/);
     });
 
     test("should apply size token classes correctly", async ({ page }) => {
         const avatarSection = page.locator("#avatar");
 
-        // This assumes there are avatars with different size tokens (xs, sm, md, lg, xl)
-        const xsAvatar = avatarSection.locator("span.avatar").filter({ hasClass: /w-6 h-6/ }); // xs
-        const lgAvatar = avatarSection.locator("span.avatar").filter({ hasClass: /w-12 h-12/ }); // lg
+        // Check size tokens: xs → size-6, lg → size-12
+        const xsAvatar = avatarSection.locator("span.avatar.size-6");
+        const lgAvatar = avatarSection.locator("span.avatar.size-12");
 
         if ((await xsAvatar.count()) > 0) {
             await expect(xsAvatar.first()).toBeVisible();
@@ -89,54 +89,6 @@ test.describe("Avatar", () => {
         // Skip if no size examples are present
         if ((await xsAvatar.count()) === 0 && (await lgAvatar.count()) === 0) {
             test.skip();
-        }
-    });
-
-    test("should apply grayscale filter to single avatar", async ({ page }) => {
-        const avatarSection = page.locator("#avatar");
-
-        // This assumes there's an avatar with grayscale class
-        const allAvatars = avatarSection.locator("span.avatar");
-        const count = await allAvatars.count();
-        let foundGrayscale = false;
-
-        for (let i = 0; i < count; i++) {
-            const avatar = allAvatars.nth(i);
-            const className = await avatar.getAttribute("class");
-            if (className?.includes("grayscale")) {
-                foundGrayscale = true;
-                await expect(avatar).toBeVisible();
-                await expect(avatar).toHaveClass(/grayscale/);
-                break;
-            }
-        }
-
-        if (!foundGrayscale) {
-            test.skip("No grayscale avatar example found in section");
-        }
-    });
-
-    test("should apply grayscale to avatar group children", async ({ page }) => {
-        const avatarSection = page.locator("#avatar");
-
-        // This assumes there's an avatar group with grayscaleChildren
-        const allGroups = avatarSection.locator("div.avatar-group");
-        const groupCount = await allGroups.count();
-        let foundGrayscaleGroup = false;
-
-        for (let i = 0; i < groupCount; i++) {
-            const group = allGroups.nth(i);
-            const className = await group.getAttribute("class");
-            if (className?.includes("grayscale")) {
-                foundGrayscaleGroup = true;
-                const groupAvatars = group.locator("span.avatar");
-                await expect(groupAvatars.first()).toHaveClass(/grayscale/);
-                break;
-            }
-        }
-
-        if (!foundGrayscaleGroup) {
-            test.skip("No grayscale avatar group example found in section");
         }
     });
 

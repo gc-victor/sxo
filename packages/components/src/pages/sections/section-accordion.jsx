@@ -31,6 +31,19 @@ export function SectionAccordion() {
                             <AccordionContent>Yes. It's animated by default.</AccordionContent>
                         </AccordionItem>
                     </Accordion>
+
+                    <div class="mt-6">
+                        <Accordion type="multiple">
+                            <AccordionItem>
+                                <AccordionHeader>Multiple open items</AccordionHeader>
+                                <AccordionContent>In multiple mode, other items stay open when you open this one.</AccordionContent>
+                            </AccordionItem>
+                            <AccordionItem>
+                                <AccordionHeader hideIcon>No chevron icon</AccordionHeader>
+                                <AccordionContent>This header has hideIcon so the chevron is not rendered.</AccordionContent>
+                            </AccordionItem>
+                        </Accordion>
+                    </div>
                 </TabsContent>
                 <TabsContent name="code" class="mt-4 relative">
                     <pre className="jsx-highlight">

@@ -1,18 +1,18 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("Theme Toggle", () => {
+    const toggleButton = '[aria-label="Toggle theme"]';
+
     test.beforeEach(async ({ page }) => {
         await page.goto("/");
-        await page.waitForSelector("el-theme-toggle", { state: "visible" });
+        await page.evaluate(() => localStorage.clear());
+        await page.reload();
+        await page.waitForSelector(toggleButton, { state: "visible" });
         await page.waitForTimeout(1000); // Wait for client script to load and define to run
     });
 
     test("should display theme toggle in header", async ({ page }) => {
-        const themeToggle = page.locator("el-theme-toggle");
-        await expect(themeToggle).toBeVisible();
-
-        // Check button and icons
-        const button = themeToggle.locator("button");
+        const button = page.locator(toggleButton);
         await expect(button).toBeVisible();
 
         // Check both icons are present (one hidden based on theme)
@@ -21,8 +21,7 @@ test.describe("Theme Toggle", () => {
     });
 
     test("should toggle theme on click", async ({ page }) => {
-        const _html = page.locator("html");
-        const button = page.locator("el-theme-toggle button");
+        const button = page.locator(toggleButton);
 
         // Get initial theme
         const initialClass = await page.evaluate(() => document.documentElement.className);
@@ -41,8 +40,7 @@ test.describe("Theme Toggle", () => {
     });
 
     test("should persist theme across page reload", async ({ page }) => {
-        const button = page.locator("el-theme-toggle");
-        const _html = page.locator("html");
+        const button = page.locator(toggleButton);
 
         // Get initial class
         const initialClass = await page.evaluate(() => document.documentElement.className);
@@ -61,7 +59,7 @@ test.describe("Theme Toggle", () => {
 
         // Reload page
         await page.reload();
-        await page.waitForSelector("el-theme-toggle", { state: "visible" });
+        await page.waitForSelector(toggleButton, { state: "visible" });
 
         // Check theme persisted
         const afterReloadClass = await page.evaluate(() => document.documentElement.className);
@@ -70,19 +68,15 @@ test.describe("Theme Toggle", () => {
     });
 
     test("should handle keyboard navigation", async ({ page }) => {
-        const button = page.locator("el-theme-toggle");
-        const _html = page.locator("html");
+        const button = page.locator(toggleButton);
 
         // Get initial
         const initialClass = await page.evaluate(() => document.documentElement.className);
         const hasDark = initialClass.includes("dark");
 
-        // Focus the toggle element (since click is on it)
+        // Focus the button
         await button.focus();
-        // Perhaps focus the button inside
-        const btn = button.locator("button");
-        await btn.focus();
-        await expect(btn).toBeFocused();
+        await expect(button).toBeFocused();
 
         // Press Enter to toggle
         await page.keyboard.press("Enter");

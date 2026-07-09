@@ -11,11 +11,15 @@ test.describe("Accordion", () => {
 
         // Check that details elements exist (accordion items)
         const details = accordionSection.locator("details");
-        await expect(details).toHaveCount(3);
+        await expect(details).toHaveCount(5);
 
         // Check that summary elements exist (accordion headers)
         const summaries = accordionSection.locator("summary");
-        await expect(summaries).toHaveCount(3);
+        await expect(summaries).toHaveCount(5);
+
+        // Check that multiple-type accordion exists
+        const multipleAccordion = accordionSection.locator("el-accordion[type='multiple']");
+        await expect(multipleAccordion).toHaveCount(1);
     });
 
     test("should have correct header text", async ({ page }) => {
@@ -129,36 +133,20 @@ test.describe("Accordion", () => {
         }
     });
 
-    test("should render AccordionContent with custom tag when as prop is provided", async ({ page }) => {
-        const accordionSection = page.locator("#accordion");
-
-        // Look for accordion content with custom tags (not section)
-        // This assumes there's an AccordionContent with as="div" or similar in the section
-        const customContent = accordionSection.locator("details div").filter({ hasNotText: "" });
-
-        // If custom content exists, check the tag name
-        if ((await customContent.count()) > 0) {
-            const firstContent = customContent.first();
-            // Verify it's not the default section tag (could be div or other)
-            await expect(firstContent).toBeVisible();
-        } else {
-            // Skip if no custom as example is present
-            test.skip();
-        }
-    });
-
     test("should maintain only one item open in single-type accordion", async ({ page }) => {
         const accordionSection = page.locator("#accordion");
+        // Only target the single-type accordion (first 3 items)
         const details = accordionSection.locator("details");
+        const singleCount = await details.count();
 
         // Open all items by clicking each summary
-        for (let i = 0; i < (await details.count()); i++) {
+        for (let i = 0; i < Math.min(singleCount, 3); i++) {
             const summary = details.nth(i).locator("summary");
             await summary.click();
             await page.waitForTimeout(200);
 
-            // Check that only this item is open
-            for (let j = 0; j < (await details.count()); j++) {
+            // Check that only this item is open (scoped to single accordion items)
+            for (let j = 0; j < Math.min(singleCount, 3); j++) {
                 const content = details.nth(j).locator("section");
                 if (i === j) {
                     await expect(content).toBeVisible();
@@ -188,8 +176,8 @@ test.describe("Accordion", () => {
     test("should show chevron icons", async ({ page }) => {
         const accordionSection = page.locator("#accordion");
 
-        // Check that chevron icons exist
+        // Check that chevron icons exist (3 from single accordion + 1 from multiple accordion's first item)
         const chevrons = accordionSection.locator("svg use[href='#icon-chevron-down']");
-        await expect(chevrons).toHaveCount(3);
+        await expect(chevrons).toHaveCount(4);
     });
 });

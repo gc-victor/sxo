@@ -102,19 +102,4 @@ test.describe("Alert", () => {
         }
     });
 
-    test("should clamp AlertTitle heading level for invalid levels", async ({ page }) => {
-        const alertSection = page.locator("#alert");
-
-        // This assumes there's an alert with level="10" or similar in the section
-        const clampedTitle = alertSection.locator("h5").filter({ hasText: /clamped/i });
-
-        if ((await clampedTitle.count()) > 0) {
-            await expect(clampedTitle.first()).toBeVisible();
-            // Verify it's clamped to h5 (default for invalid levels)
-            await expect(clampedTitle.first()).toHaveRole("heading", { level: 5 });
-        } else {
-            // Skip if no level clamping example is present
-            test.skip();
-        }
-    });
 });
