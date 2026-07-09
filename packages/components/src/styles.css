@@ -39,6 +39,17 @@
 
 /* Components */
 
+/* Closed dialog must not intercept pointer events — Basecoat CSS keeps the child fixed-positioned even when closed */
+dialog:not([open]) {
+    pointer-events: none;
+}
+
+/* Ensure theme toggle custom element is visible */
+el-theme-toggle {
+    display: inline-flex;
+    align-items: center;
+}
+
 @layer components {
     @import "./components/select-menu.css";
     @import "./components/tooltip.css";

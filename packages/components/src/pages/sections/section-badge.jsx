@@ -38,7 +38,7 @@ export function SectionBadge(props) {
                         <Badge variant="secondary">Secondary</Badge>
                         <Badge variant="outline">Outline</Badge>
                         <Badge variant="outline">
-                            <IconArrowRight aria-hidden="true" />
+                            <IconArrowRight aria-hidden="true" class="size-4" />
                         </Badge>
                         <Badge variant="destructive">Destructive</Badge>
                         <Badge pill count={8} aria-label="8 notifications" />

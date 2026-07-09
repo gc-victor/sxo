@@ -21,6 +21,13 @@
  * - `className` is accepted as an alias for `class`; merging is performed by simple concatenation (no util dependency).
  * - No runtime side effects; the sprite injection is the caller's responsibility (ensure `<SvgSymbols />` is present once).
  *
+ * Sizing convention:
+ * - Icon wrappers used in page sections MUST include an explicit sizing class (e.g., `class="size-4"`).
+ *   SVGs without explicit `width`/`height` or size classes collapse to 0×0 in flex contexts,
+ *   making them invisible to Playwright's `toBeVisible()` checks.
+ * - Icons used as children of interactive elements (buttons, badges) are particularly vulnerable.
+ * - Preferred sizes: `size-4` (1rem) for inline icons, `size-5` for larger indicators.
+ *
  * Accessibility guidelines:
  * - Use `title` for meaningful icons (status, actions); omit or leave empty for purely decorative usage.
  * - Avoid redundant textual labels (e.g., do not repeat adjacent button text in `title`).

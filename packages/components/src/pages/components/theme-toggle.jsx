@@ -45,8 +45,8 @@ export default function ThemeToggle({ className = "", ...rest }) {
     return (
         <el-theme-toggle>
             <Button className={className} variant="outline" type="button" aria-label="Toggle theme" $onclick="toggle" {...rest}>
-                <IconSun $bind-class="sunIconClass" title="Switch to light mode" />
-                <IconMoon className="hidden" $bind-class="moonIconClass" title="Switch to dark mode" />
+                <IconSun className="size-4" $bind-class="sunIconClass" title="Switch to light mode" />
+                <IconMoon className="size-4 hidden" $bind-class="moonIconClass" title="Switch to dark mode" />
             </Button>
         </el-theme-toggle>
     );

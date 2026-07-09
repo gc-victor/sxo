@@ -20,7 +20,7 @@ export function SectionAvatar() {
 
                 {/* NOTE: Label each example use case in the snippet with inline JSX comments */}
                 <TabsContent name="preview" class="pt-4" active>
-                    <div class="flex items-center gap-3">
+                    <div class="flex flex-wrap items-center gap-3">
                         {/* Case 1: Avatar with image */}
                         <Avatar
                             loading="lazy"

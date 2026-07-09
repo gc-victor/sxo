@@ -83,18 +83,18 @@ export function SectionButton(props) {
                         <h3 class="mb-4 text-md font-medium">With Icons (Default)</h3>
                         <div class="flex flex-wrap items-center gap-2">
                             <Button variant="outline">
-                                <IconSend />
+                                <IconSend class="size-4" />
                                 Send
                             </Button>
                             <Button variant="outline">
                                 Learn more
-                                <IconArrowRight />
+                                <IconArrowRight class="size-4" />
                             </Button>
                             <Button aria-label="Loading" loadingText="Loading…" variant="outline">
-                                <IconSpinner class="animate-spin" />
+                                <IconSpinner class="size-4 animate-spin" />
                             </Button>
                             <Button aria-label="More options" variant="ghost">
-                                <IconDotsHorizontal />
+                                <IconDotsHorizontal class="size-4" />
                             </Button>
                         </div>
                     </div>
@@ -104,18 +104,18 @@ export function SectionButton(props) {
                         <h3 class="mb-4 text-md font-medium">With Icons (Small)</h3>
                         <div class="flex flex-wrap items-center gap-2">
                             <Button size="sm" variant="outline">
-                                <IconSend />
+                                <IconSend class="size-4" />
                                 Send
                             </Button>
                             <Button size="sm" variant="outline">
                                 Learn more
-                                <IconArrowRight />
+                                <IconArrowRight class="size-4" />
                             </Button>
                             <Button size="sm" aria-label="Loading" loadingText="Loading…" variant="outline">
-                                <IconSpinner class="animate-spin" />
+                                <IconSpinner class="size-4 animate-spin" />
                             </Button>
                             <Button size="sm" aria-label="More options" variant="ghost">
-                                <IconDotsHorizontal />
+                                <IconDotsHorizontal class="size-4" />
                             </Button>
                         </div>
                     </div>
@@ -148,28 +148,28 @@ export function SectionButton(props) {
                         <h3 class="mb-4 text-md font-medium">Icon Only</h3>
                         <div class="flex flex-wrap items-center gap-2">
                             <Button aria-label="Send message">
-                                <IconSend />
+                                <IconSend class="size-4" />
                             </Button>
                             <Button variant="outline" aria-label="More options">
-                                <IconDotsHorizontal />
+                                <IconDotsHorizontal class="size-4" />
                             </Button>
                             <Button variant="ghost" aria-label="Gift">
-                                <IconGift />
+                                <IconGift class="size-4" />
                             </Button>
                             <Button variant="destructive" aria-label="Shield warning">
-                                <IconShieldExclamation />
+                                <IconShieldExclamation class="size-4" />
                             </Button>
                             <Button variant="secondary" aria-label="Check circle">
-                                <IconCircleCheck />
+                                <IconCircleCheck class="size-4" />
                             </Button>
                             <Button size="sm" aria-label="Arrow right">
-                                <IconArrowRight />
+                                <IconArrowRight class="size-4" />
                             </Button>
                             <Button size="sm" variant="outline" aria-label="Loading">
-                                <IconSpinner class="animate-spin" />
+                                <IconSpinner class="size-4 animate-spin" />
                             </Button>
                             <Button size="sm" variant="ghost" aria-label="Circle exclamation">
-                                <IconCircleExclamation />
+                                <IconCircleExclamation class="size-4" />
                             </Button>
                         </div>
                     </div>
