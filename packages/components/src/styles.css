@@ -55,6 +55,88 @@ el-theme-toggle {
     @import "./components/tooltip.css";
     @import "./pages/components/highlight.css";
     @import "./pages/components/sidebar.css";
+
+    /* Command palette */
+    .command-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 50;
+        background: hsl(0 0% 0% / 0.5);
+        align-items: flex-start;
+        justify-content: center;
+        padding-top: 10vh;
+    }
+    .command-overlay.open {
+        display: flex;
+    }
+    .command-dialog {
+        width: 100%;
+        max-width: 32rem;
+        background: var(--color-background);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-xl);
+        overflow: hidden;
+    }
+    .command-input-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem;
+        border-bottom: 1px solid var(--color-border);
+    }
+    .command-input-wrapper .search-icon {
+        flex-shrink: 0;
+        color: var(--color-muted-foreground);
+    }
+    .command-input {
+        flex: 1;
+        border: none;
+        outline: none;
+        background: transparent;
+        font-size: 0.875rem;
+        line-height: 1.25rem;
+        color: var(--color-foreground);
+    }
+    .command-input::placeholder {
+        color: var(--color-muted-foreground);
+    }
+    .command-list {
+        max-height: 18rem;
+        overflow-y: auto;
+        padding: 0.5rem;
+    }
+    .command-item {
+        display: flex;
+        width: 100%;
+        align-items: center;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.875rem;
+        line-height: 1.25rem;
+        border-radius: calc(var(--radius) - 2px);
+        cursor: pointer;
+        border: none;
+        text-align: left;
+        background: transparent;
+        color: var(--color-foreground);
+    }
+    .command-item:hover {
+        background: var(--color-muted);
+    }
+    .command-item[aria-selected="true"],
+    .command-item:focus-visible {
+        background: var(--color-muted);
+        outline: none;
+    }
+    .command-empty {
+        padding: 1.5rem;
+        text-align: center;
+        font-size: 0.875rem;
+        color: var(--color-muted-foreground);
+    }
+    .command-empty[hidden] {
+        display: none;
+    }
 }
 
 /* Missing Tailwind utilities */
