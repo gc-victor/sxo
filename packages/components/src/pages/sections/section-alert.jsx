@@ -75,14 +75,16 @@ export function SectionAlert() {
                             </AlertDescription>
                         </Alert>
 
-                        <Alert role="status" className="bg-purple-50 border-purple-500 text-purple-700 dark:bg-purple-900 dark:border-purple-700 dark:text-purple-50">
+                        <Alert
+                            role="status"
+                            className="bg-purple-50 border-purple-500 text-purple-700 dark:bg-purple-900 dark:border-purple-700 dark:text-purple-50"
+                        >
                             <IconCircleCheck />
                             <AlertTitle level={4}>status role</AlertTitle>
                             <AlertDescription>
                                 <p class="text-purple-900 dark:text-purple-50">This alert uses role="status" for non-urgant updates.</p>
                             </AlertDescription>
                         </Alert>
-
                     </div>
                 </TabsContent>
 
