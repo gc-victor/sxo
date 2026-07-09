@@ -321,10 +321,10 @@ export default () => (
                                     <InstallTabs
                                         componentName="install-dev-dependencies"
                                         commands={{
-                                            pnpm: `pnpm add -D tailwindcss @tailwindcss/cli basecoat-css@0.3.3`,
-                                            npm: `npm install -D tailwindcss @tailwindcss/cli basecoat-css@0.3.3`,
-                                            yarn: `yarn add -D tailwindcss @tailwindcss/cli basecoat-css@0.3.3`,
-                                            bun: `bun add -D tailwindcss @tailwindcss/cli basecoat-css@0.3.3`,
+                                            pnpm: `pnpm add -D tailwindcss @tailwindcss/cli basecoat-css@1.0.2`,
+                                            npm: `npm install -D tailwindcss @tailwindcss/cli basecoat-css@1.0.2`,
+                                            yarn: `yarn add -D tailwindcss @tailwindcss/cli basecoat-css@1.0.2`,
+                                            bun: `bun add -D tailwindcss @tailwindcss/cli basecoat-css@1.0.2`,
                                         }}
                                     />
 

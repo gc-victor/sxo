@@ -99,8 +99,8 @@ importers:
         specifier: 4.2.2
         version: 4.2.2
       basecoat-css:
-        specifier: 0.3.11
-        version: 0.3.11
+        specifier: 1.0.2
+        version: 1.0.2
       tailwindcss:
         specifier: 4.2.2
         version: 4.2.2
@@ -951,8 +951,8 @@ packages:
     resolution: {integrity: sha512-kNOjDqAh7px0XWNI+4QbzoiR/nTkHAWNud2uvnJquD1/x5a7EQZMJT0AczqK0Qn67oY/TTQ1LbUKajZpp3I9tQ==}
     engines: {node: '>=8.0.0'}
 
-  basecoat-css@0.3.11:
-    resolution: {integrity: sha512-cU91Egcg9AhKJ1HswpKFItHC//FWDt1T8AlL5Yk9Fh5I2WYe+QhN3MtiVJ2vemqFF4iAM1vfbikhhjc+vkr2zA==}
+  basecoat-css@1.0.2:
+    resolution: {integrity: sha512-C6I5rr7HziIAoBYNGPO5U6HaU/6FuF3iVp++IgoEqqJ836is3XoRty6l1ibXqxnoIRZNnOAYDMX8QxVC+58zhw==}
 
   buffer-image-size@0.6.4:
     resolution: {integrity: sha512-nEh+kZOPY1w+gcCMobZ6ETUp9WfibndnosbpwB1iJk/8Gt5ZF2bhS6+B6bPYz424KtwsR6Rflc3tCz1/ghX2dQ==}
@@ -2011,7 +2011,7 @@ snapshots:
 
   atomic-sleep@1.0.0: {}
 
-  basecoat-css@0.3.11: {}
+  basecoat-css@1.0.2: {}
 
   buffer-image-size@0.6.4:
     dependencies:
