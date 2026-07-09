@@ -10,6 +10,7 @@
  * Exports:
  * - `<RadioGroup>`: Group wrapper applying layout + `role="radiogroup"`.
  * - `<RadioGroupItem>`: Single radio input + label wrapper.
+ * - `<Radio>`: Standalone radio input with inline label.
  *
  * Design notes:
  * - Native radio behavior supplies keyboard navigation (Arrow keys / Home / End) without JS.
@@ -79,6 +80,34 @@ export function RadioGroup({ class: klass, className, direction = "column", chil
  */
 export function RadioGroupItem({ class: klass, className, ...rest }) {
     return <Input type="radio" class={cn(klass, className)} {...rest} />;
+}
+
+/**
+ * Props accepted by `<Radio />`.
+ *
+ * Standalone radio input with inline label.
+ * Renders `<label class="radio"><input type="radio"><span>label</span></label>`.
+ * Convenience wrapper for single radio items outside a group context.
+ *
+ * @typedef {HTMLInputAttributes & ComponentProps & {
+ *   label?: string,
+ * }} RadioProps
+ * @function Radio
+ * @param {RadioProps} props
+ * @returns {JSX.Element} Rendered markup.
+ * @example
+ * <Radio name="theme" value="dark" label="Dark" />
+ * @example
+ * <Radio name="theme" value="light" label="Light" checked />
+ * @public
+ */
+export function Radio({ class: klass, className, label, children, ...rest }) {
+    return (
+        <label class={cn("radio", klass, className)}>
+            <input type="radio" {...rest} />
+            {label || children ? <span>{label || children}</span> : null}
+        </label>
+    );
 }
 
 // Backward compatibility: default export remains the group component.
