@@ -57,6 +57,7 @@ import { SectionEmpty } from "@pages/sections/section-empty.jsx";
 import { SectionField } from "@pages/sections/section-field.jsx";
 import { SectionForm } from "@pages/sections/section-form.jsx";
 import { SectionInput } from "@pages/sections/section-input.jsx";
+import { SectionInputGroup } from "@pages/sections/section-input-group.jsx";
 import { SectionItem } from "@pages/sections/section-item.jsx";
 import { SectionKbd } from "@pages/sections/section-kbd.jsx";
 import { SectionLabel } from "@pages/sections/section-label.jsx";
@@ -391,6 +392,7 @@ export default () => (
                                 <SectionField />
                                 <SectionForm />
                                 <SectionInput />
+                                <SectionInputGroup />
                                 <SectionLabel />
                                 <SectionPagination />
                                 <SectionPopover />
