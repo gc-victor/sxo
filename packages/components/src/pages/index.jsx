@@ -48,6 +48,7 @@ import { SectionAvatar } from "@pages/sections/section-avatar.jsx";
 import { SectionBadge } from "@pages/sections/section-badge.jsx";
 import { SectionBreadcrumb } from "@pages/sections/section-breadcrumb.jsx";
 import { SectionButton } from "@pages/sections/section-button.jsx";
+import { SectionButtonGroup } from "@pages/sections/section-button-group.jsx";
 import { SectionCard } from "@pages/sections/section-card.jsx";
 import { SectionCheckbox } from "@pages/sections/section-checkbox.jsx";
 import { SectionDialog } from "@pages/sections/section-dialog.jsx";
@@ -376,6 +377,7 @@ export default () => (
                                 <SectionAlertDialog />
                                 <SectionAvatar />
                                 <SectionBadge />
+                                <SectionButtonGroup />
                                 <SectionBreadcrumb />
                                 <SectionButton />
                                 <SectionCard />
