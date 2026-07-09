@@ -132,8 +132,10 @@ export function isMiddlewareFile(filename) {
  * Run esbuild and return a cleaned error string.
  *
  * Executes esbuild using a provided platform-specific spawn callback.
- * Handles stderr cleaning and logging. Caller is responsible for managing
- * the returned error state.
+ * Handles stderr cleaning and logging. Warning lines (▲ [WARNING]) are
+ * logged separately and stripped before checking for errors, so they
+ * don't block route loading. Caller is responsible for managing the
+ * returned error state.
  *
  * @param {object} options - Runner options
  * @param {() => Promise<string>} options.spawnEsbuild - Platform-specific spawn function that returns Promise<string> (stderr)
@@ -153,8 +155,36 @@ export async function runEsbuild({ spawnEsbuild, colors = {}, filename }) {
         // Call platform-specific spawn function
         const stderr = await spawnEsbuild();
 
+        // Log warnings, then strip them from the output so they don't
+        // masquerade as build errors that block route loading.
+        const lines = stderr.split("\n");
+        const filteredLines = [];
+        let inWarning = false;
+
+        for (const line of lines) {
+            if (line.includes("▲ [WARNING]")) {
+                inWarning = true;
+                logger.warn(line.trim());
+            } else if (inWarning) {
+                // Continuation lines of a warning block are indented or
+                // blank. Stop skipping when we hit a non-indented line.
+                if (line.length === 0 || /^\s/.test(line)) {
+                    logger.warn(line.trimEnd());
+                } else {
+                    inWarning = false;
+                    filteredLines.push(line);
+                }
+            } else {
+                filteredLines.push(line);
+            }
+        }
+
         // Clean error message (remove common prefixes)
-        const cleaned = stderr.replace("✘ [ERROR] ", "").replace("[plugin jsx-transform]", "").trim();
+        const cleaned = filteredLines
+            .join("\n")
+            .replace(/✘ \[ERROR\] /g, "")
+            .replace(/\[plugin jsx-transform\]/g, "")
+            .trim();
 
         // Log filename with optional colors
         if (filename && colors.yellow && colors.reset) {
