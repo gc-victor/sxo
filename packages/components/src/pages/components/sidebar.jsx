@@ -161,16 +161,37 @@ export default function Sidebar({
                                     <a href="#button">Button</a>
                                 </li>
                                 <li>
+                                    <a href="#button-group">Button Group</a>
+                                </li>
+                                <li>
                                     <a href="#card">Card</a>
                                 </li>
                                 <li>
                                     <a href="#checkbox">Checkbox</a>
                                 </li>
                                 <li>
+                                    <a href="#collapsible">Collapsible</a>
+                                </li>
+                                <li>
+                                    <a href="#combobox">Combobox</a>
+                                </li>
+                                <li>
+                                    <a href="#command">Command</a>
+                                </li>
+                                <li>
                                     <a href="#dialog">Dialog</a>
                                 </li>
                                 <li>
+                                    <a href="#drawer">Drawer</a>
+                                </li>
+                                <li>
                                     <a href="#dropdown-menu">Dropdown Menu</a>
+                                </li>
+                                <li>
+                                    <a href="#empty">Empty</a>
+                                </li>
+                                <li>
+                                    <a href="#field">Field</a>
                                 </li>
                                 <li>
                                     <a href="#form">Form</a>
@@ -179,7 +200,19 @@ export default function Sidebar({
                                     <a href="#input">Input</a>
                                 </li>
                                 <li>
+                                    <a href="#input-group">Input Group</a>
+                                </li>
+                                <li>
+                                    <a href="#item">Item</a>
+                                </li>
+                                <li>
+                                    <a href="#kbd">Kbd</a>
+                                </li>
+                                <li>
                                     <a href="#label">Label</a>
+                                </li>
+                                <li>
+                                    <a href="#native-select">Native Select</a>
                                 </li>
                                 <li>
                                     <a href="#pagination">Pagination</a>
@@ -188,13 +221,28 @@ export default function Sidebar({
                                     <a href="#popover">Popover</a>
                                 </li>
                                 <li>
+                                    <a href="#progress">Progress</a>
+                                </li>
+                                <li>
+                                    <a href="#radio">Radio</a>
+                                </li>
+                                <li>
                                     <a href="#radio-group">Radio Group</a>
+                                </li>
+                                <li>
+                                    <a href="#range">Range</a>
+                                </li>
+                                <li>
+                                    <a href="#scrollbar">Scrollbar</a>
                                 </li>
                                 <li>
                                     <a href="#select">Select</a>
                                 </li>
                                 <li>
                                     <a href="#select-menu">Select Menu</a>
+                                </li>
+                                <li>
+                                    <a href="#sidebar">Sidebar</a>
                                 </li>
                                 <li>
                                     <a href="#skeleton">Skeleton</a>
