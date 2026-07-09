@@ -53,6 +53,7 @@ import { SectionCard } from "@pages/sections/section-card.jsx";
 import { SectionCheckbox } from "@pages/sections/section-checkbox.jsx";
 import { SectionDialog } from "@pages/sections/section-dialog.jsx";
 import { SectionDropdownMenu } from "@pages/sections/section-dropdown-menu.jsx";
+import { SectionEmpty } from "@pages/sections/section-empty.jsx";
 import { SectionForm } from "@pages/sections/section-form.jsx";
 import { SectionInput } from "@pages/sections/section-input.jsx";
 import { SectionItem } from "@pages/sections/section-item.jsx";
@@ -385,6 +386,7 @@ export default () => (
                                 <SectionCheckbox />
                                 <SectionDialog />
                                 <SectionDropdownMenu />
+                                <SectionEmpty />
                                 <SectionForm />
                                 <SectionInput />
                                 <SectionLabel />
