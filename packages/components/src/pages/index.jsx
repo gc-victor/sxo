@@ -54,12 +54,16 @@ import { SectionDialog } from "@pages/sections/section-dialog.jsx";
 import { SectionDropdownMenu } from "@pages/sections/section-dropdown-menu.jsx";
 import { SectionForm } from "@pages/sections/section-form.jsx";
 import { SectionInput } from "@pages/sections/section-input.jsx";
+import { SectionItem } from "@pages/sections/section-item.jsx";
+import { SectionKbd } from "@pages/sections/section-kbd.jsx";
 import { SectionLabel } from "@pages/sections/section-label.jsx";
 import { SectionPagination } from "@pages/sections/section-pagination.jsx";
 import { SectionPopover } from "@pages/sections/section-popover.jsx";
 import { SectionRadioGroup } from "@pages/sections/section-radio-group.jsx";
+import { SectionScrollbar } from "@pages/sections/section-scrollbar.jsx";
 import { SectionSelect } from "@pages/sections/section-select.jsx";
 import { SectionSelectMenu } from "@pages/sections/section-select-menu.jsx";
+import { SectionSidebar } from "@pages/sections/section-sidebar.jsx";
 import { SectionSkeleton } from "@pages/sections/section-skeleton.jsx";
 import { SectionSlider } from "@pages/sections/section-slider.jsx";
 import { SectionSwitch } from "@pages/sections/section-switch.jsx";
@@ -394,6 +398,10 @@ export default () => (
                                 <SectionTextarea />
                                 <SectionToast />
                                 <SectionTooltip />
+                                <SectionItem />
+                                <SectionKbd />
+                                <SectionSidebar />
+                                <SectionScrollbar />
                             </div>
                         </div>
                     </div>
