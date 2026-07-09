@@ -61,6 +61,7 @@ import { SectionInputGroup } from "@pages/sections/section-input-group.jsx";
 import { SectionItem } from "@pages/sections/section-item.jsx";
 import { SectionKbd } from "@pages/sections/section-kbd.jsx";
 import { SectionLabel } from "@pages/sections/section-label.jsx";
+import { SectionNativeSelect } from "@pages/sections/section-native-select.jsx";
 import { SectionPagination } from "@pages/sections/section-pagination.jsx";
 import { SectionPopover } from "@pages/sections/section-popover.jsx";
 import { SectionProgress } from "@pages/sections/section-progress.jsx";
@@ -394,6 +395,7 @@ export default () => (
                                 <SectionInput />
                                 <SectionInputGroup />
                                 <SectionLabel />
+                                <SectionNativeSelect />
                                 <SectionPagination />
                                 <SectionPopover />
                                 <SectionProgress />
