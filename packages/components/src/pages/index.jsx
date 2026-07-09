@@ -51,6 +51,7 @@ import { SectionButton } from "@pages/sections/section-button.jsx";
 import { SectionButtonGroup } from "@pages/sections/section-button-group.jsx";
 import { SectionCard } from "@pages/sections/section-card.jsx";
 import { SectionCheckbox } from "@pages/sections/section-checkbox.jsx";
+import { SectionCombobox } from "@pages/sections/section-combobox.jsx";
 import { SectionCommand } from "@pages/sections/section-command.jsx";
 import { SectionDialog } from "@pages/sections/section-dialog.jsx";
 import { SectionDropdownMenu } from "@pages/sections/section-dropdown-menu.jsx";
@@ -388,6 +389,7 @@ export default () => (
                                 <SectionButton />
                                 <SectionCard />
                                 <SectionCheckbox />
+                                <SectionCombobox />
                                 <SectionCommand />
                                 <SectionDialog />
                                 <SectionDropdownMenu />
