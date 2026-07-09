@@ -199,6 +199,127 @@ el-theme-toggle {
     .combobox-empty[hidden] {
         display: none;
     }
+
+    /* Drawer */
+    .drawer-backdrop {
+        visibility: hidden;
+        opacity: 0;
+        position: fixed;
+        inset: 0;
+        z-index: 40;
+        background: hsl(0 0% 0% / 0.5);
+        transition:
+            opacity 0.3s ease,
+            visibility 0.3s ease;
+        pointer-events: none;
+    }
+    .drawer-backdrop.open {
+        visibility: visible;
+        opacity: 1;
+        pointer-events: auto;
+    }
+    .drawer-panel {
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        z-index: 50;
+        width: 100%;
+        max-width: 24rem;
+        background: var(--color-background);
+        box-shadow: var(--shadow-xl);
+        display: flex;
+        flex-direction: column;
+        transition: transform 0.3s ease;
+    }
+    .drawer-panel.drawer-left {
+        left: 0;
+        transform: translateX(-100%);
+    }
+    .drawer-panel.drawer-left.open {
+        transform: translateX(0);
+    }
+    .drawer-panel.drawer-right {
+        right: 0;
+        transform: translateX(100%);
+    }
+    .drawer-panel.drawer-right.open {
+        transform: translateX(0);
+    }
+    .drawer-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1rem;
+        border-bottom: 1px solid var(--color-border);
+    }
+    .drawer-title {
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: var(--color-foreground);
+    }
+    .drawer-close {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 2rem;
+        height: 2rem;
+        border-radius: calc(var(--radius) - 2px);
+        border: none;
+        background: transparent;
+        color: var(--color-muted-foreground);
+        cursor: pointer;
+    }
+    .drawer-close:hover {
+        background: var(--color-muted);
+    }
+    .drawer-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1rem;
+    }
+
+    /* Collapsible */
+    .collapsible-root {
+        border: 1px solid var(--color-border);
+        border-radius: calc(var(--radius) - 2px);
+        overflow: hidden;
+    }
+    .collapsible-trigger {
+        display: flex;
+        width: 100%;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        border: none;
+        background: var(--color-background);
+        color: var(--color-foreground);
+        cursor: pointer;
+        text-align: left;
+    }
+    .collapsible-trigger:hover {
+        background: var(--color-muted);
+    }
+    .collapsible-chevron {
+        flex-shrink: 0;
+        transition: transform 0.2s ease;
+        color: var(--color-muted-foreground);
+    }
+    .collapsible-trigger[aria-expanded="true"] .collapsible-chevron {
+        transform: rotate(90deg);
+    }
+    .collapsible-content {
+        height: 0;
+        overflow: hidden;
+        transition: height 0.3s ease;
+    }
+    .collapsible-content.open {
+        height: auto;
+    }
+    .collapsible-inner {
+        padding: 0 1rem 1rem;
+    }
 }
 
 /* Missing Tailwind utilities */
