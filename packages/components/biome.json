@@ -38,7 +38,7 @@
             "!.env",
             "!target",
             "!coverage",
-            "!src/pages/global.css"
+            "!**/global.css"
         ]
     }
 }

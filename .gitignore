@@ -20,6 +20,7 @@ dist/
 *.sw?
 target
 coverage
+**/global.css
 
 # Template lock files (templates use latest published version)
 templates/**/pnpm-lock.yaml

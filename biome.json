@@ -41,7 +41,7 @@
             "!.env",
             "!target",
             "!coverage",
-            "!components/src/pages/global.css"
+            "!**/global.css"
         ]
     }
 }
