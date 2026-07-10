@@ -28,7 +28,7 @@ export function SectionAlertDialog() {
 
                 <TabsContent name="preview" class="pt-4" active>
                     <AlertDialog>
-                        <AlertDialogTrigger variant="outline">Open dialog</AlertDialogTrigger>
+                        <AlertDialogTrigger>Open dialog</AlertDialogTrigger>
                         <AlertDialogWindow>
                             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                             <AlertDialogDescription>
@@ -49,7 +49,7 @@ export function SectionAlertDialog() {
                     <pre className="jsx-highlight">
                         <code id="alert-dialog-code" class="language-jsx">
                             {highlightJsx(`<AlertDialog>
-    <AlertDialogTrigger variant="outline">Open dialog</AlertDialogTrigger>
+    <AlertDialogTrigger>Open dialog</AlertDialogTrigger>
     <AlertDialogWindow>
         <AlertDialogTitle>Are you sure?</AlertDialogTitle>
         <AlertDialogDescription>

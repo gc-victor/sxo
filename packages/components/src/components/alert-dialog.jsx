@@ -36,15 +36,8 @@ import Button from "./button";
  * @typedef {HTMLDivAttributes & ComponentProps} AlertDialogProps
  * @param {AlertDialogProps} props
  */
-export function AlertDialog({ class: klass, className, children, ...rest }) {
-    const rootClass = cn("alert-dialog", className || klass);
-    return (
-        <el-alert-dialog>
-            <div class={rootClass} {...rest}>
-                {children}
-            </div>
-        </el-alert-dialog>
-    );
+export function AlertDialog({ children }) {
+    return <el-alert-dialog>{children}</el-alert-dialog>;
 }
 
 /**
@@ -85,7 +78,7 @@ export function AlertDialogWindow({ label, class: klass, className, dialogClass,
     };
 
     return (
-        <dialog class={dlgClass} {...ariaAttrs} {...dialogProps} {...rest}>
+        <dialog class={cn("alert-dialog", dlgClass)} {...ariaAttrs} {...dialogProps} {...rest}>
             <article class={cn("flex flex-col gap-4", articleClass)}>{children}</article>
         </dialog>
     );
