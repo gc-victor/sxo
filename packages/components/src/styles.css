@@ -78,6 +78,9 @@ el-theme-toggle {
         box-shadow: var(--shadow-xl);
         overflow: hidden;
     }
+    .command-overlay .command-dialog {
+        opacity: 1;
+    }
     .command-input-wrapper {
         display: flex;
         align-items: center;
