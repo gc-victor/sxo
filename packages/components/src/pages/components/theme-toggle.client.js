@@ -1,6 +1,6 @@
 /**
  * @fileoverview Client-side reactive interactivity for theme toggle component, including theme utility functions.
- * Handles theme switching, persistence, and icon updates using reactive-component.
+ * Handles theme switching, persistence, and icon updates using @sxo/client.
  *
  * @module ui/theme-toggle-client
  * @author Victor García

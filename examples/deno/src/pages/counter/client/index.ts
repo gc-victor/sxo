@@ -4,7 +4,7 @@
  * Defines event handlers and state management for the reactive counter component.
  */
 
-import { define } from "@qery/reactive-component";
+import { define } from "@sxo/client";
 
 define("rc-counter", ({ $state, $on }) => {
     // Initialize state

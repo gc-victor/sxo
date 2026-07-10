@@ -54,7 +54,7 @@ export default function AboutPage(_params) {
                                         <strong>basecoat-css:</strong> Accessible component presets
                                     </li>
                                     <li>
-                                        <strong>@qery/reactive-component:</strong> Client-side interactivity
+                                        <strong>@sxo/client:</strong> Client-side interactivity
                                     </li>
                                     <li>
                                         <strong>esbuild:</strong> Fast JavaScript bundler

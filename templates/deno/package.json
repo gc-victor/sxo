@@ -17,7 +17,6 @@
         "tailwind:watch": "deno run -A npm:tailwindcss -i src/styles.css -o src/pages/global.css --watch"
     },
     "dependencies": {
-        "@qery/reactive-component": "0.8.0",
         "sxo": "0.10.1"
     },
     "devDependencies": {

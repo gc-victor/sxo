@@ -20,7 +20,6 @@
         "tailwind:watch": "pnpm run tailwind --watch"
     },
     "dependencies": {
-        "@qery/reactive-component": "0.8.0",
         "sxo": "0.10.1"
     },
     "devDependencies": {

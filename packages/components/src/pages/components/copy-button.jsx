@@ -7,7 +7,7 @@
  * Design notes:
  * - Renders a button with copy icon.
  * - Expects a `for` attribute pointing to the id of the <code> element to copy.
- * - Client-side behavior defined in copy-button.client.js using reactive-component.
+ * - Client-side behavior defined in copy-button.client.js using @sxo/client.
  * - Uses Button component for consistent styling.
  *
  * Accessibility:

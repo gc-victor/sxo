@@ -226,18 +226,9 @@ export default () => (
                                                     </a>
                                                 </li>
                                                 <li>
-                                                    <a
-                                                        href="https://github.com/gc-victor/reactive-component"
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        class="flex items-center gap-2 hover:text-muted-foreground underline"
-                                                        title="GitHub Reactive Component repository"
-                                                    >
-                                                        <span>
-                                                            <strong>Reactive Component:</strong> Islands for interactivity
-                                                        </span>
-                                                        <IconExternalLink class="w-3 h-3" />
-                                                    </a>
+                                                    <span>
+                                                        <strong>@sxo/client:</strong> Islands for interactivity
+                                                    </span>
                                                 </li>
                                                 <li>
                                                     <a
@@ -317,10 +308,10 @@ export default () => (
                                     <InstallTabs
                                         componentName="install-dependencies"
                                         commands={{
-                                            pnpm: `pnpm add sxo @qery/reactive-component`,
-                                            npm: `npm install sxo @qery/reactive-component`,
-                                            yarn: `yarn add sxo @qery/reactive-component`,
-                                            bun: `bun add sxo @qery/reactive-component`,
+                                            pnpm: `pnpm add sxo`,
+                                            npm: `npm install sxo`,
+                                            yarn: `yarn add sxo`,
+                                            bun: `bun add sxo`,
                                         }}
                                     />
                                 </div>

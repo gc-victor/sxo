@@ -9,7 +9,6 @@
         "deploy": "wrangler deploy"
     },
     "dependencies": {
-        "@qery/reactive-component": "^0.8.0",
         "sxo": "file:../.."
     },
     "devDependencies": {
