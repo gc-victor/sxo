@@ -73,6 +73,7 @@ el-theme-toggle {
     .command-dialog {
         width: 100%;
         max-width: 32rem;
+        margin: auto;
         background: var(--color-background);
         border-radius: var(--radius);
         box-shadow: var(--shadow-xl);
