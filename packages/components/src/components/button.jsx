@@ -37,7 +37,6 @@ import { cn } from "@utils/cn.js";
  * @typedef {"sm"|"md"|"lg"} ButtonSize
  */
 
-
 /**
  * Props accepted by `<Button />`.
  *
@@ -95,8 +94,8 @@ export default function Button(props) {
             target,
             rel,
             class: mergedClass,
-            ...(variant !== "primary" ? { dataVariant: variant } : {}),
-            ...(size !== "md" ? { dataSize: size } : {}),
+            ...(variant !== "primary" ? { "data-variant": variant } : {}),
+            ...(size !== "md" ? { "data-size": size } : {}),
             ...(loading ? { ariaBusy: "true" } : {}),
             ...(isDisabled ? { ariaDisabled: "true", tabindex: "-1" } : {}),
             ...rest,
@@ -107,8 +106,8 @@ export default function Button(props) {
     const buttonAttrs = {
         type,
         class: mergedClass,
-        ...(variant !== "primary" ? { dataVariant: variant } : {}),
-        ...(size !== "md" ? { dataSize: size } : {}),
+        ...(variant !== "primary" ? { "data-variant": variant } : {}),
+        ...(size !== "md" ? { "data-size": size } : {}),
         ...(isDisabled ? { disabled: "" } : {}),
         ...(loading ? { ariaBusy: "true" } : {}),
         ...rest,

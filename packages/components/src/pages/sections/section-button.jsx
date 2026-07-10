@@ -42,7 +42,6 @@ export function SectionButton(props) {
                 </TabsList>
 
                 <TabsContent name="preview" class="pt-4 space-y-6" active>
-                    {/* Case 1: Large size variants */}
                     <div>
                         <h3 class="mb-4 text-md font-medium">Large</h3>
                         <div class="flex flex-wrap items-center gap-2">
@@ -65,7 +64,6 @@ export function SectionButton(props) {
                         </div>
                     </div>
 
-                    {/* Case 2: Default size variants */}
                     <div>
                         <h3 class="mb-4 text-md font-medium">Default</h3>
                         <div class="flex flex-wrap items-center gap-2">
@@ -78,49 +76,6 @@ export function SectionButton(props) {
                         </div>
                     </div>
 
-                    {/* Case 3: With icons (default size) */}
-                    <div>
-                        <h3 class="mb-4 text-md font-medium">With Icons (Default)</h3>
-                        <div class="flex flex-wrap items-center gap-2">
-                            <Button variant="outline">
-                                <IconSend class="size-4" />
-                                Send
-                            </Button>
-                            <Button variant="outline">
-                                Learn more
-                                <IconArrowRight class="size-4" />
-                            </Button>
-                            <Button aria-label="Loading" loadingText="Loading…" variant="outline">
-                                <IconSpinner class="size-4 animate-spin" />
-                            </Button>
-                            <Button aria-label="More options" variant="ghost">
-                                <IconDotsHorizontal class="size-4" />
-                            </Button>
-                        </div>
-                    </div>
-
-                    {/* Case 4: With icons (small size) */}
-                    <div>
-                        <h3 class="mb-4 text-md font-medium">With Icons (Small)</h3>
-                        <div class="flex flex-wrap items-center gap-2">
-                            <Button size="sm" variant="outline">
-                                <IconSend class="size-4" />
-                                Send
-                            </Button>
-                            <Button size="sm" variant="outline">
-                                Learn more
-                                <IconArrowRight class="size-4" />
-                            </Button>
-                            <Button size="sm" aria-label="Loading" loadingText="Loading…" variant="outline">
-                                <IconSpinner class="size-4 animate-spin" />
-                            </Button>
-                            <Button size="sm" aria-label="More options" variant="ghost">
-                                <IconDotsHorizontal class="size-4" />
-                            </Button>
-                        </div>
-                    </div>
-
-                    {/* Case 5: Small size variants */}
                     <div>
                         <h3 class="mb-4 text-md font-medium">Small</h3>
                         <div class="flex flex-wrap items-center gap-2">
@@ -143,7 +98,46 @@ export function SectionButton(props) {
                         </div>
                     </div>
 
-                    {/* Case 6: Icon only buttons */}
+                    <div>
+                        <h3 class="mb-4 text-md font-medium">With Icons (Default)</h3>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <Button variant="outline">
+                                <IconSend class="size-4" />
+                                Send
+                            </Button>
+                            <Button variant="outline">
+                                Learn more
+                                <IconArrowRight class="size-4" />
+                            </Button>
+                            <Button aria-label="Loading" loadingText="Loading…" variant="outline">
+                                <IconSpinner class="size-4 animate-spin" />
+                            </Button>
+                            <Button aria-label="More options" variant="ghost">
+                                <IconDotsHorizontal class="size-4" />
+                            </Button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 class="mb-4 text-md font-medium">With Icons (Small)</h3>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <Button size="sm" variant="outline">
+                                <IconSend class="size-4" />
+                                Send
+                            </Button>
+                            <Button size="sm" variant="outline">
+                                Learn more
+                                <IconArrowRight class="size-4" />
+                            </Button>
+                            <Button size="sm" aria-label="Loading" loadingText="Loading…" variant="outline">
+                                <IconSpinner class="size-4 animate-spin" />
+                            </Button>
+                            <Button size="sm" aria-label="More options" variant="ghost">
+                                <IconDotsHorizontal class="size-4" />
+                            </Button>
+                        </div>
+                    </div>
+
                     <div>
                         <h3 class="mb-4 text-md font-medium">Icon Only</h3>
                         <div class="flex flex-wrap items-center gap-2">
