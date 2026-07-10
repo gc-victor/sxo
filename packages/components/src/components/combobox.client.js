@@ -146,24 +146,11 @@ define("el-combobox", function Combobox({ $element, $on, $state }) {
     $on.onInput = (/** @type {Event} */ e) => {
         const target = /** @type {HTMLInputElement} */ (e.target);
         $state.query = target.value;
-        if ($state.open) {
+        if (!$state.open) {
+            openDropdown();
+        } else {
             filterOptions();
         }
-    };
-
-    /** Handle keydown on the input */
-    $on.onKeyDown = (/** @type {KeyboardEvent} */ e) => {
-        if (e.key === "Escape") {
-            e.preventDefault();
-            closeDropdown();
-            input?.blur();
-        }
-    };
-
-    /** Handle option click */
-    $on.selectOption = (/** @type {Event} */ e) => {
-        const target = /** @type {HTMLElement} */ (e.currentTarget);
-        selectValue(target);
     };
 
     /**
@@ -176,24 +163,18 @@ define("el-combobox", function Combobox({ $element, $on, $state }) {
             input.value = value;
             $state.query = value;
         }
-        suppressReopen = true;
         closeDropdown();
         input?.blur();
-        setTimeout(() => { suppressReopen = false; }, 200);
     }
 
     // --- Keyboard and focus handling ---
 
-    let suppressReopen = false;
-
     function onFocus() {
-        if (!suppressReopen) {
-            openDropdown();
-        }
+        openDropdown();
     }
 
     function onClick() {
-        if (!$state.open && !suppressReopen) {
+        if (!$state.open) {
             openDropdown();
         }
     }
@@ -207,13 +188,13 @@ define("el-combobox", function Combobox({ $element, $on, $state }) {
             return;
         }
 
+        // Only intercept if the event target is within our element
+        if (!$element.contains(/** @type {Node} */ (e.target))) return;
+
         if (!$state.open) {
             if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-                // Only intercept if the event target is within our element
-                if ($element.contains(/** @type {Node} */ (e.target))) {
-                    e.preventDefault();
-                    openDropdown();
-                }
+                e.preventDefault();
+                openDropdown();
             }
             return;
         }
@@ -240,20 +221,20 @@ define("el-combobox", function Combobox({ $element, $on, $state }) {
         }
     }
 
-    /** Handle click on option elements (native, not via $onclick). */
+    /** Handle click on option elements. */
     function onOptionClick(e) {
         e.preventDefault();
         e.stopPropagation();
         const target = /** @type {HTMLElement} */ (e.currentTarget);
-        if (target.getAttribute("role") === "option") {
-            selectValue(target);
-        }
+        selectValue(target);
     }
 
     // Attach listeners
     input?.addEventListener("focus", onFocus);
     input?.addEventListener("click", onClick);
-    options.forEach((opt) => opt.addEventListener("click", onOptionClick));
+    options.forEach((opt) => {
+        opt.addEventListener("click", onOptionClick);
+    });
     document.addEventListener("keydown", onGlobalKeydown);
     document.addEventListener("click", onClickOutside);
 
@@ -261,7 +242,9 @@ define("el-combobox", function Combobox({ $element, $on, $state }) {
         disconnected: () => {
             input?.removeEventListener("focus", onFocus);
             input?.removeEventListener("click", onClick);
-            options.forEach((opt) => opt.removeEventListener("click", onOptionClick));
+            options.forEach((opt) => {
+                opt.removeEventListener("click", onOptionClick);
+            });
             document.removeEventListener("keydown", onGlobalKeydown);
             document.removeEventListener("click", onClickOutside);
         },

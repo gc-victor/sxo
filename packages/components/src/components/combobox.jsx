@@ -65,7 +65,6 @@ export default function Combobox({ class: klass, className, options = DEFAULT_OP
                     aria-autocomplete="list"
                     autocomplete="off"
                     $oninput="onInput"
-                    $onkeydown="onKeyDown"
                 />
                 <div id={listboxId} role="listbox" class="combobox-listbox">
                     {options.map((opt) => (
@@ -76,7 +75,6 @@ export default function Combobox({ class: klass, className, options = DEFAULT_OP
                             class="combobox-option"
                             data-value={opt.value}
                             aria-selected="false"
-                            $onclick="selectOption"
                         >
                             {opt.label}
                         </button>
