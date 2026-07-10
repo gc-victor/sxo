@@ -1,55 +1,39 @@
 /**
- * @fileoverview Theme selector component for choosing between different theme styles (vanilla JSX).
- * Renders a select dropdown with theme options, with client-side interactivity for theme switching.
+ * @fileoverview Style pack selector component (vanilla JSX).
+ * Renders a single dropdown for switching style packs.
  *
  * Exports:
- * - ThemeSelector: Select component with theme options for selection.
+ * - ThemeSelector: Dropdown with style pack options.
  *
  * Design notes:
- * - Uses Select and SelectOption components for consistent styling.
- * - Options include Default (no theme), Claude, Doom 64, and Supabase.
- * - Client script handles theme class application and persistence.
- * - className prop for customization.
- *
- * Accessibility:
- * - Inherits accessibility from Select component.
- * - Screen reader support for options.
+ * - Color theme functionality (theme-* classes) still works via the client-side logic
+ *   even though the dropdown now controls style packs.
+ * - Client script handles stylesheet swap and persists selection to localStorage.
+ * - className prop applies to the Select element for inline layout.
  *
  * @module ui/theme-selector
- * @author Victor García
- * @license MIT
- * @version 1.0.0
  */
 
 import Select, { SelectOption } from "@components/select.jsx";
 
 /**
- * Props accepted by `<ThemeSelector />`.
- *
  * @typedef {HTMLElementAttributes & {
  *   className?: string
  * }} ThemeSelectorProps
  */
 
-/**
- * Theme selector dropdown component.
- * Renders a select with options for different themes.
- *
- * @param {ThemeSelectorProps} props
- * @returns {string} Rendered HTML string
- * @public
- */
-export default function ThemeSelector({ className = "", ...rest }) {
+export default function ThemeSelector({ className = "" }) {
     return (
         <el-theme-selector>
-            <label for="theme-selector" class="sr-only">
-                Theme
-            </label>
-            <Select id="theme-selector" className={className} $bind-value="selectedTheme" {...rest}>
-                <SelectOption value="">Default</SelectOption>
-                <SelectOption value="claude">Claude</SelectOption>
-                <SelectOption value="doom-64">Doom 64</SelectOption>
-                <SelectOption value="supabase">Supabase</SelectOption>
+            <Select id="style-selector" className={className} $bind-value="selectedStyle">
+                <SelectOption value="vega">Vega</SelectOption>
+                <SelectOption value="nova">Nova</SelectOption>
+                <SelectOption value="maia">Maia</SelectOption>
+                <SelectOption value="lyra">Lyra</SelectOption>
+                <SelectOption value="mira">Mira</SelectOption>
+                <SelectOption value="luma">Luma</SelectOption>
+                <SelectOption value="sera">Sera</SelectOption>
+                <SelectOption value="rhea">Rhea</SelectOption>
             </Select>
         </el-theme-selector>
     );

@@ -87,6 +87,10 @@ import CopyButton from "./components/copy-button";
 import InstallTabs from "./components/install-tabs";
 import Sidebar from "./components/sidebar";
 
+/** Blocking inline script: reads saved style pack from localStorage and injects stylesheet before first paint. */
+const STYLE_PACK_INLINE_SCRIPT =
+    "(function(){try{var s=localStorage.getItem('sxo-style-pack');if(s&&s!=='vega'){var l=document.createElement('link');l.rel='stylesheet';l.href='/styles/'+s+'.css';l.id='sxo-style-override';document.head.appendChild(l);}}catch(e){}})();";
+
 /**
  * SXO: Collection of Components
  *
@@ -98,6 +102,7 @@ import Sidebar from "./components/sidebar";
 export default () => (
     <html lang="en">
         <head>
+            <script>${STYLE_PACK_INLINE_SCRIPT}</script>
             <meta charset="UTF-8" />
             <meta http-equiv="Content-Language" content="en" />
             <meta name="viewport" content="width=device-width, initial-scale=1" />
