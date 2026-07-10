@@ -67,6 +67,7 @@ if (process.env.NODE_ENV === "development") {
         import("../components/theme-toggle.client.js");
         import("../components/sidebar.client.js");
         import("@components/toast.client.js");
+        import("@components/command.client.js");
     });
 
     /**
@@ -79,7 +80,7 @@ if (process.env.NODE_ENV === "development") {
         "el-copy-button": () => import("../components/copy-button.client.js"),
         "el-collapsible": () => import("@components/collapsible.client.js"),
         "el-combobox": () => import("@components/combobox.client.js"),
-        "el-command": () => import("@components/command.client.js"),
+
         "el-drawer": () => import("@components/drawer.client.js"),
         "el-dialog": () => import("@components/dialog.client.js"),
         "el-dropdown-menu": () => import("@components/dropdown-menu.client.js"),

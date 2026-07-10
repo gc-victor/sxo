@@ -1,230 +1,198 @@
 /**
- * @fileoverview <el-command> enhancement component for command palette.
+ * @fileoverview <el-command> custom element — basecoat-aligned command palette.
  *
- * Provides keyboard-driven command palette with:
- * - Open via Meta+K / Ctrl+K keyboard shortcut
- * - Close on Escape or backdrop click
- * - Case-insensitive item filtering as user types
- * - Arrow key navigation between visible items
- * - Enter to select
- * - Focus trap when open
- * - Focus restoration on close
+ * Keyboard-driven searchable menu with:
+ * - Item filtering via input (matches data-filter / data-keywords / textContent)
+ * - Arrow key, Home/End navigation, Enter to select
+ * - Click / mousemove delegation on the menu
+ * - Dialog close on item click (unless data-keep-command-open)
+ * - Exposes $element.refresh for dynamic content updates
+ * - Integrated with SXO reactive component system via $state
  *
  * @license MIT
  */
 
 import { define } from "@sxo/client";
 
-define("el-command", function Command({ $element, $on, $state }) {
-    /** @type {HTMLDialogElement|null} */
-    const overlay = $element.querySelector(".command-overlay");
+define("el-command", function Command({ $element, $state }) {
+    $state.activeIndex = -1;
 
-    /** @type {HTMLInputElement|null} */
-    const input = $element.querySelector('[role="combobox"]');
+    let input = null;
+    let menu = null;
+    let root = null;
+    let allItems = [];
+    let items = []; // non-disabled items
+    let visibleItems = []; // items matching the current filter
+    let observer = null;
+    let cleanup = null;
 
-    /** @type {NodeListOf<HTMLElement>} */
-    const items = $element.querySelectorAll('[role="option"]');
-
-    /** @type {HTMLElement|null} */
-    const emptyMsg = $element.querySelector(".command-empty");
-
-    /** @type {HTMLElement|null} */
-    let lastFocused = null;
-
-    $state.open = false;
-    $state.query = "";
-
-    /**
-     * Get only the visible (non-hidden) items.
-     * @returns {HTMLElement[]}
-     */
-    function visibleItems() {
-        return Array.from(items).filter((el) => !el.hidden);
+    function isDisabled(el) {
+        return el.hasAttribute("disabled") || el.getAttribute("aria-disabled") === "true" || el.getAttribute("data-disabled") === "true";
     }
 
-    /**
-     * Open the command palette.
-     */
-    function openPalette() {
-        lastFocused = /** @type {HTMLElement} */ (document.activeElement);
-        $state.open = true;
-        updateOverlay();
-        input?.focus();
+    function getAllItems(menuEl) {
+        const found = Array.from(menuEl.querySelectorAll('[role="menuitem"]'));
+        return { allItems: found, items: found.filter((el) => !isDisabled(el)) };
     }
 
-    /**
-     * Close the command palette and restore focus.
-     */
-    function closePalette() {
-        $state.open = false;
-        $state.query = "";
-        $state.activeIndex = -1;
-        updateOverlay();
-        if (input) input.value = "";
-        if (lastFocused) {
-            lastFocused.focus({ preventScroll: true });
-            lastFocused = null;
-        }
-    }
-
-    /**
-     * Sync overlay and body classes with $state.open.
-     */
-    function updateOverlay() {
-        if (!overlay) return;
-        overlay.classList.toggle("open", $state.open);
-        document.body.style.overflow = $state.open ? "hidden" : "";
-    }
-
-    /**
-     * Filter items based on $state.query.
-     */
-    function filterItems() {
-        const q = ($state.query || "").toLowerCase().trim();
-        let visibleCount = 0;
-
-        items.forEach((item) => {
-            const searchText = (item.getAttribute("data-search") || item.textContent || "").toLowerCase();
-            const match = !q || searchText.includes(q);
-            item.hidden = !match;
-            if (match) visibleCount++;
-        });
-
-        if (emptyMsg) {
-            emptyMsg.hidden = visibleCount > 0;
-        }
-
-        // Reset activeIndex to first visible
-        const vis = visibleItems();
-        $state.activeIndex = vis.length > 0 ? 0 : -1;
-        highlightItem(vis[$state.activeIndex]);
-    }
-
-    /**
-     * Highlight a specific item and remove highlight from others.
-     * @param {HTMLElement|null} target
-     */
-    function highlightItem(target) {
-        items.forEach((el) => {
-            el.classList.remove("active", "bg-gray-100", "dark:bg-gray-800");
-        });
-        if (target) {
-            target.classList.add("active", "bg-gray-100", "dark:bg-gray-800");
-            target.scrollIntoView({ block: "nearest" });
-        }
-    }
-
-    /**
-     * Navigate to next/previous visible item.
-     * @param {1|-1} direction
-     */
-    function navigate(direction) {
-        const vis = visibleItems();
-        if (vis.length === 0) return;
-
-        const current = vis.indexOf(document.activeElement);
-        if (current === -1) {
-            // Focus first/last
-            const target = direction === 1 ? vis[0] : vis[vis.length - 1];
-            target?.focus();
-            highlightItem(target);
-            $state.activeIndex = direction === 1 ? 0 : vis.length - 1;
+    function setActive(index) {
+        const prev = $state.activeIndex;
+        if (prev > -1 && items[prev]) items[prev].classList.remove("active");
+        $state.activeIndex = index;
+        if (index > -1 && items[index]) {
+            const el = items[index];
+            el.classList.add("active");
+            if (el.id) input.setAttribute("aria-activedescendant", el.id);
+            else input.removeAttribute("aria-activedescendant");
         } else {
-            const next = (current + direction + vis.length) % vis.length;
-            vis[next]?.focus();
-            highlightItem(vis[next]);
-            $state.activeIndex = next;
+            input.removeAttribute("aria-activedescendant");
         }
     }
 
-    /**
-     * Select the currently highlighted/focused item.
-     */
-    function selectActive() {
-        const vis = visibleItems();
-        const target = vis.find((el) => el.classList.contains("active")) || vis[$state.activeIndex] || vis[0];
-        if (target) {
-            const action = target.getAttribute("data-action");
-            if (action) {
-                $on[action]?.();
+    function filterItems() {
+        const q = input.value.trim().toLowerCase();
+        visibleItems = [];
+
+        allItems.forEach((el) => {
+            if (el.hasAttribute("data-force")) {
+                el.setAttribute("aria-hidden", "false");
+                if (items.includes(el)) visibleItems.push(el);
+                return;
             }
-            closePalette();
+
+            const text = (el.dataset.filter || el.textContent || "").trim().toLowerCase();
+            const keywords = (el.dataset.keywords || "")
+                .toLowerCase()
+                .split(/[\s,]+/)
+                .filter(Boolean);
+            const matches = !q || text.includes(q) || keywords.some((k) => k.includes(q));
+            el.setAttribute("aria-hidden", matches ? "false" : "true");
+            if (matches && items.includes(el)) visibleItems.push(el);
+        });
+
+        if (visibleItems.length > 0) {
+            setActive(items.indexOf(visibleItems[0]));
+        } else {
+            setActive(-1);
         }
     }
 
-    // --- Event handlers ---
+    function scrollIntoView(el) {
+        if (!menu || !el) return;
+        const er = el.getBoundingClientRect();
+        const mr = menu.getBoundingClientRect();
+        if (er.top < mr.top) menu.scrollTop -= mr.top - er.top;
+        else if (er.bottom > mr.bottom) menu.scrollTop += er.bottom - mr.bottom;
+    }
 
-    /** Open command from trigger button click */
-    $on.openCommand = () => openPalette();
+    function onKeydown(e) {
+        if (!["ArrowDown", "ArrowUp", "Enter", "Home", "End"].includes(e.key)) return;
+        // Don't intercept while a <button> is focused (e.g. the dialog trigger)
+        if (e.target.closest?.("button")) return;
 
-    /** Handle input changes */
-    $on.onInput = (/** @type {Event} */ e) => {
-        const target = /** @type {HTMLInputElement} */ (e.target);
-        $state.query = target.value;
-        filterItems();
-    };
+        e.preventDefault();
 
-    /** Select a specific item by click */
-    $on.selectItem = (/** @type {Event} */ e) => {
-        const target = /** @type {HTMLElement} */ (e.currentTarget);
-        const action = target.getAttribute("data-action");
-        if (action) {
-            $on[action]?.();
-        }
-        closePalette();
-    };
-
-    // --- Keyboard event handling ---
-
-    /**
-     * Global keydown handler for shortcut and Escape.
-     * @param {KeyboardEvent} e
-     */
-    function onGlobalKeydown(e) {
-        // Open: Meta+K or Ctrl+K
-        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-            e.preventDefault();
-            openPalette();
+        if (e.key === "Enter") {
+            if ($state.activeIndex > -1 && items[$state.activeIndex]) {
+                items[$state.activeIndex].click();
+            }
             return;
         }
 
-        if (!$state.open) return;
+        if (visibleItems.length === 0) return;
 
-        switch (e.key) {
-            case "Escape":
-                e.preventDefault();
-                closePalette();
-                break;
-            case "ArrowDown":
-                e.preventDefault();
-                navigate(1);
-                break;
-            case "ArrowUp":
-                e.preventDefault();
-                navigate(-1);
-                break;
-            case "Enter":
-                e.preventDefault();
-                selectActive();
-                break;
+        const curVis = $state.activeIndex > -1 ? visibleItems.indexOf(items[$state.activeIndex]) : -1;
+        let next = curVis;
+
+        if (e.key === "ArrowDown" && curVis < visibleItems.length - 1) next = curVis + 1;
+        if (e.key === "ArrowUp") next = curVis > 0 ? curVis - 1 : 0;
+        if (e.key === "Home") next = 0;
+        if (e.key === "End") next = visibleItems.length - 1;
+
+        if (next !== curVis) {
+            const el = visibleItems[next];
+            setActive(items.indexOf(el));
+            scrollIntoView(el);
         }
     }
-
-    /** Backdrop click to close */
-    function onBackdropClick(/** @type {MouseEvent} */ e) {
-        if ($state.open && e.target === overlay) {
-            closePalette();
-        }
-    }
-
-    // Attach global listeners
-    document.addEventListener("keydown", onGlobalKeydown);
-    overlay?.addEventListener("click", onBackdropClick);
 
     return {
-        disconnected: () => {
-            document.removeEventListener("keydown", onGlobalKeydown);
-            overlay?.removeEventListener("click", onBackdropClick);
+        connected() {
+            root = $element.querySelector(".command") || $element;
+            if (root.dataset.commandInitialized) return;
+
+            input = root.querySelector("header input, input[role='combobox']");
+            menu = root.querySelector('[role="menu"]');
+            if (!input || !menu) {
+                console.error("Command component initialization failed. Missing input or menu in", root);
+                return;
+            }
+
+            const data = getAllItems(menu);
+            allItems = data.allItems;
+            items = data.items;
+
+            // Filter when the user types
+            const onInput = () => filterItems();
+            input.addEventListener("input", onInput);
+
+            // Listen for keyboard on the host so arrow keys work even when the
+            // native <dialog> (rather than the <input>) holds focus.
+            $element.addEventListener("keydown", onKeydown);
+
+            // Mousemove tracking
+            menu.addEventListener("mousemove", (e) => {
+                const item = e.target.closest('[role="menuitem"]');
+                if (item && visibleItems.includes(item)) {
+                    const idx = items.indexOf(item);
+                    if (idx !== $state.activeIndex) setActive(idx);
+                }
+            });
+
+            // Click handler (dialog close)
+            menu.addEventListener("click", (e) => {
+                const item = e.target.closest('[role="menuitem"]');
+                if (item && visibleItems.includes(item)) {
+                    const dlg = root.closest("dialog.command-dialog");
+                    if (dlg && !item.hasAttribute("data-keep-command-open")) dlg.close();
+                }
+            });
+
+            // Auto-focus the <input> when a containing dialog opens.
+            const dlg = root.closest("dialog.command-dialog");
+            if (dlg) {
+                observer = new MutationObserver(() => {
+                    if (dlg.hasAttribute("open")) input.focus();
+                });
+                observer.observe(dlg, { attributes: true, attributeFilter: ["open"] });
+                if (dlg.hasAttribute("open")) input.focus();
+            }
+
+            cleanup = () => {
+                input.removeEventListener("input", onInput);
+                $element.removeEventListener("keydown", onKeydown);
+                if (observer) observer.disconnect();
+                delete $element.refresh;
+            };
+
+            // Expose refresh()
+            $element.refresh = () => {
+                if (!input || !menu) return;
+                const data = getAllItems(menu);
+                allItems = data.allItems;
+                items = data.items;
+                filterItems();
+            };
+
+            filterItems();
+            root.dataset.commandInitialized = "true";
+            $element.dispatchEvent(new CustomEvent("command:initialized", { bubbles: true }));
+        },
+
+        disconnected() {
+            if (cleanup) cleanup();
+            cleanup = null;
+            if (root) delete root.dataset.commandInitialized;
         },
     };
 });
