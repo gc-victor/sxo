@@ -15,7 +15,7 @@ test.describe("InputGroup", () => {
         await expect(group).toBeVisible();
 
         // Check prepend text
-        await expect(group.locator(".input-group-text")).toHaveText("https://");
+        await expect(group.locator('[data-align="start"]')).toHaveText("https://");
     });
 
     test("should display input group with append button", async ({ page }) => {
@@ -24,7 +24,7 @@ test.describe("InputGroup", () => {
 
         // Check with append
         const withAppend = preview.locator(".input-group").nth(1);
-        await expect(withAppend.locator(".input-group-text")).toBeVisible();
+        await expect(withAppend.locator('[data-align="end"]')).toBeVisible();
     });
 
     test("should display input group with both prepend and append", async ({ page }) => {
@@ -33,7 +33,7 @@ test.describe("InputGroup", () => {
 
         // Check with both prepend and append
         const both = preview.locator(".input-group").nth(2);
-        const texts = both.locator(".input-group-text");
+        const texts = both.locator('[data-align="start"], [data-align="end"]');
         await expect(texts).toHaveCount(2);
     });
 });

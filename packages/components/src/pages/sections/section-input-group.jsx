@@ -3,7 +3,7 @@
  *
  * @module ui/sections/input-group
  * @description
- * Showcases the InputGroup component with prepend, append, and both variants.
+ * Showcases the InputGroup component with text, icon, button, vertical, and spinner variants.
  *
  * Exports:
  * - `<SectionInputGroup>`: Demo section for InputGroup.
@@ -13,6 +13,7 @@
  * @version 1.0.0
  */
 
+import { IconCopy, IconSearch, IconSpinner } from "@components/icon.jsx";
 import InputGroup from "@components/input-group.jsx";
 import Tabs, { TabsContent, TabsList, TabsTrigger } from "@components/tabs.jsx";
 import CopyButton from "@pages/components/copy-button.jsx";
@@ -45,27 +46,46 @@ export function SectionInputGroup({ class: klass, className, ...rest }) {
 
                 <TabsContent name="preview" class="pt-4 space-y-6" active>
                     <div>
-                        <p class="text-sm font-medium mb-2">Prepend text</p>
-                        <InputGroup prepend="https://">
-                            <input class="input" placeholder="example.com" />
+                        <p class="text-sm font-medium mb-2">Text prepend + append</p>
+                        <InputGroup prepend="$" append="USD">
+                            <input placeholder="0.00" />
                         </InputGroup>
                     </div>
                     <div>
-                        <p class="text-sm font-medium mb-2">Append button</p>
+                        <p class="text-sm font-medium mb-2">Icon start</p>
+                        <InputGroup prepend={<IconSearch aria-hidden="true" class="size-4" />}>
+                            <input placeholder="Search..." />
+                        </InputGroup>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium mb-2">Button append</p>
                         <InputGroup
                             append={
-                                <button type="button" class="btn">
-                                    Search
+                                <button type="button" class="btn" data-variant="ghost" data-size="icon-xs" aria-label="Copy">
+                                    <IconCopy class="size-4" />
                                 </button>
                             }
                         >
-                            <input class="input" placeholder="Search..." />
+                            <input placeholder="https://x.com/shadcn" readonly />
                         </InputGroup>
                     </div>
                     <div>
-                        <p class="text-sm font-medium mb-2">Both prepend and append</p>
-                        <InputGroup prepend="$" append=".00">
-                            <input class="input" placeholder="0.00" />
+                        <p class="text-sm font-medium mb-2">Vertical with footer</p>
+                        <InputGroup
+                            append={
+                                <footer data-align="end">
+                                    <span class="text-xs text-muted-foreground">120 characters left</span>
+                                </footer>
+                            }
+                            data-orientation="vertical"
+                        >
+                            <textarea placeholder="Write a comment..."></textarea>
+                        </InputGroup>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium mb-2">Loading spinner</p>
+                        <InputGroup append={<IconSpinner aria-label="Loading" role="status" class="size-4 animate-spin" />}>
+                            <input placeholder="Searching..." />
                         </InputGroup>
                     </div>
                 </TabsContent>
@@ -73,19 +93,46 @@ export function SectionInputGroup({ class: klass, className, ...rest }) {
                 <TabsContent name="code" class="mt-4 relative">
                     <pre class="jsx-highlight">
                         <code id="input-group-code" class="language-jsx">
-                            {highlightJsx(`{/* Prepend text */}
-<InputGroup prepend="https://">
-    <input class="input" placeholder="example.com" />
+                            {highlightJsx(`{/* Text prepend + append */}
+<InputGroup prepend="$" append="USD">
+    <input placeholder="0.00" />
 </InputGroup>
 
-{/* Append button */}
-<InputGroup append={<button class="btn">Search</button>}>
-    <input class="input" placeholder="Search..." />
+{/* Icon start */}
+<InputGroup
+    prepend={<IconSearch aria-hidden="true" class="size-4" />}
+>
+    <input placeholder="Search..." />
 </InputGroup>
 
-{/* Both prepend and append */}
-<InputGroup prepend="$" append=".00">
-    <input class="input" placeholder="0.00" />
+{/* Button append */}
+<InputGroup
+    append={
+        <button type="button" class="btn" data-variant="ghost" data-size="icon-xs" aria-label="Copy">
+            <IconCopy class="size-4" />
+        </button>
+    }
+>
+    <input placeholder="https://x.com/shadcn" readonly />
+</InputGroup>
+
+{/* Vertical with footer */}
+<InputGroup
+    append={
+        <footer data-align="end">
+            <span class="text-xs text-muted-foreground">120 characters left</span>
+        </footer>
+    }
+    data-orientation="vertical"
+>
+    <textarea placeholder="Write a comment..."></textarea>
+</InputGroup>
+
+{/* Loading spinner */}
+<InputGroup
+    append={<IconSpinner aria-label="Loading" role="status" class="size-4 animate-spin" />}
+>
+    <input placeholder="Searching..." />
 </InputGroup>`)}
                         </code>
                     </pre>
@@ -97,11 +144,23 @@ export function SectionInputGroup({ class: klass, className, ...rest }) {
             <div class="mt-12 space-y-6">
                 <h3 class="scroll-m-22 text-2xl font-semibold leading-9 tracking-tight">Usage</h3>
                 <div class="prose space-y-4">
-                    <p>Use the following primitive to build input groups:</p>
+                    <p>
+                        Use <code>&lt;InputGroup&gt;</code> to wrap an <code>input</code> or <code>textarea</code> with addon elements on
+                        either side. Addons use <code>data-align="start"</code> (prepend) or <code>data-align="end"</code>
+                        (append) for positioning. Use <code>data-orientation="vertical"</code> for header/footer layouts with textareas.
+                    </p>
                     <ul class="list-disc pl-6 space-y-2">
                         <li>
-                            <strong>&lt;InputGroup&gt;</strong>: Groups an input with <code>prepend</code> and <code>append</code> addon
-                            elements.
+                            <strong>Addon types</strong>: Text, icons (<code>IconSearch</code>, <code>IconCopy</code>, etc.), buttons, kbd,
+                            spinners, or any element.
+                        </li>
+                        <li>
+                            <strong>Orientation</strong>: Default horizontal (<code>data-align="start|end"</code>); add{" "}
+                            <code>data-orientation="vertical"</code> with <code>header</code> or <code>footer</code> for block placement.
+                        </li>
+                        <li>
+                            <strong>Accessibility</strong>: Use <code>aria-hidden="true"</code> on decorative icons;
+                            <code>aria-label</code> on action buttons.
                         </li>
                     </ul>
                 </div>

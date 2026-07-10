@@ -4,7 +4,7 @@
  * @module ui/input-group
  * @description
  * Groups an input with prepend and/or append addon elements (text or buttons)
- * using basecoat `.input-group` and `.input-group-text` CSS classes.
+ * using basecoat `.input-group` container and `data-align` attributes for addon element positioning.
  *
  * Exports:
  * - `InputGroup` (default): Input with prepend/append addons.
@@ -12,7 +12,7 @@
  * Design notes:
  * - `prepend` renders before the child input, `append` renders after.
  * - Both prepend and append can be text or HTML elements.
- * - Uses basecoat `.input-group` container and `.input-group-text` addon classes.
+ * - Uses basecoat `.input-group` container with `data-align="start"` / `data-align="end"` on addon elements for positioning.
  *
  * @author Victor García
  * @license MIT
@@ -35,24 +35,24 @@ import { cn } from "@utils/cn.js";
  * @returns {JSX.Element} Rendered markup.
  * @example
  * <InputGroup prepend="https://">
- *   <input class="input" />
+ *   <input />
  * </InputGroup>
  * @example
  * <InputGroup append={<button class="btn">Search</button>}>
- *   <input class="input" />
+ *   <input />
  * </InputGroup>
  * @example
  * <InputGroup prepend="$" append=".00">
- *   <input class="input" />
+ *   <input />
  * </InputGroup>
  * @public
  */
 export default function InputGroup({ class: klass, className, prepend, append, children, ...rest }) {
     return (
         <div class={cn("input-group", klass, className)} {...rest}>
-            {prepend ? <span class="input-group-text">{prepend}</span> : null}
+            {prepend ? <span data-align="start">{prepend}</span> : ""}
             {children}
-            {append ? <span class="input-group-text">{append}</span> : null}
+            {append ? <span data-align="end">{append}</span> : ""}
         </div>
     );
 }
