@@ -30,9 +30,10 @@ test.describe("Dialog", () => {
     });
 
     test("should have dialog content", async ({ page }) => {
-        const dialogs = page.locator("dialog");
+        const dialogSection = page.locator("#dialog");
 
-        // Check that dialogs have content
+        // Check that dialogs have content (only within the dialog section)
+        const dialogs = dialogSection.locator("dialog");
         const dialogCount = await dialogs.count();
         expect(dialogCount).toBeGreaterThan(0);
 

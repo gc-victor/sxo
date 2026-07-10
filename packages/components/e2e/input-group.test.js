@@ -14,16 +14,16 @@ test.describe("InputGroup", () => {
         const group = preview.locator(".input-group").first();
         await expect(group).toBeVisible();
 
-        // Check prepend text
-        await expect(group.locator('[data-align="start"]')).toHaveText("https://");
+        // Check prepend text ($)
+        await expect(group.locator('[data-align="start"]')).toHaveText("$");
     });
 
     test("should display input group with append button", async ({ page }) => {
         const section = page.locator("#input-group");
         const preview = section.locator('[data-name="preview"]');
 
-        // Check with append
-        const withAppend = preview.locator(".input-group").nth(1);
+        // Check with append (third group: button append)
+        const withAppend = preview.locator(".input-group").nth(2);
         await expect(withAppend.locator('[data-align="end"]')).toBeVisible();
     });
 
@@ -31,8 +31,8 @@ test.describe("InputGroup", () => {
         const section = page.locator("#input-group");
         const preview = section.locator('[data-name="preview"]');
 
-        // Check with both prepend and append
-        const both = preview.locator(".input-group").nth(2);
+        // Check with both prepend and append (first group: $ + USD)
+        const both = preview.locator(".input-group").first();
         const texts = both.locator('[data-align="start"], [data-align="end"]');
         await expect(texts).toHaveCount(2);
     });
