@@ -12,7 +12,7 @@
  * - `className` is accepted as an alias of `class` and both are merged deterministically.
  * - Loading state (`loading`) disables interaction; `loadingText` (if provided) replaces children.
  * - Disabled anchor emulation uses `aria-disabled="true"` + `tabindex="-1"` (no `disabled` attribute on `<a>`).
- * - No internal `id`, `data-*`, or auto-generated attributes.
+ * - Uses `data-variant` and `data-size` attributes for basecoat CSS selector compatibility.
  * - Consumers supply any icon or visual child elements; horizontal spacing handled via utility classes.
  *
  * Accessibility:
@@ -37,21 +37,7 @@ import { cn } from "@utils/cn.js";
  * @typedef {"sm"|"md"|"lg"} ButtonSize
  */
 
-/**
- * Compute the base class token based on variant and size.
- * (Internal utility; not exported.)
- *
- * @param {{variant: ButtonVariant, size: ButtonSize}} opts
- * @returns {string}
- * @private
- */
-function resolveButtonClass({ variant, size }) {
-    const v = variant || "primary";
-    const s = size || "md";
-    if (s === "sm") return `btn-sm-${v}`;
-    if (s === "lg") return `btn-lg-${v}`;
-    return `btn-${v}`;
-}
+
 /**
  * Props accepted by `<Button />`.
  *
@@ -99,8 +85,7 @@ export default function Button(props) {
     } = props;
 
     const isDisabled = !!disabledProp || !!loading;
-    const baseClass = resolveButtonClass({ variant, size });
-    const mergedClass = cn(baseClass, "inline-flex", "items-center", klass, className);
+    const mergedClass = cn("btn", "inline-flex", "items-center", klass, className);
 
     const content = loading && loadingText ? loadingText : children;
 
@@ -110,6 +95,8 @@ export default function Button(props) {
             target,
             rel,
             class: mergedClass,
+            ...(variant !== "primary" ? { dataVariant: variant } : {}),
+            ...(size !== "md" ? { dataSize: size } : {}),
             ...(loading ? { ariaBusy: "true" } : {}),
             ...(isDisabled ? { ariaDisabled: "true", tabindex: "-1" } : {}),
             ...rest,
@@ -120,6 +107,8 @@ export default function Button(props) {
     const buttonAttrs = {
         type,
         class: mergedClass,
+        ...(variant !== "primary" ? { dataVariant: variant } : {}),
+        ...(size !== "md" ? { dataSize: size } : {}),
         ...(isDisabled ? { disabled: "" } : {}),
         ...(loading ? { ariaBusy: "true" } : {}),
         ...rest,
