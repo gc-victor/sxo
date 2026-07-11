@@ -4,7 +4,7 @@ test.describe("Theme Toggle", () => {
     const toggleButton = '[aria-label="Toggle theme"]';
 
     test.beforeEach(async ({ page }) => {
-        await page.goto("/");
+        await page.goto("/installation");
         await page.evaluate(() => localStorage.clear());
         await page.reload();
         await page.waitForSelector(toggleButton, { state: "visible" });
