@@ -23,6 +23,71 @@
 import { cn } from "@utils/cn.js";
 
 /**
+ * Nav data model for sidebar navigation.
+ *
+ * Groups: "Getting started" (installation + external github) and "Components" (41 component pages).
+ * Each item has a `label` (display text), `href` (route path), and optionally `external: true`.
+ * Active-state highlighting matches `item.href` against the current page's href.
+ */
+const sidebarNav = {
+    groups: [
+        {
+            label: "Getting started",
+            items: [
+                { label: "Installation", href: "/installation" },
+                { label: "GitHub", href: "https://github.com/gc-victor/sxo", external: true },
+            ],
+        },
+        {
+            label: "Components",
+            items: [
+                { label: "Accordion", href: "/components/accordion" },
+                { label: "Alert", href: "/components/alert" },
+                { label: "Alert Dialog", href: "/components/alert-dialog" },
+                { label: "Avatar", href: "/components/avatar" },
+                { label: "Badge", href: "/components/badge" },
+                { label: "Breadcrumb", href: "/components/breadcrumb" },
+                { label: "Button", href: "/components/button" },
+                { label: "Button Group", href: "/components/button-group" },
+                { label: "Card", href: "/components/card" },
+                { label: "Checkbox", href: "/components/checkbox" },
+                { label: "Collapsible", href: "/components/collapsible" },
+                { label: "Combobox", href: "/components/combobox" },
+                { label: "Command", href: "/components/command" },
+                { label: "Dialog", href: "/components/dialog" },
+                { label: "Drawer", href: "/components/drawer" },
+                { label: "Dropdown Menu", href: "/components/dropdown-menu" },
+                { label: "Empty", href: "/components/empty" },
+                { label: "Field", href: "/components/field" },
+                { label: "Form", href: "/components/form" },
+                { label: "Input", href: "/components/input" },
+                { label: "Input Group", href: "/components/input-group" },
+                { label: "Item", href: "/components/item" },
+                { label: "Kbd", href: "/components/kbd" },
+                { label: "Label", href: "/components/label" },
+                { label: "Native Select", href: "/components/native-select" },
+                { label: "Pagination", href: "/components/pagination" },
+                { label: "Popover", href: "/components/popover" },
+                { label: "Progress", href: "/components/progress" },
+                { label: "Radio Group", href: "/components/radio-group" },
+                { label: "Scrollbar", href: "/components/scrollbar" },
+                { label: "Select", href: "/components/select" },
+                { label: "Select Menu", href: "/components/select-menu" },
+                { label: "Sidebar", href: "/components/sidebar" },
+                { label: "Skeleton", href: "/components/skeleton" },
+                { label: "Slider", href: "/components/slider" },
+                { label: "Switch", href: "/components/switch" },
+                { label: "Table", href: "/components/table" },
+                { label: "Tabs", href: "/components/tabs" },
+                { label: "Textarea", href: "/components/textarea" },
+                { label: "Toast", href: "/components/toast" },
+                { label: "Tooltip", href: "/components/tooltip" },
+            ],
+        },
+    ],
+};
+
+/**
  * Sidebar component for navigation.
  *
  * Props:
@@ -42,11 +107,14 @@ export default function Sidebar({
     children,
     class: klass,
     className,
+    currentPage,
     initialOpen = true,
     initialMobileOpen = false,
     breakpoint = 768,
     ...rest
 }) {
+    const currentHref = currentPage === "installation" ? "/installation" : currentPage ? `/components/${currentPage}` : "";
+
     return (
         <el-sidebar class={cn("sidebar", className || klass)} {...rest}>
             <aside>
@@ -70,206 +138,69 @@ export default function Sidebar({
                     </header>
 
                     <div class="scrollbar flex flex-col flex-1 min-h-0 overflow-y-auto gap-8 p-4">
-                        <div>
-                            <h3 class="text-sm text-muted-foreground mb-4">Getting started</h3>
-                            <ul class="space-y-2 text-sm">
-                                <li>
-                                    <a href="#introduction" hx-boost="true" hx-select="#content" hx-target="#content" hx-swap="outerHTML">
-                                        <svg
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            width="16"
-                                            height="16"
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            stroke-width="2"
-                                            stroke-linecap="round"
-                                            stroke-linejoin="round"
-                                            class="inline-block mr-2 align-text-top"
-                                        >
-                                            <title>Introduction</title>
-                                            <circle cx="12" cy="12" r="10"></circle>
-                                            <path d="M12 16v-4"></path>
-                                            <path d="M12 8h.01"></path>
-                                        </svg>
-                                        <span>Introduction</span>
-                                    </a>
-                                </li>
-                                <li>
-                                    <a href="#installation" hx-boost="true" hx-select="#content" hx-target="#content" hx-swap="outerHTML">
-                                        <svg
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            width="16"
-                                            height="16"
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            stroke-width="2"
-                                            stroke-linecap="round"
-                                            stroke-linejoin="round"
-                                            class="inline-block mr-2 align-text-top"
-                                        >
-                                            <title>Installation</title>
-                                            <path d="m7 11 2-2-2-2"></path>
-                                            <path d="M11 13h4"></path>
-                                            <rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect>
-                                        </svg>
-                                        <span>Installation</span>
-                                    </a>
-                                </li>
-                                <li>
-                                    <a href="https://github.com/gc-victor/sxo" target="_blank" rel="noopener noreferrer">
-                                        <svg
-                                            fill="currentColor"
-                                            viewBox="0 0 24 24"
-                                            width="16"
-                                            height="16"
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            class="inline-block mr-2 align-text-top"
-                                        >
-                                            <title>GitHub</title>
-                                            <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"></path>
-                                        </svg>
-                                        <span>GitHub</span>
-                                    </a>
-                                </li>
-                            </ul>
-                        </div>
-
-                        <div>
-                            <h3 class="text-sm text-muted-foreground mb-4">Components</h3>
-                            <ul class="space-y-2 text-sm">
-                                <li>
-                                    <a href="#accordion">Accordion</a>
-                                </li>
-                                <li>
-                                    <a href="#alert">Alert</a>
-                                </li>
-                                <li>
-                                    <a href="#alert-dialog">Alert Dialog</a>
-                                </li>
-                                <li>
-                                    <a href="#avatar">Avatar</a>
-                                </li>
-                                <li>
-                                    <a href="#badge">Badge</a>
-                                </li>
-                                <li>
-                                    <a href="#breadcrumb">Breadcrumb</a>
-                                </li>
-                                <li>
-                                    <a href="#button">Button</a>
-                                </li>
-                                <li>
-                                    <a href="#button-group">Button Group</a>
-                                </li>
-                                <li>
-                                    <a href="#card">Card</a>
-                                </li>
-                                <li>
-                                    <a href="#checkbox">Checkbox</a>
-                                </li>
-                                <li>
-                                    <a href="#collapsible">Collapsible</a>
-                                </li>
-                                <li>
-                                    <a href="#combobox">Combobox</a>
-                                </li>
-                                <li>
-                                    <a href="#command">Command</a>
-                                </li>
-                                <li>
-                                    <a href="#dialog">Dialog</a>
-                                </li>
-                                <li>
-                                    <a href="#drawer">Drawer</a>
-                                </li>
-                                <li>
-                                    <a href="#dropdown-menu">Dropdown Menu</a>
-                                </li>
-                                <li>
-                                    <a href="#empty">Empty</a>
-                                </li>
-                                <li>
-                                    <a href="#field">Field</a>
-                                </li>
-                                <li>
-                                    <a href="#form">Form</a>
-                                </li>
-                                <li>
-                                    <a href="#input">Input</a>
-                                </li>
-                                <li>
-                                    <a href="#input-group">Input Group</a>
-                                </li>
-                                <li>
-                                    <a href="#item">Item</a>
-                                </li>
-                                <li>
-                                    <a href="#kbd">Kbd</a>
-                                </li>
-                                <li>
-                                    <a href="#label">Label</a>
-                                </li>
-                                <li>
-                                    <a href="#native-select">Native Select</a>
-                                </li>
-                                <li>
-                                    <a href="#pagination">Pagination</a>
-                                </li>
-                                <li>
-                                    <a href="#popover">Popover</a>
-                                </li>
-                                <li>
-                                    <a href="#progress">Progress</a>
-                                </li>
-                                <li>
-                                    <a href="#radio">Radio</a>
-                                </li>
-                                <li>
-                                    <a href="#radio-group">Radio Group</a>
-                                </li>
-                                <li>
-                                    <a href="#range">Range</a>
-                                </li>
-                                <li>
-                                    <a href="#scrollbar">Scrollbar</a>
-                                </li>
-                                <li>
-                                    <a href="#select">Select</a>
-                                </li>
-                                <li>
-                                    <a href="#select-menu">Select Menu</a>
-                                </li>
-                                <li>
-                                    <a href="#sidebar">Sidebar</a>
-                                </li>
-                                <li>
-                                    <a href="#skeleton">Skeleton</a>
-                                </li>
-                                <li>
-                                    <a href="#slider">Slider</a>
-                                </li>
-                                <li>
-                                    <a href="#switch">Switch</a>
-                                </li>
-                                <li>
-                                    <a href="#table">Table</a>
-                                </li>
-                                <li>
-                                    <a href="#tabs">Tabs</a>
-                                </li>
-                                <li>
-                                    <a href="#textarea">Textarea</a>
-                                </li>
-                                <li>
-                                    <a href="#toast">Toast</a>
-                                </li>
-                                <li>
-                                    <a href="#tooltip">Tooltip</a>
-                                </li>
-                            </ul>
-                        </div>
+                        {sidebarNav.groups.map((group) => (
+                            <div>
+                                <h3 class="text-sm text-muted-foreground mb-4">{group.label}</h3>
+                                <ul class="space-y-2 text-sm">
+                                    {group.items.map((item) => {
+                                        const isActive = item.href === currentHref;
+                                        if (item.href === "/installation") {
+                                            return (
+                                                <li>
+                                                    <a href={item.href} aria-current={isActive ? "page" : undefined}>
+                                                        <svg
+                                                            xmlns="http://www.w3.org/2000/svg"
+                                                            width="16"
+                                                            height="16"
+                                                            viewBox="0 0 24 24"
+                                                            fill="none"
+                                                            stroke="currentColor"
+                                                            stroke-width="2"
+                                                            stroke-linecap="round"
+                                                            stroke-linejoin="round"
+                                                            class="inline-block mr-2 align-text-top"
+                                                        >
+                                                            <title>Installation</title>
+                                                            <path d="m7 11 2-2-2-2"></path>
+                                                            <path d="M11 13h4"></path>
+                                                            <rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect>
+                                                        </svg>
+                                                        <span>{item.label}</span>
+                                                    </a>
+                                                </li>
+                                            );
+                                        }
+                                        if (item.external) {
+                                            return (
+                                                <li>
+                                                    <a href={item.href} target="_blank" rel="noopener noreferrer">
+                                                        <svg
+                                                            fill="currentColor"
+                                                            viewBox="0 0 24 24"
+                                                            width="16"
+                                                            height="16"
+                                                            xmlns="http://www.w3.org/2000/svg"
+                                                            class="inline-block mr-2 align-text-top"
+                                                        >
+                                                            <title>GitHub</title>
+                                                            <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"></path>
+                                                        </svg>
+                                                        <span>{item.label}</span>
+                                                    </a>
+                                                </li>
+                                            );
+                                        }
+                                        return (
+                                            <li>
+                                                <a href={item.href} aria-current={isActive ? "page" : undefined}>
+                                                    {item.label}
+                                                </a>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            </div>
+                        ))}
                     </div>
                 </nav>
             </aside>
