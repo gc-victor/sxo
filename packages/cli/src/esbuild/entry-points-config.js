@@ -35,7 +35,7 @@ export function entryPointsConfig(options = {}) {
 
     const globalCss = resolveGlobalCss(pagesRelativeDir, cwd);
     const metaMap = scanPagesTree(pagesDir, clientDir);
-    const routes = assembleRoutes(metaMap, { globalCss, cwd, pagesDir });
+    const routes = assembleRoutes(metaMap, { globalCss, cwd, pagesDir, clientDir });
 
     return routes;
 }
@@ -230,6 +230,8 @@ function sortRoutesBySpecificity(routes) {
 /**
  * Convert metadata into final route objects for esbuild.
  * Each route's entryPoints includes route-specific client code and global.css (if present).
+ * Also includes root-level client entries (from pages/client/) for all routes,
+ * so that shared interactive components (tabs, dialogs, etc.) work on every page.
  * Note: esbuild deduplicates identical entries during bundling.
  *
  * Validates route patterns to ensure parameter names are:
@@ -240,10 +242,13 @@ function sortRoutesBySpecificity(routes) {
  * Routes are sorted by specificity so static routes outrank dynamic siblings.
  *
  * @param {Map<string, {pageIndex: string, clientEntries: string[]}>} metaMap
- * @param {{globalCss: string | null, cwd: string, pagesDir: string}} options
+ * @param {{globalCss: string | null, cwd: string, pagesDir: string, clientDir: string}} options
  * @returns {{filename: string, entryPoints: string[], jsx: string, scriptLoading: string, hash: boolean, path?: string, isErrorPage?: boolean}[]}
  */
-function assembleRoutes(metaMap, { globalCss, cwd, pagesDir }) {
+function assembleRoutes(metaMap, { globalCss, cwd, pagesDir, clientDir }) {
+    // Include root-level client entries (e.g. pages/client/index.js) for all routes
+    // so shared interactive code is available on every page
+    const rootClientEntries = findClientEntries(pagesDir, clientDir);
     const routes = [];
     for (const [absDir, { pageIndex, clientEntries }] of metaMap.entries()) {
         const relDir = convertToPosixSlashes(path.relative(pagesDir, absDir));
@@ -262,10 +267,13 @@ function assembleRoutes(metaMap, { globalCss, cwd, pagesDir }) {
         // Detect special error page directories (404, 500)
         const isErrorPage = !isRoot && (relDir === "404" || relDir === "500");
 
-        const entryPoints = [
+        // Deduplicate: root route already gets root entries via its own clientEntries.
+        // Use a Set to avoid duplicates in the manifest.
+        const entryPathSet = new Set([
+            ...rootClientEntries.map((/** @type {string} */ entry) => convertToPosixSlashes(path.relative(cwd, entry))),
             ...clientEntries.map((/** @type {string} */ entry) => convertToPosixSlashes(path.relative(cwd, entry))),
-            ...(globalCss ? [globalCss] : []),
-        ];
+        ]);
+        const entryPoints = [...entryPathSet, ...(globalCss ? [globalCss] : [])];
 
         /** @type {{filename: string, entryPoints: string[], jsx: string, scriptLoading: string, hash: boolean, path?: string, isErrorPage?: boolean}} */
         const route = {
