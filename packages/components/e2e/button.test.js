@@ -2,12 +2,12 @@ import { expect, test } from "@playwright/test";
 
 test.describe("Button", () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto("/");
-        await page.waitForSelector("#button", { state: "visible" });
+        await page.goto("/components/button");
+        await page.waitForSelector("main", { state: "visible" });
     });
 
     test("should display button variants", async ({ page }) => {
-        const buttonSection = page.locator("#button");
+        const buttonSection = page.locator("main");
 
         // Check that various button types exist
         const buttons = buttonSection.locator("button");
@@ -19,7 +19,7 @@ test.describe("Button", () => {
     });
 
     test("should display button sizes", async ({ page }) => {
-        const buttonSection = page.locator("#button");
+        const buttonSection = page.locator("main");
 
         // Check that buttons exist in different sections
         const allButtons = buttonSection.locator("button");
@@ -27,7 +27,7 @@ test.describe("Button", () => {
     });
 
     test("should display buttons with icons", async ({ page }) => {
-        const buttonSection = page.locator("#button");
+        const buttonSection = page.locator("main");
 
         // Check buttons with icons (should have SVG elements)
         const buttonsWithIcons = buttonSection.locator("button:has(svg)");
@@ -39,7 +39,7 @@ test.describe("Button", () => {
     });
 
     test("should display buttons with various configurations", async ({ page }) => {
-        const buttonSection = page.locator("#button");
+        const buttonSection = page.locator("main");
 
         // Check that there are buttons with different configurations
         const allButtons = buttonSection.locator("button");
