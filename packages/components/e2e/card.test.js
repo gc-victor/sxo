@@ -2,12 +2,12 @@ import { expect, test } from "@playwright/test";
 
 test.describe("Card", () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto("/");
-        await page.waitForSelector("#card", { state: "visible" });
+        await page.goto("/components/card");
+        await page.waitForSelector("main", { state: "visible" });
     });
 
     test("should display card components", async ({ page }) => {
-        const cardSection = page.locator("#card");
+        const cardSection = page.locator("main");
         const preview = cardSection.locator('[data-name="preview"]');
 
         // Check that cards exist
@@ -28,7 +28,7 @@ test.describe("Card", () => {
     });
 
     test("should display login card with form", async ({ page }) => {
-        const cardSection = page.locator("#card");
+        const cardSection = page.locator("main");
         const preview = cardSection.locator('[data-name="preview"]');
 
         // Check login form elements
@@ -39,7 +39,7 @@ test.describe("Card", () => {
     });
 
     test("should display card with image", async ({ page }) => {
-        const cardSection = page.locator("#card");
+        const cardSection = page.locator("main");
         const preview = cardSection.locator('[data-name="preview"]');
 
         // Check image card
