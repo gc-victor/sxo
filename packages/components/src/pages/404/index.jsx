@@ -10,7 +10,9 @@ export default function NotFoundPage() {
                         <p>This page does not exist or may have moved.</p>
                     </header>
                     <footer>
-                        <a href="/installation" class="btn" data-size="sm">Installation</a>
+                        <a href="/installation" class="btn" data-size="sm">
+                            Installation
+                        </a>
                     </footer>
                 </section>
             </div>

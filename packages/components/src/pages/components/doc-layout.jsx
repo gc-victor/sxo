@@ -40,9 +40,9 @@ import SvgSymbols, {
     SymbolTriangleWarning,
     SymbolX,
 } from "@components/svg-symbols.jsx";
+import Sidebar from "./sidebar";
 import ThemeSelector from "./theme-selector.jsx";
 import ThemeToggle from "./theme-toggle.jsx";
-import Sidebar from "./sidebar";
 
 /** Blocking inline script: reads saved style pack from localStorage and injects stylesheet before first paint. */
 const STYLE_PACK_INLINE_SCRIPT =
@@ -66,9 +66,7 @@ export function DocLayout({ title, description, currentPage, children }) {
                 <title>{title} — SXOUI</title>
                 <meta name="title" content={`${title} — SXOUI`} />
 
-                {description ? (
-                    <meta name="description" content={description} />
-                ) : null}
+                {description ? <meta name="description" content={description} /> : null}
 
                 <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
                 <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png" />
@@ -76,9 +74,7 @@ export function DocLayout({ title, description, currentPage, children }) {
                 <meta property="og:type" content="website" />
                 <meta property="og:url" content="https://sxoui.com/" />
                 <meta property="og:title" content={`${title} — SXOUI`} />
-                {description ? (
-                    <meta property="og:description" content={description} />
-                ) : null}
+                {description ? <meta property="og:description" content={description} /> : null}
                 <meta property="og:image" content="https://sxoui.com/assets/social.png" />
                 <meta property="og:site_name" content="SXOUI" />
                 <meta property="og:locale" content="en_US" />
@@ -87,9 +83,7 @@ export function DocLayout({ title, description, currentPage, children }) {
                 <meta name="twitter:card" content="summary_large_image" />
                 <meta name="twitter:url" content="https://sxoui.com/" />
                 <meta name="twitter:title" content={`${title} — SXOUI`} />
-                {description ? (
-                    <meta name="twitter:description" content={description} />
-                ) : null}
+                {description ? <meta name="twitter:description" content={description} /> : null}
                 <meta name="twitter:image" content="https://sxoui.com/assets/social.png" />
                 <meta name="twitter:creator" content="@gcv" />
 
@@ -153,9 +147,7 @@ export function DocLayout({ title, description, currentPage, children }) {
                         </div>
                     </header>
 
-                    <article class="w-full max-w-4xl mx-auto px-6 py-8">
-                        {children}
-                    </article>
+                    <article class="w-full max-w-4xl mx-auto px-6 py-8">{children}</article>
                 </main>
 
                 <footer class="border-t py-8 text-center text-sm text-muted-foreground">
@@ -170,12 +162,7 @@ export function DocLayout({ title, description, currentPage, children }) {
                             SXO
                         </a>{" "}
                         and{" "}
-                        <a
-                            href="https://basecoatui.com"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="underline hover:text-foreground"
-                        >
+                        <a href="https://basecoatui.com" target="_blank" rel="noopener noreferrer" class="underline hover:text-foreground">
                             Basecoat CSS
                         </a>
                     </p>
