@@ -36,7 +36,8 @@
         "tailwind:watch": "pnpm run tailwind --watch"
     },
     "dependencies": {
-        "@sxo/client": "workspace:*"
+        "@sxo/client": "workspace:*",
+        "turndown": "^7.2.4"
     },
     "devDependencies": {
         "@biomejs/biome": "^2.4.11",
