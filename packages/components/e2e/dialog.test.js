@@ -2,12 +2,12 @@ import { expect, test } from "@playwright/test";
 
 test.describe("Dialog", () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto("/");
-        await page.waitForSelector("#dialog", { state: "visible" });
+        await page.goto("/components/dialog");
+        await page.waitForSelector("main", { state: "visible" });
     });
 
     test("should display dialog trigger buttons", async ({ page }) => {
-        const dialogSection = page.locator("#dialog");
+        const dialogSection = page.locator("main");
 
         // Check that trigger buttons exist
         const buttons = dialogSection.locator("button").filter({ hasText: "Edit Profile" });
@@ -18,7 +18,7 @@ test.describe("Dialog", () => {
     });
 
     test("should have dialog elements", async ({ page }) => {
-        const dialogSection = page.locator("#dialog");
+        const dialogSection = page.locator("main");
 
         // Check that buttons exist
         const buttons = dialogSection.locator("button");
@@ -30,7 +30,7 @@ test.describe("Dialog", () => {
     });
 
     test("should have dialog content", async ({ page }) => {
-        const dialogSection = page.locator("#dialog");
+        const dialogSection = page.locator("main");
 
         // Check that dialogs have content (only within the dialog section)
         const dialogs = dialogSection.locator("dialog");
@@ -45,7 +45,7 @@ test.describe("Dialog", () => {
     });
 
     test("should open dialog via trigger button click", async ({ page }) => {
-        const dialogSection = page.locator("#dialog");
+        const dialogSection = page.locator("main");
 
         // Click the "Edit Profile" trigger button
         const editProfileTrigger = dialogSection.locator("button").filter({ hasText: "Edit Profile" });
@@ -63,7 +63,7 @@ test.describe("Dialog", () => {
     });
 
     test("should close dialog via close button", async ({ page }) => {
-        const dialogSection = page.locator("#dialog");
+        const dialogSection = page.locator("main");
 
         // Click the "Edit Profile" trigger button
         const editProfileTrigger = dialogSection.locator("button").filter({ hasText: "Edit Profile" });
@@ -84,7 +84,7 @@ test.describe("Dialog", () => {
     });
 
     test("should close dialog via cancel button", async ({ page }) => {
-        const dialogSection = page.locator("#dialog");
+        const dialogSection = page.locator("main");
 
         // Click the "Edit Profile" trigger button
         const editProfileTrigger = dialogSection.locator("button").filter({ hasText: "Edit Profile" });
@@ -96,7 +96,7 @@ test.describe("Dialog", () => {
         await expect(dialog).toHaveAttribute("open", "");
 
         // Click the cancel button
-        const cancelButton = page.locator("#dialog dialog button").filter({ hasText: "Cancel" });
+        const cancelButton = dialogSection.locator("dialog button").filter({ hasText: "Cancel" });
         await cancelButton.click();
         await page.waitForTimeout(200);
 
@@ -105,7 +105,7 @@ test.describe("Dialog", () => {
     });
 
     test("should return focus to trigger button after closing", async ({ page }) => {
-        const dialogSection = page.locator("#dialog");
+        const dialogSection = page.locator("main");
 
         // Click the "Edit Profile" trigger button
         const editProfileTrigger = dialogSection.locator("button").filter({ hasText: "Edit Profile" });
@@ -132,7 +132,7 @@ test.describe("Dialog", () => {
     });
 
     test("should open scrollable content dialog", async ({ page }) => {
-        const dialogSection = page.locator("#dialog");
+        const dialogSection = page.locator("main");
 
         // Click the "Scrollable Content" trigger button
         const scrollableTrigger = dialogSection.locator("button").filter({ hasText: "Scrollable Content" });
@@ -140,7 +140,7 @@ test.describe("Dialog", () => {
         await page.waitForTimeout(200);
 
         // Find the scrollable dialog by looking for one with overflow content
-        const scrollableDialog = page.locator("#dialog dialog:has(.overflow-y-auto)");
+        const scrollableDialog = dialogSection.locator("dialog:has(.overflow-y-auto)");
 
         // Verify dialog is open
         await expect(scrollableDialog).toHaveAttribute("open", "");
