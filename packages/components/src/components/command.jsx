@@ -85,13 +85,15 @@ function renderCommandItems(items, parentId) {
             if (item.url) attrs.href = item.url;
             result.push(
                 <Tag role="menuitem" class="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer" id={itemId} key={itemId} {...attrs}>
-                    {item.icon || null}
+                    {item.icon || ""}
                     <span>{item.label}</span>
                     {item.shortcut ? (
                         <span data-shortcut class="ms-auto text-xs text-muted-foreground">
                             {item.shortcut}
                         </span>
-                    ) : null}
+                    ) : (
+                        ""
+                    )}
                 </Tag>,
             );
         }

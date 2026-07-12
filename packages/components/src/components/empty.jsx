@@ -51,10 +51,10 @@ export default function Empty({ class: klass, className, icon, title, descriptio
 
     return (
         <div class={cn("empty", klass, className)} {...rest}>
-            {icon ? <div class="empty-icon">{icon}</div> : null}
-            {title ? <div class="empty-title">{title}</div> : null}
-            {description ? <p class="empty-desc">{description}</p> : null}
-            {action ? <div class="empty-action">{action}</div> : null}
+            {icon ? <div class="empty-icon">{icon}</div> : ""}
+            {title ? <div class="empty-title">{title}</div> : ""}
+            {description ? <p class="empty-desc">{description}</p> : ""}
+            {action ? <div class="empty-action">{action}</div> : ""}
         </div>
     );
 }

@@ -67,7 +67,7 @@ export default function Slider({ class: klass, className, inputClass = "input w-
                 type="range"
                 class={cn("slider", inputClass, klass, className)}
                 min={String(numericMin)}
-                max={hasFiniteMax ? String(numericMax) : null}
+                {...(hasFiniteMax ? { max: String(numericMax) } : {})}
                 $oninput="oninput"
                 $onchange="onchange"
                 style={`--slider-value: ${percent}%;`}
@@ -103,7 +103,7 @@ export function Range({ class: klass, className, ...rest }) {
             type="range"
             class={cn("range", klass, className)}
             min={String(numericMin)}
-            max={hasFiniteMax ? String(numericMax) : null}
+            {...(hasFiniteMax ? { max: String(numericMax) } : {})}
             {...(clampedValue != null ? { value: String(clampedValue) } : {})}
             {...inputRest}
         />

@@ -125,8 +125,8 @@ export default function Sidebar({
                                 xmlns="http://www.w3.org/2000/svg"
                                 fill="currentColor"
                                 viewBox="0 0 59 23"
-                                width="100%"
-                                height="100%"
+                                width="223"
+                                height="87"
                                 class="w-full h-full"
                             >
                                 <title>SXO</title>
@@ -147,7 +147,7 @@ export default function Sidebar({
                                         if (item.href === "/installation") {
                                             return (
                                                 <li>
-                                                    <a href={item.href} aria-current={isActive ? "page" : undefined}>
+                                                    <a href={item.href} {...(isActive ? { "aria-current": "page" } : {})}>
                                                         <svg
                                                             xmlns="http://www.w3.org/2000/svg"
                                                             width="16"
@@ -192,7 +192,7 @@ export default function Sidebar({
                                         }
                                         return (
                                             <li>
-                                                <a href={item.href} aria-current={isActive ? "page" : undefined}>
+                                                <a href={item.href} {...(isActive ? { "aria-current": "page" } : {})}>
                                                     {item.label}
                                                 </a>
                                             </li>

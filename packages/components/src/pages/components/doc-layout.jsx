@@ -66,7 +66,7 @@ export function DocLayout({ title, description, currentPage, children }) {
                 <title>{title} — SXOUI</title>
                 <meta name="title" content={`${title} — SXOUI`} />
 
-                {description ? <meta name="description" content={description} /> : null}
+                {description ? <meta name="description" content={description} /> : ""}
 
                 <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
                 <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png" />
@@ -74,7 +74,7 @@ export function DocLayout({ title, description, currentPage, children }) {
                 <meta property="og:type" content="website" />
                 <meta property="og:url" content="https://sxoui.com/" />
                 <meta property="og:title" content={`${title} — SXOUI`} />
-                {description ? <meta property="og:description" content={description} /> : null}
+                {description ? <meta property="og:description" content={description} /> : ""}
                 <meta property="og:image" content="https://sxoui.com/assets/social.png" />
                 <meta property="og:site_name" content="SXOUI" />
                 <meta property="og:locale" content="en_US" />
@@ -83,7 +83,7 @@ export function DocLayout({ title, description, currentPage, children }) {
                 <meta name="twitter:card" content="summary_large_image" />
                 <meta name="twitter:url" content="https://sxoui.com/" />
                 <meta name="twitter:title" content={`${title} — SXOUI`} />
-                {description ? <meta name="twitter:description" content={description} /> : null}
+                {description ? <meta name="twitter:description" content={description} /> : ""}
                 <meta name="twitter:image" content="https://sxoui.com/assets/social.png" />
                 <meta name="twitter:creator" content="@gcv" />
 

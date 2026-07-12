@@ -105,7 +105,7 @@ export function Radio({ class: klass, className, label, children, ...rest }) {
     return (
         <label class={cn("radio", klass, className)}>
             <input type="radio" {...rest} />
-            {label || children ? <span>{label || children}</span> : null}
+            {label || children ? <span>{label || children}</span> : ""}
         </label>
     );
 }

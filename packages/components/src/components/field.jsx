@@ -61,7 +61,9 @@ export default function Field({ class: klass, className, label, hint, error, req
                     {label}
                     {required ? " *" : ""}
                 </label>
-            ) : null}
+            ) : (
+                ""
+            )}
             {children}
             {error ? (
                 <p class="field-error" role="alert">
@@ -69,7 +71,9 @@ export default function Field({ class: klass, className, label, hint, error, req
                 </p>
             ) : hint ? (
                 <p class="field-hint">{hint}</p>
-            ) : null}
+            ) : (
+                ""
+            )}
         </div>
     );
 }

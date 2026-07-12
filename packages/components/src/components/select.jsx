@@ -63,7 +63,7 @@ export function SelectOption(props) {
             value={val}
             {...(disabled ? { disabled: "" } : {})}
             {...(selected ? { selected: "" } : {})}
-            class={className || klass || null}
+            class={className || klass || ""}
         >
             {children != null ? children : val}
         </option>
@@ -109,7 +109,7 @@ export function SelectItem(props) {
  */
 export function SelectGroup({ children, class: klass, className, label, ...rest }) {
     return (
-        <optgroup {...rest} label={label != null ? label : ""} class={className || klass || null}>
+        <optgroup {...rest} label={label != null ? label : ""} class={className || klass || ""}>
             {children}
         </optgroup>
     );

@@ -238,7 +238,7 @@ export function SelectMenuList(props) {
         <div
             role="listbox"
             class={cn("select-menu-list", className || klass)}
-            aria-labelledby={ariaLabelledby || null}
+            {...(ariaLabelledby ? { "aria-labelledby": ariaLabelledby } : {})}
             aria-orientation="vertical"
             {...rest}
         >

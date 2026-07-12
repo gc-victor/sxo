@@ -52,7 +52,9 @@ export default function NativeSelect({ class: klass, className, options, placeho
                 <option value="" disabled selected>
                     {placeholder}
                 </option>
-            ) : null}
+            ) : (
+                ""
+            )}
             {options
                 ? options.map((opt) => (
                       <option key={opt.value} value={opt.value} disabled={opt.disabled || false}>
