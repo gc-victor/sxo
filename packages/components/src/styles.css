@@ -14,27 +14,27 @@
     color-scheme: light dark;
 }
 
-/* Custom scrollbar styling */
+/* Custom scroll-area styling */
 
 *::-webkit-scrollbar {
     scrollbar-width: thin;
-    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+    scrollbar-color: var(--scroll-area-thumb) var(--scroll-area-track);
     width: 8px;
 }
 
 *::-webkit-scrollbar-track {
-    background: var(--scrollbar-track);
-    border-radius: var(--scrollbar-radius);
+    background: var(--scroll-area-track);
+    border-radius: var(--scroll-area-radius);
 }
 
 *::-webkit-scrollbar-thumb {
-    background: var(--scrollbar-thumb);
-    border-radius: var(--scrollbar-radius);
-    border: 1px solid var(--scrollbar-track);
+    background: var(--scroll-area-thumb);
+    border-radius: var(--scroll-area-radius);
+    border: 1px solid var(--scroll-area-track);
 }
 
 *::-webkit-scrollbar-thumb:hover {
-    background: var(--scrollbar-thumb-hover);
+    background: var(--scroll-area-thumb-hover);
 }
 
 /* Components */

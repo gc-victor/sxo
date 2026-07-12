@@ -70,7 +70,7 @@ const sidebarNav = {
                 { label: "Popover", href: "/components/popover" },
                 { label: "Progress", href: "/components/progress" },
                 { label: "Radio Group", href: "/components/radio-group" },
-                { label: "Scrollbar", href: "/components/scrollbar" },
+                { label: "Scroll Area", href: "/components/scroll-area" },
                 { label: "Select", href: "/components/select" },
                 { label: "Select Menu", href: "/components/select-menu" },
                 { label: "Sidebar", href: "/components/sidebar" },
