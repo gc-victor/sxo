@@ -2,12 +2,12 @@ import { expect, test } from "@playwright/test";
 
 test.describe("Pagination", () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto("/");
-        await page.waitForSelector("#pagination", { state: "visible" });
+        await page.goto("/components/pagination");
+        await page.waitForSelector("main", { state: "visible" });
     });
 
     test("should display pagination controls", async ({ page }) => {
-        const paginationSection = page.locator("#pagination");
+        const paginationSection = page.locator("main");
         const preview = paginationSection.locator('[data-name="preview"]');
 
         // Check pagination wrapper
@@ -31,7 +31,7 @@ test.describe("Pagination", () => {
     });
 
     test("should display page numbers", async ({ page }) => {
-        const paginationSection = page.locator("#pagination");
+        const paginationSection = page.locator("main");
         const preview = paginationSection.locator('[data-name="preview"]');
 
         // Check page number buttons exist

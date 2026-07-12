@@ -2,12 +2,12 @@ import { expect, test } from "@playwright/test";
 
 test.describe("Empty", () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto("/");
-        await page.waitForSelector("#empty", { state: "visible" });
+        await page.goto("/components/empty");
+        await page.waitForSelector("main", { state: "visible" });
     });
 
     test("should display empty state with title and description", async ({ page }) => {
-        const section = page.locator("#empty");
+        const section = page.locator("main");
         const preview = section.locator('[data-name="preview"]');
 
         // Check the empty container
@@ -23,7 +23,7 @@ test.describe("Empty", () => {
     });
 
     test("should display empty state with icon", async ({ page }) => {
-        const section = page.locator("#empty");
+        const section = page.locator("main");
         const preview = section.locator('[data-name="preview"]');
 
         // Check empty with icon
@@ -33,7 +33,7 @@ test.describe("Empty", () => {
     });
 
     test("should display empty state with action button", async ({ page }) => {
-        const section = page.locator("#empty");
+        const section = page.locator("main");
         const preview = section.locator('[data-name="preview"]');
 
         // Check empty with action

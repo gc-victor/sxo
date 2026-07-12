@@ -2,12 +2,12 @@ import { expect, test } from "@playwright/test";
 
 test.describe("Select", () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto("/");
-        await page.waitForSelector("#select", { state: "visible" });
+        await page.goto("/components/select");
+        await page.waitForSelector("main", { state: "visible" });
     });
 
     test("should display select dropdowns", async ({ page }) => {
-        const selectSection = page.locator("#select");
+        const selectSection = page.locator("main");
 
         // Check that select elements exist
         const selects = selectSection.locator("select");

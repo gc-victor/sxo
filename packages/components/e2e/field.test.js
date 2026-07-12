@@ -2,12 +2,12 @@ import { expect, test } from "@playwright/test";
 
 test.describe("Field", () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto("/");
-        await page.waitForSelector("#field", { state: "visible" });
+        await page.goto("/components/field");
+        await page.waitForSelector("main", { state: "visible" });
     });
 
     test("should display field with label", async ({ page }) => {
-        const section = page.locator("#field");
+        const section = page.locator("main");
         const preview = section.locator('[data-name="preview"]');
 
         // Check basic field
@@ -19,7 +19,7 @@ test.describe("Field", () => {
     });
 
     test("should display field with hint", async ({ page }) => {
-        const section = page.locator("#field");
+        const section = page.locator("main");
         const preview = section.locator('[data-name="preview"]');
 
         // Check hint text on the email field
@@ -29,7 +29,7 @@ test.describe("Field", () => {
     });
 
     test("should display field with error state", async ({ page }) => {
-        const section = page.locator("#field");
+        const section = page.locator("main");
         const preview = section.locator('[data-name="preview"]');
 
         // Check error state
@@ -39,7 +39,7 @@ test.describe("Field", () => {
     });
 
     test("should display required field indicator", async ({ page }) => {
-        const section = page.locator("#field");
+        const section = page.locator("main");
         const preview = section.locator('[data-name="preview"]');
 
         // Check required state

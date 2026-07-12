@@ -2,12 +2,12 @@ import { expect, test } from "@playwright/test";
 
 test.describe("Table", () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto("/");
-        await page.waitForSelector("#table", { state: "visible" });
+        await page.goto("/components/table");
+        await page.waitForSelector("main", { state: "visible" });
     });
 
     test("should display table structure", async ({ page }) => {
-        const tableSection = page.locator("#table");
+        const tableSection = page.locator("main");
 
         // Check that table exists
         const table = tableSection.locator("table");

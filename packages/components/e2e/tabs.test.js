@@ -2,14 +2,14 @@ import { expect, test } from "@playwright/test";
 
 test.describe("Tabs", () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto("/");
-        await page.waitForSelector("#tabs", { state: "visible" });
+        await page.goto("/components/tabs");
+        await page.waitForSelector("main", { state: "visible" });
         // Wait for reactive components to initialize
         await page.waitForTimeout(1000);
     });
 
     test("should display tab navigation", async ({ page }) => {
-        const tabsSection = page.locator("#tabs");
+        const tabsSection = page.locator("main");
         const preview = tabsSection.locator('[data-name="preview"]');
 
         // Check that tablist exists
@@ -26,7 +26,7 @@ test.describe("Tabs", () => {
     });
 
     test("should display tab panels", async ({ page }) => {
-        const tabsSection = page.locator("#tabs");
+        const tabsSection = page.locator("main");
         const preview = tabsSection.locator('[data-name="preview"]');
 
         // Check that tab panels exist
@@ -35,7 +35,7 @@ test.describe("Tabs", () => {
     });
 
     test("should switch between tabs", async ({ page }) => {
-        const tabsSection = page.locator("#tabs");
+        const tabsSection = page.locator("main");
         const preview = tabsSection.locator('[data-name="preview"]');
 
         // Get tab buttons by role and data-name
@@ -68,7 +68,7 @@ test.describe("Tabs", () => {
     });
 
     test("should have correct ARIA attributes", async ({ page }) => {
-        const tabsSection = page.locator("#tabs");
+        const tabsSection = page.locator("main");
         const preview = tabsSection.locator('[data-name="preview"]');
 
         // Get tab buttons and panels by role and data-name
@@ -103,7 +103,7 @@ test.describe("Tabs", () => {
     });
 
     test("should navigate tabs with keyboard", async ({ page }) => {
-        const tabsSection = page.locator("#tabs");
+        const tabsSection = page.locator("main");
         const preview = tabsSection.locator('[data-name="preview"]');
 
         // Get tab buttons by role and data-name
@@ -123,7 +123,7 @@ test.describe("Tabs", () => {
     });
 
     test("should navigate to first/last tabs with Home/End", async ({ page }) => {
-        const tabsSection = page.locator("#tabs");
+        const tabsSection = page.locator("main");
         const preview = tabsSection.locator('[data-name="preview"]');
 
         // Get tab buttons by role and data-name
@@ -143,7 +143,7 @@ test.describe("Tabs", () => {
     });
 
     test("should maintain tab order and focus management", async ({ page }) => {
-        const tabsSection = page.locator("#tabs");
+        const tabsSection = page.locator("main");
         const preview = tabsSection.locator('[data-name="preview"]');
 
         // Get tab buttons by role and data-name
@@ -172,7 +172,7 @@ test.describe("Tabs", () => {
     });
 
     test("should have account tab content", async ({ page }) => {
-        const tabsSection = page.locator("#tabs");
+        const tabsSection = page.locator("main");
         const preview = tabsSection.locator('[data-name="preview"]');
 
         // Check that account panel exists
@@ -185,7 +185,7 @@ test.describe("Tabs", () => {
     });
 
     test("should have password tab content", async ({ page }) => {
-        const tabsSection = page.locator("#tabs");
+        const tabsSection = page.locator("main");
         const preview = tabsSection.locator('[data-name="preview"]');
 
         // Password panel should exist

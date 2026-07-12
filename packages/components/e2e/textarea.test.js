@@ -2,12 +2,12 @@ import { expect, test } from "@playwright/test";
 
 test.describe("Textarea", () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto("/");
-        await page.waitForSelector("#textarea", { state: "visible" });
+        await page.goto("/components/textarea");
+        await page.waitForSelector("main", { state: "visible" });
     });
 
     test("should display textarea elements", async ({ page }) => {
-        const textareaSection = page.locator("#textarea");
+        const textareaSection = page.locator("main");
 
         // Check that textareas exist
         const textareas = textareaSection.locator("textarea");
@@ -44,7 +44,7 @@ test.describe("Textarea", () => {
     });
 
     test("should display description text", async ({ page }) => {
-        const textareaSection = page.locator("#textarea");
+        const textareaSection = page.locator("main");
 
         // Check description text exists
         await expect(textareaSection.locator("p").filter({ hasText: "Type your message and press enter to send." })).toBeVisible();

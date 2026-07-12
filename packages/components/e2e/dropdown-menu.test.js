@@ -2,12 +2,14 @@ import { expect, test } from "@playwright/test";
 
 test.describe("Dropdown Menu", () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto("/");
-        await page.waitForSelector("#dropdown-menu", { state: "visible" });
+        await page.goto("/components/dropdown-menu");
+        await page.waitForSelector("main", { state: "visible" });
+        await page.evaluate(() => document.dispatchEvent(new CustomEvent("sxo:sidebar")));
+        await page.waitForTimeout(200);
     });
 
     test("should display dropdown menu structure", async ({ page }) => {
-        const dropdownSection = page.locator("#dropdown-menu");
+        const dropdownSection = page.locator("main");
 
         // Check details element
         const details = dropdownSection.locator("details");
@@ -23,7 +25,7 @@ test.describe("Dropdown Menu", () => {
     });
 
     test("should display menu items and groups", async ({ page }) => {
-        const dropdownSection = page.locator("#dropdown-menu");
+        const dropdownSection = page.locator("main");
 
         const menuContent = dropdownSection.locator(".dropdown-menu-content");
 
@@ -42,7 +44,7 @@ test.describe("Dropdown Menu", () => {
     });
 
     test("should open menu via summary click", async ({ page }) => {
-        const dropdownSection = page.locator("#dropdown-menu");
+        const dropdownSection = page.locator("main");
         const details = dropdownSection.locator("details");
         const trigger = dropdownSection.locator("summary").filter({ hasText: "Open" });
 
@@ -58,7 +60,7 @@ test.describe("Dropdown Menu", () => {
     });
 
     test("should close menu when clicking menu item", async ({ page }) => {
-        const dropdownSection = page.locator("#dropdown-menu");
+        const dropdownSection = page.locator("main");
         const details = dropdownSection.locator("details");
         const trigger = dropdownSection.locator("summary").filter({ hasText: "Open" });
 
@@ -77,7 +79,7 @@ test.describe("Dropdown Menu", () => {
     });
 
     test("should focus first menu item when opened", async ({ page }) => {
-        const dropdownSection = page.locator("#dropdown-menu");
+        const dropdownSection = page.locator("main");
         const trigger = dropdownSection.locator("summary").filter({ hasText: "Open" });
 
         // Open menu
@@ -90,7 +92,7 @@ test.describe("Dropdown Menu", () => {
     });
 
     test("should return focus to trigger when closed", async ({ page }) => {
-        const dropdownSection = page.locator("#dropdown-menu");
+        const dropdownSection = page.locator("main");
         const _details = dropdownSection.locator("details");
         const trigger = dropdownSection.locator("summary").filter({ hasText: "Open" });
 
@@ -108,7 +110,7 @@ test.describe("Dropdown Menu", () => {
     });
 
     test("should close menu on Escape key", async ({ page }) => {
-        const dropdownSection = page.locator("#dropdown-menu");
+        const dropdownSection = page.locator("main");
         const details = dropdownSection.locator("details");
         const trigger = dropdownSection.locator("summary").filter({ hasText: "Open" });
 
@@ -126,7 +128,7 @@ test.describe("Dropdown Menu", () => {
     });
 
     test("should navigate menu with arrow keys", async ({ page }) => {
-        const dropdownSection = page.locator("#dropdown-menu");
+        const dropdownSection = page.locator("main");
         const trigger = dropdownSection.locator("summary").filter({ hasText: "Open" });
 
         // Open menu
@@ -152,7 +154,7 @@ test.describe("Dropdown Menu", () => {
     });
 
     test("should navigate to first/last items with Home/End", async ({ page }) => {
-        const dropdownSection = page.locator("#dropdown-menu");
+        const dropdownSection = page.locator("main");
         const trigger = dropdownSection.locator("summary").filter({ hasText: "Open" });
 
         // Open menu
@@ -180,7 +182,7 @@ test.describe("Dropdown Menu", () => {
     });
 
     test("should close menu on click outside", async ({ page }) => {
-        const dropdownSection = page.locator("#dropdown-menu");
+        const dropdownSection = page.locator("main");
         const details = dropdownSection.locator("details");
         const trigger = dropdownSection.locator("summary").filter({ hasText: "Open" });
 
@@ -198,7 +200,7 @@ test.describe("Dropdown Menu", () => {
     });
 
     test("should have correct ARIA roles", async ({ page }) => {
-        const dropdownSection = page.locator("#dropdown-menu");
+        const dropdownSection = page.locator("main");
         const menuContent = dropdownSection.locator(".dropdown-menu-content");
 
         // Open menu to check ARIA roles

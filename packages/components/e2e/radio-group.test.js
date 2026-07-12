@@ -2,24 +2,24 @@ import { expect, test } from "@playwright/test";
 
 test.describe("Radio Group", () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto("/");
-        await page.waitForSelector("#radio-group", { state: "visible" });
+        await page.goto("/components/radio-group");
+        await page.waitForSelector("main", { state: "visible" });
     });
 
     test("should display radio group", async ({ page }) => {
-        const radioSection = page.locator("#radio-group");
+        const radioSection = page.locator("main");
 
-        // Check that radio inputs exist
+        // Check that radio inputs exist (RadioGroup + Radio sections)
         const radios = radioSection.locator("input[type='radio']");
-        await expect(radios).toHaveCount(3);
+        await expect(radios).toHaveCount(6);
 
         // Check that labels exist
         const labels = radioSection.locator("label");
-        await expect(labels).toHaveCount(3);
+        await expect(labels).toHaveCount(6);
     });
 
     test("should allow selecting radio options", async ({ page }) => {
-        const radioSection = page.locator("#radio-group");
+        const radioSection = page.locator("main");
 
         // Get radio inputs
         const defaultRadio = radioSection.locator("input[value='default']");
@@ -45,7 +45,7 @@ test.describe("Radio Group", () => {
     });
 
     test("should display correct labels", async ({ page }) => {
-        const radioSection = page.locator("#radio-group");
+        const radioSection = page.locator("main");
 
         // Check label texts
         await expect(radioSection.locator("label").filter({ hasText: "Default" })).toBeVisible();
@@ -54,15 +54,15 @@ test.describe("Radio Group", () => {
     });
 
     test("should have same name attribute for group", async ({ page }) => {
-        const radioSection = page.locator("#radio-group");
+        const radioSection = page.locator("main");
 
         // All radios should have the same name
         const radios = radioSection.locator("input[type='radio']");
         const names = await radios.evaluateAll((radios) => radios.map((radio) => radio.name));
 
-        // All should have the same name
+        // RadioGroupItem radios use "appearance", Radio radios use "theme"
         const uniqueNames = [...new Set(names)];
-        expect(uniqueNames).toHaveLength(1);
-        expect(uniqueNames[0]).toBe("appearance");
+        expect(uniqueNames).toHaveLength(2);
+        expect(uniqueNames.sort()).toEqual(["appearance", "theme"]);
     });
 });

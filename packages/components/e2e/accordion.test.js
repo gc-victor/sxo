@@ -2,12 +2,12 @@ import { expect, test } from "@playwright/test";
 
 test.describe("Accordion", () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto("/");
-        await page.waitForSelector("#accordion", { state: "visible" });
+        await page.goto("/components/accordion");
+        await page.waitForSelector("main", { state: "visible" });
     });
 
     test("should display accordion sections", async ({ page }) => {
-        const accordionSection = page.locator("#accordion");
+        const accordionSection = page.locator("main");
 
         // Check that details elements exist (accordion items)
         const details = accordionSection.locator("details");
@@ -23,7 +23,7 @@ test.describe("Accordion", () => {
     });
 
     test("should have correct header text", async ({ page }) => {
-        const accordionSection = page.locator("#accordion");
+        const accordionSection = page.locator("main");
 
         // Check the three accordion headers
         await expect(accordionSection.locator("h2").filter({ hasText: "Is it accessible?" })).toBeVisible();
@@ -32,7 +32,7 @@ test.describe("Accordion", () => {
     });
 
     test("should toggle accordion content", async ({ page }) => {
-        const accordionSection = page.locator("#accordion");
+        const accordionSection = page.locator("main");
         const firstDetails = accordionSection.locator("details").first();
         const firstSummary = firstDetails.locator("summary");
 
@@ -52,7 +52,7 @@ test.describe("Accordion", () => {
     });
 
     test("should close other items when opening single-type accordion", async ({ page }) => {
-        const accordionSection = page.locator("#accordion");
+        const accordionSection = page.locator("main");
 
         // Get all details elements
         const details = accordionSection.locator("details");
@@ -84,7 +84,7 @@ test.describe("Accordion", () => {
     });
 
     test("should allow multiple items open in multiple-type accordion", async ({ page }) => {
-        const accordionSection = page.locator("#accordion");
+        const accordionSection = page.locator("main");
 
         // Check if there's a multiple-type accordion in the section
         const multipleAccordion = accordionSection.locator("[type='multiple']");
@@ -118,7 +118,7 @@ test.describe("Accordion", () => {
     });
 
     test("should hide chevron icon when hideIcon is true", async ({ page }) => {
-        const accordionSection = page.locator("#accordion");
+        const accordionSection = page.locator("main");
 
         // Look for accordion headers without chevron icons
         // This assumes there's an accordion item with hideIcon={true} in the section
@@ -134,7 +134,7 @@ test.describe("Accordion", () => {
     });
 
     test("should maintain only one item open in single-type accordion", async ({ page }) => {
-        const accordionSection = page.locator("#accordion");
+        const accordionSection = page.locator("main");
         // Only target the single-type accordion (first 3 items)
         const details = accordionSection.locator("details");
         const singleCount = await details.count();
@@ -158,7 +158,7 @@ test.describe("Accordion", () => {
     });
 
     test("should display correct content for each section", async ({ page }) => {
-        const accordionSection = page.locator("#accordion");
+        const accordionSection = page.locator("main");
 
         // Check first section content
         const firstSection = accordionSection.locator("details").first().locator("section");
@@ -174,7 +174,7 @@ test.describe("Accordion", () => {
     });
 
     test("should show chevron icons", async ({ page }) => {
-        const accordionSection = page.locator("#accordion");
+        const accordionSection = page.locator("main");
 
         // Check that chevron icons exist (3 from single accordion + 1 from multiple accordion's first item)
         const chevrons = accordionSection.locator("svg use[href='#icon-chevron-down']");

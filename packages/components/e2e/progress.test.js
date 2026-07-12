@@ -2,12 +2,12 @@ import { expect, test } from "@playwright/test";
 
 test.describe("Progress", () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto("/");
-        await page.waitForSelector("#progress", { state: "visible" });
+        await page.goto("/components/progress");
+        await page.waitForSelector("main", { state: "visible" });
     });
 
     test("should display determinate progress bar", async ({ page }) => {
-        const section = page.locator("#progress");
+        const section = page.locator("main");
         const preview = section.locator('[data-name="preview"]');
 
         // Check progress element exists
@@ -20,7 +20,7 @@ test.describe("Progress", () => {
     });
 
     test("should display indeterminate progress bar", async ({ page }) => {
-        const section = page.locator("#progress");
+        const section = page.locator("main");
         const preview = section.locator('[data-name="preview"]');
 
         // Check indeterminate variant (no value attribute)
@@ -30,7 +30,7 @@ test.describe("Progress", () => {
     });
 
     test("should display custom max progress bar", async ({ page }) => {
-        const section = page.locator("#progress");
+        const section = page.locator("main");
         const preview = section.locator('[data-name="preview"]');
 
         // Check progress with custom max

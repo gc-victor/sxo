@@ -2,12 +2,12 @@ import { expect, test } from "@playwright/test";
 
 test.describe("Input", () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto("/");
-        await page.waitForSelector("#input", { state: "visible" });
+        await page.goto("/components/input");
+        await page.waitForSelector("main", { state: "visible" });
     });
 
     test("should display all input types", async ({ page }) => {
-        const inputSection = page.locator("#input");
+        const inputSection = page.locator("main");
 
         // Check text input
         await expect(inputSection.locator("input[type='text']")).toBeVisible();

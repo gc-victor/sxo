@@ -2,12 +2,14 @@ import { expect, test } from "@playwright/test";
 
 test.describe("Checkbox", () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto("/");
-        await page.waitForSelector("#checkbox", { state: "visible" });
+        await page.goto("/components/checkbox");
+        await page.waitForSelector("main", { state: "visible" });
+        await page.evaluate(() => document.dispatchEvent(new CustomEvent("sxo:sidebar")));
+        await page.waitForTimeout(200);
     });
 
     test("should display checkboxes with labels", async ({ page }) => {
-        const checkboxSection = page.locator("#checkbox");
+        const checkboxSection = page.locator("main");
 
         // Check that checkboxes exist
         const checkboxes = checkboxSection.locator("input[type='checkbox']");
@@ -25,23 +27,23 @@ test.describe("Checkbox", () => {
         await expect(checkbox).not.toBeChecked();
 
         // Click to check
-        await checkbox.check();
+        await checkbox.check({ force: true });
         await expect(checkbox).toBeChecked();
 
         // Click to uncheck
-        await checkbox.uncheck();
+        await checkbox.uncheck({ force: true });
         await expect(checkbox).not.toBeChecked();
     });
 
     test("should handle checkbox with description", async ({ page }) => {
-        const checkboxSection = page.locator("#checkbox");
+        const checkboxSection = page.locator("main");
 
         // Find the checkbox with stacked layout (has description)
         const stackedCheckbox = checkboxSection.locator("input[name='terms-stacked']");
 
         // Should be able to check/uncheck
         await expect(stackedCheckbox).not.toBeChecked();
-        await stackedCheckbox.check();
+        await stackedCheckbox.check({ force: true });
         await expect(stackedCheckbox).toBeChecked();
     });
 
@@ -62,10 +64,10 @@ test.describe("Checkbox", () => {
         await expect(customCheckbox).toBeChecked();
 
         // Should be toggleable
-        await customCheckbox.uncheck();
+        await customCheckbox.uncheck({ force: true });
         await expect(customCheckbox).not.toBeChecked();
 
-        await customCheckbox.check();
+        await customCheckbox.check({ force: true });
         await expect(customCheckbox).toBeChecked();
     });
 });

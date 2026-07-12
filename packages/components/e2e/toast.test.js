@@ -2,12 +2,12 @@ import { expect, test } from "@playwright/test";
 
 test.describe("Toast", () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto("/");
-        await page.waitForSelector("#toast", { state: "visible" });
+        await page.goto("/components/toast");
+        await page.waitForSelector("main", { state: "visible" });
     });
 
     test("should display toast trigger buttons", async ({ page }) => {
-        const toastSection = page.locator("#toast");
+        const toastSection = page.locator("main");
 
         // Check buttons exist
         await expect(toastSection.locator("button").filter({ hasText: "Top-Right" })).toBeVisible();
@@ -17,7 +17,7 @@ test.describe("Toast", () => {
     });
 
     test("should display toaster containers", async ({ page }) => {
-        const toastSection = page.locator("#toast");
+        const toastSection = page.locator("main");
 
         // Check toaster elements exist
         const toasters = toastSection.locator(".toaster");

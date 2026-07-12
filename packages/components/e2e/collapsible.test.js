@@ -9,12 +9,12 @@ import { expect, test } from "@playwright/test";
 
 test.describe("Collapsible", () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto("/");
-        await page.waitForSelector("#collapsible", { state: "visible" });
+        await page.goto("/components/collapsible");
+        await page.waitForSelector("main", { state: "visible" });
     });
 
     test("should render trigger buttons", async ({ page }) => {
-        const section = page.locator("#collapsible");
+        const section = page.locator("main");
 
         // Check trigger buttons exist
         const trigger = section.locator("button").filter({ hasText: "Toggle Content" });
@@ -25,7 +25,7 @@ test.describe("Collapsible", () => {
     });
 
     test("should have content hidden by default", async ({ page }) => {
-        const section = page.locator("#collapsible");
+        const section = page.locator("main");
 
         // The default collapsible should have hidden content
         const content = section.locator(".collapsible-content").first();
@@ -33,7 +33,7 @@ test.describe("Collapsible", () => {
     });
 
     test("should show content when toggled", async ({ page }) => {
-        const section = page.locator("#collapsible");
+        const section = page.locator("main");
 
         // Click the "Toggle Content" trigger
         const trigger = section.locator("button").filter({ hasText: "Toggle Content" });
@@ -46,7 +46,7 @@ test.describe("Collapsible", () => {
     });
 
     test("should hide content when toggled again", async ({ page }) => {
-        const section = page.locator("#collapsible");
+        const section = page.locator("main");
 
         // Click the "Toggle Content" trigger twice
         const trigger = section.locator("button").filter({ hasText: "Toggle Content" });
@@ -61,7 +61,7 @@ test.describe("Collapsible", () => {
     });
 
     test("should toggle aria-expanded attribute", async ({ page }) => {
-        const section = page.locator("#collapsible");
+        const section = page.locator("main");
 
         // Check initial state
         const trigger = section.locator("button").filter({ hasText: "Toggle Content" });
@@ -79,7 +79,7 @@ test.describe("Collapsible", () => {
     });
 
     test("should start open when defaultOpen is true", async ({ page }) => {
-        const section = page.locator("#collapsible");
+        const section = page.locator("main");
 
         // The "Start Open" collapsible should have visible content
         const content = section.locator(".collapsible-content").last();

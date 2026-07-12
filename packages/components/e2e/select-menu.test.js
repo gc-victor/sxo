@@ -2,12 +2,14 @@ import { expect, test } from "@playwright/test";
 
 test.describe("Select Menu", () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto("/");
-        await page.waitForSelector("#select-menu", { state: "visible" });
+        await page.goto("/components/select-menu");
+        await page.waitForSelector("main", { state: "visible" });
+        await page.evaluate(() => document.dispatchEvent(new CustomEvent("sxo:sidebar")));
+        await page.waitForTimeout(200);
     });
 
     test("should display select menu structure", async ({ page }) => {
-        const selectMenuSection = page.locator("#select-menu");
+        const selectMenuSection = page.locator("main");
 
         // Check trigger button
         const trigger = selectMenuSection.locator("button[aria-haspopup='listbox']");
@@ -37,7 +39,7 @@ test.describe("Select Menu", () => {
     });
 
     test("should display search input and groups", async ({ page }) => {
-        const selectMenuSection = page.locator("#select-menu");
+        const selectMenuSection = page.locator("main");
 
         // Check search input
         const searchInput = selectMenuSection.locator("input[type='text']");
@@ -57,7 +59,7 @@ test.describe("Select Menu", () => {
     });
 
     test("should filter options when typing in search input", async ({ page }) => {
-        const selectMenuSection = page.locator("#select-menu");
+        const selectMenuSection = page.locator("main");
 
         // Open the select menu
         const trigger = selectMenuSection.locator("button[aria-haspopup='listbox']");
@@ -93,7 +95,7 @@ test.describe("Select Menu", () => {
     });
 
     test("should open select via trigger click", async ({ page }) => {
-        const selectMenuSection = page.locator("#select-menu");
+        const selectMenuSection = page.locator("main");
         const trigger = selectMenuSection.locator("button[aria-haspopup='listbox']");
         const popover = selectMenuSection.locator("[data-popover]");
 
@@ -111,7 +113,7 @@ test.describe("Select Menu", () => {
     });
 
     test("should select options via click", async ({ page }) => {
-        const selectMenuSection = page.locator("#select-menu");
+        const selectMenuSection = page.locator("main");
         const trigger = selectMenuSection.locator("button[aria-haspopup='listbox']");
 
         // Open select
@@ -133,7 +135,7 @@ test.describe("Select Menu", () => {
     });
 
     test("should navigate with arrow keys", async ({ page }) => {
-        const selectMenuSection = page.locator("#select-menu");
+        const selectMenuSection = page.locator("main");
         const trigger = selectMenuSection.locator("button[aria-haspopup='listbox']");
 
         // Open select
@@ -158,7 +160,7 @@ test.describe("Select Menu", () => {
     });
 
     test("should navigate with Home/End keys", async ({ page }) => {
-        const selectMenuSection = page.locator("#select-menu");
+        const selectMenuSection = page.locator("main");
         const trigger = selectMenuSection.locator("button[aria-haspopup='listbox']");
 
         // Open select
@@ -181,7 +183,7 @@ test.describe("Select Menu", () => {
     });
 
     test("should select option with Enter key", async ({ page }) => {
-        const selectMenuSection = page.locator("#select-menu");
+        const selectMenuSection = page.locator("main");
         const trigger = selectMenuSection.locator("button[aria-haspopup='listbox']");
 
         // Open select
@@ -202,7 +204,7 @@ test.describe("Select Menu", () => {
     });
 
     test("should close on Escape key", async ({ page }) => {
-        const selectMenuSection = page.locator("#select-menu");
+        const selectMenuSection = page.locator("main");
         const trigger = selectMenuSection.locator("button[aria-haspopup='listbox']");
         const popover = selectMenuSection.locator("[data-popover]");
 
@@ -221,7 +223,7 @@ test.describe("Select Menu", () => {
     });
 
     test("should close on click outside", async ({ page }) => {
-        const selectMenuSection = page.locator("#select-menu");
+        const selectMenuSection = page.locator("main");
         const trigger = selectMenuSection.locator("button[aria-haspopup='listbox']");
         const popover = selectMenuSection.locator("[data-popover]");
 
@@ -240,7 +242,7 @@ test.describe("Select Menu", () => {
     });
 
     test("should emit change event on selection", async ({ page }) => {
-        const selectMenuSection = page.locator("#select-menu");
+        const selectMenuSection = page.locator("main");
         const trigger = selectMenuSection.locator("button[aria-haspopup='listbox']");
 
         // Listen for change event
@@ -272,7 +274,7 @@ test.describe("Select Menu", () => {
     });
 
     test("should filter options with keyboard input", async ({ page }) => {
-        const selectMenuSection = page.locator("#select-menu");
+        const selectMenuSection = page.locator("main");
         const trigger = selectMenuSection.locator("button[aria-haspopup='listbox']");
 
         // Open select
@@ -296,7 +298,7 @@ test.describe("Select Menu", () => {
     });
 
     test("should maintain correct ARIA attributes during interaction", async ({ page }) => {
-        const selectMenuSection = page.locator("#select-menu");
+        const selectMenuSection = page.locator("main");
         const trigger = selectMenuSection.locator("button[aria-haspopup='listbox']");
         const popover = selectMenuSection.locator("[data-popover]");
         const _options = selectMenuSection.locator("[role='option']");

@@ -2,12 +2,12 @@ import { expect, test } from "@playwright/test";
 
 test.describe("Label", () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto("/");
-        await page.waitForSelector("#label", { state: "visible" });
+        await page.goto("/components/label");
+        await page.waitForSelector("main", { state: "visible" });
     });
 
     test("should display label components", async ({ page }) => {
-        const labelSection = page.locator("#label");
+        const labelSection = page.locator("main");
         const preview = labelSection.locator('[data-name="preview"]');
 
         // Check label elements
@@ -35,7 +35,7 @@ test.describe("Label", () => {
     });
 
     test("should display label text content", async ({ page }) => {
-        const labelSection = page.locator("#label");
+        const labelSection = page.locator("main");
         const preview = labelSection.locator('[data-name="preview"]');
 
         // Check label texts

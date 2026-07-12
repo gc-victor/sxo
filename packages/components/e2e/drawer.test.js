@@ -9,12 +9,12 @@ import { expect, test } from "@playwright/test";
 
 test.describe("Drawer", () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto("/");
-        await page.waitForSelector("#drawer", { state: "visible" });
+        await page.goto("/components/drawer");
+        await page.waitForSelector("main", { state: "visible" });
     });
 
     test("should render trigger buttons", async ({ page }) => {
-        const section = page.locator("#drawer");
+        const section = page.locator("main");
 
         // Check trigger buttons exist
         const leftTrigger = section.locator("button").filter({ hasText: "Open Left" });
@@ -25,7 +25,7 @@ test.describe("Drawer", () => {
     });
 
     test("should open drawer on trigger click", async ({ page }) => {
-        const section = page.locator("#drawer");
+        const section = page.locator("main");
 
         // Click the "Open Right" trigger
         const trigger = section.locator("button").filter({ hasText: "Open Right" });
@@ -38,7 +38,7 @@ test.describe("Drawer", () => {
     });
 
     test("should close drawer via close button", async ({ page }) => {
-        const section = page.locator("#drawer");
+        const section = page.locator("main");
 
         // Open the drawer via click
         const trigger = section.locator("button").filter({ hasText: "Open Right" });
@@ -59,7 +59,7 @@ test.describe("Drawer", () => {
     });
 
     test("should close drawer on Escape", async ({ page }) => {
-        const section = page.locator("#drawer");
+        const section = page.locator("main");
 
         // Open the drawer
         const trigger = section.locator("button").filter({ hasText: "Open Right" });
@@ -76,7 +76,7 @@ test.describe("Drawer", () => {
     });
 
     test("should render left-side drawer", async ({ page }) => {
-        const section = page.locator("#drawer");
+        const section = page.locator("main");
 
         // Click the "Open Left" trigger
         const trigger = section.locator("button").filter({ hasText: "Open Left" });
@@ -89,7 +89,7 @@ test.describe("Drawer", () => {
     });
 
     test("should lock body scroll when open", async ({ page }) => {
-        const section = page.locator("#drawer");
+        const section = page.locator("main");
 
         // Open the drawer
         const trigger = section.locator("button").filter({ hasText: "Open Right" });

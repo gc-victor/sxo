@@ -2,12 +2,12 @@ import { expect, test } from "@playwright/test";
 
 test.describe("Badge", () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto("/");
-        await page.waitForSelector("#badge", { state: "visible" });
+        await page.goto("/components/badge");
+        await page.waitForSelector("main", { state: "visible" });
     });
 
     test("should display all badge variants", async ({ page }) => {
-        const badgeSection = page.locator("#badge");
+        const badgeSection = page.locator("main");
         const preview = badgeSection.locator('[data-name="preview"]');
 
         // Check that badges exist
@@ -22,7 +22,7 @@ test.describe("Badge", () => {
     });
 
     test("should display badge with icon", async ({ page }) => {
-        const badgeSection = page.locator("#badge");
+        const badgeSection = page.locator("main");
         const preview = badgeSection.locator('[data-name="preview"]');
 
         // Check badge with outline variant and arrow icon (the one containing SVG)
@@ -34,7 +34,7 @@ test.describe("Badge", () => {
     });
 
     test("should display numeric badges", async ({ page }) => {
-        const badgeSection = page.locator("#badge");
+        const badgeSection = page.locator("main");
         const preview = badgeSection.locator('[data-name="preview"]');
 
         // Check numeric badges
@@ -43,7 +43,7 @@ test.describe("Badge", () => {
     });
 
     test("should have rounded full class for numeric badges", async ({ page }) => {
-        const badgeSection = page.locator("#badge");
+        const badgeSection = page.locator("main");
         const preview = badgeSection.locator('[data-name="preview"]');
 
         // Numeric badges should have rounded-full class

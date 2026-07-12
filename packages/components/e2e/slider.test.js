@@ -2,15 +2,15 @@ import { expect, test } from "@playwright/test";
 
 test.describe("Slider", () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto("/");
-        await page.waitForSelector("#slider", { state: "visible" });
+        await page.goto("/components/slider");
+        await page.waitForSelector("main", { state: "visible" });
     });
 
     test("should display slider component", async ({ page }) => {
-        const sliderSection = page.locator("#slider");
+        const sliderSection = page.locator("main");
 
-        // Check that slider input exists
-        const slider = sliderSection.locator("input[type='range']");
+        // Check that slider input exists (first range in main)
+        const slider = sliderSection.locator("#slider-demo");
         await expect(slider).toBeVisible();
 
         // Check attributes

@@ -2,12 +2,12 @@ import { expect, test } from "@playwright/test";
 
 test.describe("Breadcrumb", () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto("/");
-        await page.waitForSelector("#breadcrumb", { state: "visible" });
+        await page.goto("/components/breadcrumb");
+        await page.waitForSelector("main", { state: "visible" });
     });
 
     test("should display breadcrumb navigation", async ({ page }) => {
-        const breadcrumbSection = page.locator("#breadcrumb");
+        const breadcrumbSection = page.locator("main");
         const preview = breadcrumbSection.locator('[data-name="preview"]');
 
         // Check breadcrumb list

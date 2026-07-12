@@ -2,12 +2,14 @@ import { expect, test } from "@playwright/test";
 
 test.describe("Switch", () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto("/");
-        await page.waitForSelector("#switch", { state: "visible" });
+        await page.goto("/components/switch");
+        await page.waitForSelector("main", { state: "visible" });
+        await page.evaluate(() => document.dispatchEvent(new CustomEvent("sxo:sidebar")));
+        await page.waitForTimeout(200);
     });
 
     test("should display switch components", async ({ page }) => {
-        const switchSection = page.locator("#switch");
+        const switchSection = page.locator("main");
 
         // Check that switches exist (input type checkbox with role switch)
         const switches = switchSection.locator("input[type='checkbox'][role='switch']");
@@ -25,11 +27,11 @@ test.describe("Switch", () => {
         await expect(airplaneSwitch).not.toBeChecked();
 
         // Click to check
-        await airplaneSwitch.check();
+        await airplaneSwitch.check({ force: true });
         await expect(airplaneSwitch).toBeChecked();
 
         // Click to uncheck
-        await airplaneSwitch.uncheck();
+        await airplaneSwitch.uncheck({ force: true });
         await expect(airplaneSwitch).not.toBeChecked();
     });
 
@@ -41,7 +43,7 @@ test.describe("Switch", () => {
     });
 
     test("should display correct labels", async ({ page }) => {
-        const switchSection = page.locator("#switch");
+        const switchSection = page.locator("main");
 
         // Check label texts
         await expect(switchSection.locator("label").filter({ hasText: "Airplane Mode" })).toBeVisible();

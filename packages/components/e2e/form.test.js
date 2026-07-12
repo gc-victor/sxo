@@ -2,12 +2,12 @@ import { expect, test } from "@playwright/test";
 
 test.describe("Form", () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto("/");
-        await page.waitForSelector("#form", { state: "visible" });
+        await page.goto("/components/form");
+        await page.waitForSelector("main", { state: "visible" });
     });
 
     test("should display form elements", async ({ page }) => {
-        const formSection = page.locator("#form");
+        const formSection = page.locator("main");
 
         // Check form wrapper
         const form = formSection.locator("form");
@@ -39,7 +39,7 @@ test.describe("Form", () => {
     });
 
     test("should display form labels and descriptions", async ({ page }) => {
-        const formSection = page.locator("#form");
+        const formSection = page.locator("main");
 
         // Check labels
         const labels = formSection.locator("label");

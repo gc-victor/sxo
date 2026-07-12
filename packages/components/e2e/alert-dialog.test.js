@@ -2,12 +2,12 @@ import { expect, test } from "@playwright/test";
 
 test.describe("Alert Dialog", () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto("/");
-        await page.waitForSelector("#alert-dialog", { state: "visible" });
+        await page.goto("/components/alert-dialog");
+        await page.waitForSelector("main", { state: "visible" });
     });
 
     test("should display alert dialog structure", async ({ page }) => {
-        const alertDialogSection = page.locator("#alert-dialog");
+        const alertDialogSection = page.locator("main");
 
         // Check trigger button
         const trigger = alertDialogSection.locator("button").filter({ hasText: "Open dialog" });
@@ -27,7 +27,7 @@ test.describe("Alert Dialog", () => {
     });
 
     test("should open alert dialog via trigger button click", async ({ page }) => {
-        const alertDialogSection = page.locator("#alert-dialog");
+        const alertDialogSection = page.locator("main");
 
         // Click the trigger button
         const trigger = alertDialogSection.locator("button").filter({ hasText: "Open dialog" });
@@ -47,7 +47,7 @@ test.describe("Alert Dialog", () => {
     });
 
     test("should close alert dialog via cancel button", async ({ page }) => {
-        const alertDialogSection = page.locator("#alert-dialog");
+        const alertDialogSection = page.locator("main");
 
         // Open the dialog
         const trigger = alertDialogSection.locator("button").filter({ hasText: "Open dialog" });
@@ -68,7 +68,7 @@ test.describe("Alert Dialog", () => {
     });
 
     test("should keep alert dialog open when continue button is clicked", async ({ page }) => {
-        const alertDialogSection = page.locator("#alert-dialog");
+        const alertDialogSection = page.locator("main");
 
         // Open the dialog
         const trigger = alertDialogSection.locator("button").filter({ hasText: "Open dialog" });
@@ -89,7 +89,7 @@ test.describe("Alert Dialog", () => {
     });
 
     test("should have correct ARIA roles and accessibility attributes", async ({ page }) => {
-        const alertDialogSection = page.locator("#alert-dialog");
+        const alertDialogSection = page.locator("main");
 
         // Open the dialog
         const trigger = alertDialogSection.locator("button").filter({ hasText: "Open dialog" });

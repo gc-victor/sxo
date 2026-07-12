@@ -2,12 +2,12 @@ import { expect, test } from "@playwright/test";
 
 test.describe("Alert", () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto("/");
-        await page.waitForSelector("#alert", { state: "visible" });
+        await page.goto("/components/alert");
+        await page.waitForSelector("main", { state: "visible" });
     });
 
     test("should display all alert variants", async ({ page }) => {
-        const alertSection = page.locator("#alert");
+        const alertSection = page.locator("main");
 
         // Check that alerts exist (role="alert")
         const alerts = alertSection.locator("[role='alert']");
@@ -15,7 +15,7 @@ test.describe("Alert", () => {
     });
 
     test("should display alert with only title", async ({ page }) => {
-        const alertSection = page.locator("#alert");
+        const alertSection = page.locator("main");
 
         // Find alert with only title
         const titleOnlyAlert = alertSection.locator("[role='alert']").first();
@@ -23,7 +23,7 @@ test.describe("Alert", () => {
     });
 
     test("should display alert with icon and description", async ({ page }) => {
-        const alertSection = page.locator("#alert");
+        const alertSection = page.locator("main");
 
         // Find alert with icon and description (second alert)
         const iconAlert = alertSection.locator("[role='alert']").nth(1);
@@ -36,7 +36,7 @@ test.describe("Alert", () => {
     });
 
     test("should display alert with icon, title and description", async ({ page }) => {
-        const alertSection = page.locator("#alert");
+        const alertSection = page.locator("main");
 
         // Find alert with icon, title and description (third alert)
         const fullAlert = alertSection.locator("[role='alert']").nth(2);
@@ -52,7 +52,7 @@ test.describe("Alert", () => {
     });
 
     test("should display colored alerts", async ({ page }) => {
-        const alertSection = page.locator("#alert");
+        const alertSection = page.locator("main");
 
         // Find sky colored alert
         const skyAlert = alertSection.locator("[role='alert']").nth(3);
@@ -72,7 +72,7 @@ test.describe("Alert", () => {
     });
 
     test("should display alert with list content", async ({ page }) => {
-        const alertSection = page.locator("#alert");
+        const alertSection = page.locator("main");
 
         // Find error alert with list
         const errorAlert = alertSection.locator("[role='alert']").nth(5);
@@ -88,7 +88,7 @@ test.describe("Alert", () => {
     });
 
     test("should support role override to status", async ({ page }) => {
-        const alertSection = page.locator("#alert");
+        const alertSection = page.locator("main");
 
         // This assumes there's an alert with role="status" in the section
         const statusAlert = alertSection.locator("[role='status']");

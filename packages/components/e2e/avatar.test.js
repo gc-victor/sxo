@@ -2,12 +2,12 @@ import { expect, test } from "@playwright/test";
 
 test.describe("Avatar", () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto("/");
-        await page.waitForSelector("#avatar", { state: "visible" });
+        await page.goto("/components/avatar");
+        await page.waitForSelector("main", { state: "visible" });
     });
 
     test("should display avatar components", async ({ page }) => {
-        const avatarSection = page.locator("#avatar");
+        const avatarSection = page.locator("main");
 
         // Check that avatars exist (span with avatar class)
         const avatars = avatarSection.locator("span.avatar");
@@ -15,7 +15,7 @@ test.describe("Avatar", () => {
     });
 
     test("should display avatar with image", async ({ page }) => {
-        const avatarSection = page.locator("#avatar");
+        const avatarSection = page.locator("main");
 
         // Find avatar with image
         const imageAvatar = avatarSection.locator("span.avatar").first();
@@ -29,7 +29,7 @@ test.describe("Avatar", () => {
     });
 
     test("should display avatar with fallback text", async ({ page }) => {
-        const avatarSection = page.locator("#avatar");
+        const avatarSection = page.locator("main");
 
         // Find avatar with text fallback
         const textAvatar = avatarSection.locator("span.avatar").nth(1);
@@ -40,7 +40,7 @@ test.describe("Avatar", () => {
     });
 
     test("should display different avatar shapes", async ({ page }) => {
-        const avatarSection = page.locator("#avatar");
+        const avatarSection = page.locator("main");
 
         // Check rounded full avatar
         const roundedFullAvatar = avatarSection.locator("span.avatar").nth(1);
@@ -52,7 +52,7 @@ test.describe("Avatar", () => {
     });
 
     test("should display avatar group", async ({ page }) => {
-        const avatarSection = page.locator("#avatar");
+        const avatarSection = page.locator("main");
 
         // Find first avatar group
         const avatarGroup = avatarSection.locator("div.avatar-group").first();
@@ -66,7 +66,7 @@ test.describe("Avatar", () => {
     });
 
     test("should have proper spacing in avatar group", async ({ page }) => {
-        const avatarSection = page.locator("#avatar");
+        const avatarSection = page.locator("main");
 
         // Avatar group should have negative space-x class
         const avatarGroup = avatarSection.locator("div.avatar-group").first();
@@ -74,7 +74,7 @@ test.describe("Avatar", () => {
     });
 
     test("should apply size token classes correctly", async ({ page }) => {
-        const avatarSection = page.locator("#avatar");
+        const avatarSection = page.locator("main");
 
         // Check size tokens: xs → size-6, lg → size-12
         const xsAvatar = avatarSection.locator("span.avatar.size-6");
@@ -93,7 +93,7 @@ test.describe("Avatar", () => {
     });
 
     test("should prioritize fallback text correctly", async ({ page }) => {
-        const avatarSection = page.locator("#avatar");
+        const avatarSection = page.locator("main");
 
         // This assumes there are avatars demonstrating fallback priority: initials > name > alt
         const initialsAvatar = avatarSection.locator("span.avatar span").filter({ hasText: /^[A-Z]{1,2}$/ }); // Initials

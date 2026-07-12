@@ -2,8 +2,8 @@ import { expect, test } from "@playwright/test";
 
 test.describe("Command", () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto("/");
-        await page.waitForSelector("#command", { state: "visible" });
+        await page.goto("/components/command");
+        await page.waitForSelector("main", { state: "visible" });
 
         // Wait for both <el-command> enhancements to initialize.
         // The eager import fires on window.load, so this waits for that.

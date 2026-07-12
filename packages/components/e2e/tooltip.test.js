@@ -2,12 +2,12 @@ import { expect, test } from "@playwright/test";
 
 test.describe("Tooltip", () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto("/");
-        await page.waitForSelector("#tooltip", { state: "visible" });
+        await page.goto("/components/tooltip");
+        await page.waitForSelector("main", { state: "visible" });
     });
 
     test("should display tooltip buttons", async ({ page }) => {
-        const tooltipSection = page.locator("#tooltip");
+        const tooltipSection = page.locator("main");
         const preview = tooltipSection.locator('[data-name="preview"]');
 
         // Check tooltip buttons exist
@@ -22,7 +22,7 @@ test.describe("Tooltip", () => {
     });
 
     test("should display tooltip content elements", async ({ page }) => {
-        const tooltipSection = page.locator("#tooltip");
+        const tooltipSection = page.locator("main");
         const preview = tooltipSection.locator('[data-name="preview"]');
 
         // Check tooltip content elements exist

@@ -2,12 +2,14 @@ import { expect, test } from "@playwright/test";
 
 test.describe("Popover", () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto("/");
-        await page.waitForSelector("#popover", { state: "visible" });
+        await page.goto("/components/popover");
+        await page.waitForSelector("main", { state: "visible" });
+        await page.evaluate(() => document.dispatchEvent(new CustomEvent("sxo:sidebar")));
+        await page.waitForTimeout(200);
     });
 
     test("should display popover structure", async ({ page }) => {
-        const popoverSection = page.locator("#popover");
+        const popoverSection = page.locator("main");
 
         // Check trigger button
         const trigger = popoverSection.locator("button").filter({ hasText: "Open popover" });
@@ -22,7 +24,7 @@ test.describe("Popover", () => {
     });
 
     test("should display popover with form inputs", async ({ page }) => {
-        const _popoverSection = page.locator("#popover");
+        const _popoverSection = page.locator("main");
 
         const content = page.locator("#popover-dimensions-panel");
 
@@ -37,7 +39,7 @@ test.describe("Popover", () => {
     });
 
     test("should open popover via trigger button click", async ({ page }) => {
-        const popoverSection = page.locator("#popover");
+        const popoverSection = page.locator("main");
         const trigger = popoverSection.locator("button").filter({ hasText: "Open popover" });
         const content = page.locator("#popover-dimensions-panel");
 
@@ -53,7 +55,7 @@ test.describe("Popover", () => {
     });
 
     test("should close popover on click outside", async ({ page }) => {
-        const popoverSection = page.locator("#popover");
+        const popoverSection = page.locator("main");
         const trigger = popoverSection.locator("button").filter({ hasText: "Open popover" });
         const content = page.locator("#popover-dimensions-panel");
 
@@ -71,7 +73,7 @@ test.describe("Popover", () => {
     });
 
     test("should close popover on Escape key", async ({ page }) => {
-        const popoverSection = page.locator("#popover");
+        const popoverSection = page.locator("main");
         const trigger = popoverSection.locator("button").filter({ hasText: "Open popover" });
         const content = page.locator("#popover-dimensions-panel");
 
@@ -89,7 +91,7 @@ test.describe("Popover", () => {
     });
 
     test("should focus first input when opened", async ({ page }) => {
-        const popoverSection = page.locator("#popover");
+        const popoverSection = page.locator("main");
         const trigger = popoverSection.locator("button").filter({ hasText: "Open popover" });
 
         // Open popover
@@ -102,7 +104,7 @@ test.describe("Popover", () => {
     });
 
     test("should restore focus to trigger when closed", async ({ page }) => {
-        const popoverSection = page.locator("#popover");
+        const popoverSection = page.locator("main");
         const trigger = popoverSection.locator("button").filter({ hasText: "Open popover" });
         const _content = page.locator("#popover-dimensions-panel");
 
@@ -119,7 +121,7 @@ test.describe("Popover", () => {
     });
 
     test("should navigate with Tab key", async ({ page }) => {
-        const popoverSection = page.locator("#popover");
+        const popoverSection = page.locator("main");
         const trigger = popoverSection.locator("button").filter({ hasText: "Open popover" });
 
         // Open popover
@@ -140,7 +142,7 @@ test.describe("Popover", () => {
     });
 
     test("should have correct ARIA attributes", async ({ page }) => {
-        const popoverSection = page.locator("#popover");
+        const popoverSection = page.locator("main");
         const trigger = popoverSection.locator("button").filter({ hasText: "Open popover" });
         const content = page.locator("#popover-dimensions-panel");
 

@@ -2,12 +2,12 @@ import { expect, test } from "@playwright/test";
 
 test.describe("Combobox", () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto("/");
-        await page.waitForSelector("#combobox", { state: "visible" });
+        await page.goto("/components/combobox");
+        await page.waitForSelector("main", { state: "visible" });
     });
 
     test("should open dropdown on focus", async ({ page }) => {
-        const section = page.locator("#combobox");
+        const section = page.locator("main");
         const preview = section.locator('[data-name="preview"]');
 
         // Click the input to trigger lazy load + open
@@ -21,7 +21,7 @@ test.describe("Combobox", () => {
     });
 
     test("should filter options as user types", async ({ page }) => {
-        const section = page.locator("#combobox");
+        const section = page.locator("main");
         const preview = section.locator('[data-name="preview"]');
 
         // Click to open
@@ -38,7 +38,7 @@ test.describe("Combobox", () => {
     });
 
     test("should select option on click", async ({ page }) => {
-        const section = page.locator("#combobox");
+        const section = page.locator("main");
         const preview = section.locator('[data-name="preview"]');
 
         // Click input to open
@@ -56,7 +56,7 @@ test.describe("Combobox", () => {
     });
 
     test("should close dropdown when selecting an option", async ({ page }) => {
-        const section = page.locator("#combobox");
+        const section = page.locator("main");
         const preview = section.locator('[data-name="preview"]');
 
         // Click to open
@@ -78,7 +78,7 @@ test.describe("Combobox", () => {
     });
 
     test("should show no-results when nothing matches", async ({ page }) => {
-        const section = page.locator("#combobox");
+        const section = page.locator("main");
         const preview = section.locator('[data-name="preview"]');
 
         // Click to open
