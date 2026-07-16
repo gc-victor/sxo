@@ -22,6 +22,9 @@ target
 coverage
 **/global.css
 
+# Local planning documents
+.plans/
+
 # Template lock files (templates use latest published version)
 templates/**/pnpm-lock.yaml
 templates/**/bun.lock
