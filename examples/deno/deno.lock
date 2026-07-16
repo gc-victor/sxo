@@ -1,7 +1,6 @@
 {
   "version": "5",
   "specifiers": {
-    "npm:@qery/reactive-component@0.8": "0.8.0",
     "npm:@types/node@*": "24.2.0"
   },
   "npm": {
@@ -22,13 +21,6 @@
     },
     "undici-types@7.10.0": {
       "integrity": "sha512-t5Fy/nfn+14LuOc2KNYg75vZqClpAiqscVvMygNnlsHBFpSXdJaYtXMcdNLpl/Qvc3P2cB3s6lOV51nqsFq4ag=="
-    }
-  },
-  "workspace": {
-    "packageJson": {
-      "dependencies": [
-        "npm:@qery/reactive-component@0.8"
-      ]
     }
   }
 }
