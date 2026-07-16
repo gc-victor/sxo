@@ -277,11 +277,7 @@ impl JSXVisitor for TemplateTransformer {
                 match super::jsx_transformer(expr) {
                     Ok(nested) => {
                         let nested_trim = nested.trim();
-                        if needs_list_wrapper(expr) {
-                            b.append_child_tpl(&format!("${{__jsxList({})}}", nested_trim));
-                        } else {
-                            b.append_child_tpl(&format!("${{{}}}", nested_trim));
-                        }
+                        b.append_child_tpl(&format!("${{__jsxRender({})}}", nested_trim));
                     }
                     Err(e) => {
                         self.error = Some(e);
@@ -297,16 +293,12 @@ impl JSXVisitor for TemplateTransformer {
 // TemplateBuilder centralizes child assembly and flattens trivial nested templates.
 struct TemplateBuilder {
     out: String,
-    // Reserved for future: track if any array-ish expressions were encountered.
-    #[allow(dead_code)]
-    has_array: bool,
 }
 
 impl TemplateBuilder {
     fn new() -> Self {
         Self {
             out: String::new(),
-            has_array: false,
         }
     }
 
@@ -322,14 +314,10 @@ impl TemplateBuilder {
             self.out.push_str("${");
             self.out.push_str(inner);
             self.out.push('}');
-        } else if needs_list_wrapper(expr) {
-            self.out.push_str("${__jsxList(");
+        } else {
+            self.out.push_str("${__jsxRender(");
             self.out.push_str(expr);
             self.out.push_str(")}");
-        } else {
-            self.out.push_str("${");
-            self.out.push_str(expr);
-            self.out.push('}');
         }
     }
 
@@ -355,125 +343,6 @@ fn is_js_block_comment_only(s: &str) -> bool {
     t.len() >= 4 && t.starts_with("/*") && t.ends_with("*/")
 }
 
-// Scans an expression to determine if it should be wrapped with __jsxList(...).
-// It ignores content inside strings and template literals, and detects calls on
-// array-producing/copying methods (map/flatMap/filter/concat/flat/...).
-#[inline]
-fn needs_list_wrapper(s: &str) -> bool {
-    // Minimal scanner that ignores strings/templates and detects array-producing/copying calls.
-    let mut in_squote = false;
-    let mut in_dquote = false;
-    let mut in_tmpl = false;
-    let mut escape = false;
-
-    let mut iter = s.chars().peekable();
-
-    while let Some(ch) = iter.next() {
-        if escape {
-            escape = false;
-            continue;
-        }
-        match ch {
-            '\\' => {
-                escape = true;
-                continue;
-            }
-            '\'' if !in_dquote && !in_tmpl => {
-                in_squote = !in_squote;
-                continue;
-            }
-            '"' if !in_squote && !in_tmpl => {
-                in_dquote = !in_dquote;
-                continue;
-            }
-            '`' if !in_squote && !in_dquote => {
-                in_tmpl = !in_tmpl;
-                continue;
-            }
-            _ => {}
-        }
-
-        if in_squote || in_dquote || in_tmpl {
-            continue;
-        }
-
-        // Detect ".name" or "?.name"
-        let mut at_property = false;
-        if ch == '.' {
-            at_property = true;
-        } else if ch == '?' {
-            if let Some('.') = iter.peek().copied() {
-                iter.next();
-                at_property = true;
-            }
-        }
-
-        if at_property {
-            // Read identifier: first char [A-Za-z_$], subsequent [A-Za-z0-9_$]
-            let mut name = String::new();
-            if let Some(&c0) = iter.peek() {
-                if c0.is_ascii_alphabetic() || c0 == '_' || c0 == '$' {
-                    name.push(c0);
-                    iter.next();
-                    while let Some(&cn) = iter.peek() {
-                        if cn.is_ascii_alphanumeric() || cn == '_' || cn == '$' {
-                            name.push(cn);
-                            iter.next();
-                        } else {
-                            break;
-                        }
-                    }
-                }
-            }
-
-            // Skip whitespace before call indicator
-            let mut la = iter.clone();
-            while let Some(&c) = la.peek() {
-                if c.is_whitespace() {
-                    la.next();
-                } else {
-                    break;
-                }
-            }
-
-            // Allow "(" or "?.("
-            let is_call = match la.peek().copied() {
-                Some('(') => true,
-                Some('?') => {
-                    la.next();
-                    if let Some('.') = la.peek().copied() {
-                        la.next();
-                        matches!(la.peek().copied(), Some('('))
-                    } else {
-                        false
-                    }
-                }
-                _ => false,
-            };
-
-            if is_call
-                && matches!(
-                    name.as_str(),
-                    // Core sequence builders
-                    "map" | "flatMap" | "filter" |
-                    // Array-producing transforms
-                    "slice" | "concat" | "flat" |
-                    // Modern immutable array-producing
-                    "toReversed" | "toSorted" | "toSpliced" | "with" |
-                    // Mutating but array-returning
-                    "reverse" | "sort" | "splice" | "fill" | "copyWithin" |
-                    // Scalar reducers (kept for compatibility)
-                    "reduce" | "reduceRight" |
-                    // Compatibility: returns undefined but kept for parity
-                    "forEach"
-                )
-            {
-                return true;
-            }
-        }
-    }
-    false
-}
 
 // Returns Some(inner) when input is a backtick template containing only a single interpolation: `${inner}`
 #[inline]

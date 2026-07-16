@@ -1014,14 +1014,14 @@ What it does:
 
 - Streaming parser with error recovery: finds and transforms multiple JSX sections per file, reporting aggregated, caret-aligned diagnostics.
 - Attribute normalization: converts JSX attribute names to HTML-consistent forms (e.g., `className` → `class`, `htmlFor` → `for`, SVG/camelCase to kebab where applicable) and supports spread props.
-- Array-aware output: wraps array-producing expressions (e.g., `map`, `flatMap`, `filter`, `reduce`, `slice`, `concat`, `flat`, modern array copies, and `forEach`) with `${__jsxList(...)}`
+- Array-aware output: wraps array-producing expressions (e.g., `map`, `flatMap`, `filter`, `reduce`, `slice`, `concat`, `flat`, modern array copies, and `forEach`) with `${__jsxRender(...)}`
   so list output is safely joined into a single string.
 
 Runtime helpers:
 
 - `__jsxComponent(Component, propsArrayOrObject, children?)` → renders components to string (props objects in arrays are merged).
 - `__jsxSpread(obj)` → serializes element attributes from an object (boolean `true` becomes a valueless attribute).
-- `__jsxList(value)` → joins arrays into a string; returns `""` for `null`/`undefined`; passes through non-array values.
+- `__jsxRender(value)` → joins arrays into a string; returns `""` for `null`/`undefined`; passes through non-array values.
 
 ## Performance and DX
 

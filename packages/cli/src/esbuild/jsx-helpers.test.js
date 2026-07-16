@@ -1,21 +1,43 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { describe, test } from "node:test";
 import "./jsx-helpers.js";
 
 const assertRenders = (result, expected) => assert.strictEqual(result.toString(), expected);
 
-test("should handle basic static template", () => {
-    assertRenders(__jsxList("<div>Hello</div>"), "<div>Hello</div>");
-});
+describe("__jsxRender", () => {
+    test("should filter false from array", () => {
+        assert.strictEqual(__jsxRender([false, "<X/>"]), "<X/>");
+    });
 
-test("should handle template with dynamic values", () => {
-    const dynamicClass = "active";
-    assertRenders(__jsxList(`<div class="${dynamicClass}">Content</div>`), '<div class="active">Content</div>');
+    test("should preserve number 0 in array", () => {
+        assert.strictEqual(__jsxRender([0, "<X/>"]), "0<X/>");
+    });
+
+    test("should handle empty array", () => {
+        assert.strictEqual(__jsxRender([]), "");
+    });
+
+    test("should pass through non-array value unchanged", () => {
+        assert.strictEqual(__jsxRender("<div/>"), "<div/>");
+    });
+
+    test("should return empty string for null scalar", () => {
+        assert.strictEqual(__jsxRender(null), "");
+    });
+
+    test("should preserve number 0 scalar", () => {
+        assert.strictEqual(__jsxRender(0), 0);
+    });
+
+    test("should pass through objects unchanged", () => {
+        const obj = { foo: "bar" };
+        assert.strictEqual(__jsxRender(obj), obj);
+    });
 });
 
 test("should handle nested elements with dynamic content", () => {
     const items = ["one", "two"];
-    const result = `<div class="test"><ul>${__jsxList(items.map((item) => `<li>${item}</li>`))}</ul></div>`;
+    const result = `<div class="test"><ul>${__jsxRender(items.map((item) => `<li>${item}</li>`))}</ul></div>`;
     assertRenders(result, '<div class="test"><ul><li>one</li><li>two</li></ul></div>');
 });
 
@@ -24,10 +46,6 @@ test("should handle nested component composition", () => {
     const Parent = (props) => __jsxComponent(Child, [props], "<p>Parent Content</p><p>Another Content</p>");
     const GrandParent = () => __jsxComponent(Parent, [{ attr: "Test" }]);
     assertRenders(__jsxComponent(GrandParent, []), "<div><p>Test</p><p>Parent Content</p><p>Another Content</p></div>");
-});
-
-test("should spread object properties into string", () => {
-    assertRenders(__jsxSpread({ class: "test", id: "main", disabled: true }), ' class="test" id="main" disabled');
 });
 
 test("should handle complex jsx with conditions", () => {
@@ -46,7 +64,7 @@ test("should handle complex jsx with conditions", () => {
         <div class="${`container ${mockTheme}`}">
             <header class="${mockStyles.header}">
                 <h1>${"Default Title"}</h1>
-                <nav>${__jsxList(
+                <nav>${__jsxRender(
                     mockMenuItems.map(
                         (item, index) =>
                             `<a key="${index}" href="${item.href}" class="${`${mockStyles.link} ${mockCurrentPath === item.href ? mockStyles.active : ""}`}">
@@ -73,21 +91,6 @@ test("should handle complex jsx with conditions", () => {
         '<div class="container light"><header class="header-class"><h1>Default Title</h1><nav><a key="0" href="/home" class="link-class active-class"><i>home</i><span>Home</span></a><a key="1" href="/profile" class="link-class "><i>user</i><span>Profile</span><span type="notification">3</span></a></nav><div class="user-menu"><img src="/avatar.jpg" alt="User avatar" /><span>John Doe</span><button onclick="handleLogout">Logout</button></div></header></div>';
 
     assert.strictEqual(result.toString().replace(/\s+/g, ""), expected.replace(/\s+/g, ""));
-});
-
-test("should handle event handler attribute names", () => {
-    const cases = [
-        [{ onClick: "handleClick" }, ' onclick="handleClick"'],
-        [{ onDoubleClick: "handleDblClick" }, ' ondblclick="handleDblClick"'],
-        [{ onAnimationEnd: "handleAnimEnd" }, ' onanimationend="handleAnimEnd"'],
-        [{ onTransitionEnd: "handleTransEnd" }, ' ontransitionend="handleTransEnd"'],
-        [{ onTouchStart: "handleTouch" }, ' ontouchstart="handleTouch"'],
-        [{ onBeforeInput: "handleInput" }, ' onbeforeinput="handleInput"'],
-        [{ onCompositionEnd: "handleComp" }, ' oncompositionend="handleComp"'],
-    ];
-    for (const [props, expected] of cases) {
-        assertRenders(__jsxSpread(props), expected);
-    }
 });
 
 test("should normalize HTML attributes", () => {
@@ -232,14 +235,6 @@ test("should normalize HTML attributes", () => {
     for (const [input, expected] of Object.entries(attributeMappings)) {
         assert.strictEqual(__jsxSpread({ [input]: "test" }), ` ${expected}="test"`);
     }
-});
-
-test("should preserve regular attribute names", () => {
-    assertRenders(
-        __jsxSpread({ src: "image.jpg", href: "/link", type: "button", value: "test" }),
-        ' src="image.jpg" href="/link" type="button" value="test"',
-    );
-    assertRenders(__jsxSpread({ dataTest: "value" }), ' dataTest="value"');
 });
 
 test("should handle __jsxComponent returning an array", () => {

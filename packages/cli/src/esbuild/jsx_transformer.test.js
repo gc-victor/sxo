@@ -16,11 +16,42 @@ test("transform: basic JSX element", () => {
     assert.equal(result, "const el = `<div>Hello</div>`;");
 });
 
+// === Conditional && Patterns ===
+test("transform: {condition && <X/>} wraps with __jsxRender", () => {
+    const source = "const el = <div>{condition && <X/>}</div>;";
+    const result = jsx(source);
+    assert.ok(result.includes("__jsxRender"), "&& with JSX should use __jsxRender");
+});
+
+test("transform: {a && b && <X/>} wraps with __jsxRender", () => {
+    const source = "const el = <div>{a && b && <X/>}</div>;";
+    const result = jsx(source);
+    assert.ok(result.includes("__jsxRender"), "chained && with JSX should use __jsxRender");
+});
+
+test("transform: {condition && (<X/>)} (parenthesized) wraps with __jsxRender", () => {
+    const source = "const el = <div>{condition && (<X/>)}</div>;";
+    const result = jsx(source);
+    assert.ok(result.includes("__jsxRender"), "parenthesized && with JSX should use __jsxRender");
+});
+
+test("transform: {user && user.name} (no JSX RHS) wraps with __jsxRender", () => {
+    const source = "const el = <div>{user && user.name}</div>;";
+    const result = jsx(source);
+    assert.ok(result.includes("__jsxRender"), "&& without JSX RHS should use __jsxRender");
+});
+
+test('transform: ternary {condition ? <X/> : ""} wraps with __jsxRender', () => {
+    const source = 'const el = <div>{condition ? <X/> : ""}</div>;';
+    const result = jsx(source);
+    assert.ok(result.includes("__jsxRender"), "ternary should use __jsxRender");
+});
+
 // === Dynamic Content & Array Methods ===
-test("transform: .map of JSX children uses __jsxList", () => {
+test("transform: .map of JSX children uses __jsxRender", () => {
     const source = "const el = <div>{items.map(item => <li>{item}</li>)}</div>;";
     const result = jsx(source);
-    assert.equal(result, `const el = \`<div>\${__jsxList(items.map(item => \`<li>\${item}</li>\`))}</div>\`;`);
+    assert.equal(result, `const el = \`<div>\${__jsxRender(items.map(item => \`<li>\${__jsxRender(item)}</li>\`))}</div>\`;`);
 });
 
 // === Complex Nesting & Expressions ===
@@ -101,7 +132,7 @@ const GrandParent = () => (
 const result = <GrandParent />;`;
     const out = jsx(source);
     const expected = `
-const Child = ({ children, ...props }) => \`<div><p>\${ props.attr }</p>\${children}</div>\`;
+const Child = ({ children, ...props }) => \`<div><p>\${__jsxRender( props.attr )}</p>\${__jsxRender(children)}</div>\`;
 const Parent = (props) => ( \`\${__jsxComponent(Child, [{...props}], \`<p>Parent Content</p><p>Another Content</p>\`)}\` );
 const GrandParent = () => ( \`\${__jsxComponent(Parent, [{"attr":"Test"}], \`<p>GrandParent Content</p>\`)}\` );
 const result = \`\${__jsxComponent(GrandParent, [])}\`;`;

@@ -192,7 +192,7 @@ declare global {
     /** JSX attribute spreader. */
     var __jsxSpread: (obj: Record<string, unknown>) => string;
     /** JSX list joiner. */
-    var __jsxList: (value: unknown) => string;
+    var __jsxRender: (value: unknown) => string;
 }
 
 export {};

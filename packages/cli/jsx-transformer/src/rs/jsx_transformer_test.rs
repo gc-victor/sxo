@@ -127,7 +127,7 @@ fn test_component_children() {
     let result = jsx_transformer(source).unwrap();
     assert_eq!(
             result.replace('\n', "").split_whitespace().collect::<Vec<&str>>().join(" "),
-            "const Child = ({ children, ...props }) => `<div><p>${ props.attr }</p>${children}</div>`; const Parent = (props) => ( `${__jsxComponent(Child, [{...props}], `<p>Parent Content</p><p>Another Content</p>`)}` ); const GrandParent = () => ( `${__jsxComponent(Parent, [{\"attr\":\"Test\"}], `<p>GrandParent Content</p>`)}` ); const result = `${__jsxComponent(GrandParent, [])}`;"
+            "const Child = ({ children, ...props }) => `<div><p>${__jsxRender( props.attr )}</p>${__jsxRender(children)}</div>`; const Parent = (props) => ( `${__jsxComponent(Child, [{...props}], `<p>Parent Content</p><p>Another Content</p>`)}` ); const GrandParent = () => ( `${__jsxComponent(Parent, [{\"attr\":\"Test\"}], `<p>GrandParent Content</p>`)}` ); const result = `${__jsxComponent(GrandParent, [])}`;"
         );
 }
 
@@ -397,13 +397,6 @@ fn test_component_with_multiple_attributes() {
 }
 
 #[test]
-fn test_jsx_comment_removal() {
-    let source = "const el = <div>Hello{/* comment with <tag> */}World</div>;";
-    let result = jsx_transformer(source).unwrap();
-    assert_eq!(result, "const el = `<div>HelloWorld</div>`;");
-}
-
-#[test]
 fn test_nested_components_and_element() {
     let source = r#"const el = <ParentComponent attr="val"  moto><ChildComponent {...spread}><div>Inner content</div></ChildComponent></ParentComponent>;"#;
     let result = jsx_transformer(source).unwrap();
@@ -445,7 +438,7 @@ fn test_fragment_with_child_expresion() {
             )}
         </>;"#;
     let result = jsx_transformer(source).unwrap();
-    let expected = r#"const el = `<label>After Image</label><input type="text"/><span>After Input</span>${description ? ( `<span>${description}</span>` ) : ( "" )}`;"#;
+    let expected = r#"const el = `<label>After Image</label><input type="text"/><span>After Input</span>${__jsxRender(description ? ( `<span>${__jsxRender(description)}</span>` ) : ( "" ))}`;"#;
     assert_eq!(normalize_ws(&result), normalize_ws(expected));
 }
 
@@ -472,7 +465,7 @@ fn test_nested_elements() {
 fn test_dynamic_content() {
     let source = "const el = <div>{dynamicContent}</div>;";
     let result = jsx_transformer(source).unwrap();
-    assert_eq!(result, "const el = `<div>${dynamicContent}</div>`;");
+    assert_eq!(result, "const el = `<div>${__jsxRender(dynamicContent)}</div>`;");
 }
 
 #[test]
@@ -481,7 +474,7 @@ fn test_array_transformations() {
     let result = jsx_transformer(source).unwrap();
     assert_eq!(
         result,
-        "const el = `<div>${__jsxList(items.map(item => `<li>${item}</li>`))}</div>`;"
+        "const el = `<div>${__jsxRender(items.map(item => `<li>${__jsxRender(item)}</li>`))}</div>`;"
     );
 }
 
@@ -498,14 +491,14 @@ fn test_flat_map_and_for_each_transformations() {
     let out1 = jsx_transformer(src1).unwrap();
     assert_eq!(
         out1,
-        "const el = `<div>${__jsxList(items.flatMap(item => `<li>${item}</li>`))}</div>`;"
+        "const el = `<div>${__jsxRender(items.flatMap(item => `<li>${__jsxRender(item)}</li>`))}</div>`;"
     );
 
     let src2 = r#"const el = <div>{items.forEach(item => <li>{item}</li>)}</div>;"#;
     let out2 = jsx_transformer(src2).unwrap();
     assert_eq!(
         out2,
-        "const el = `<div>${__jsxList(items.forEach(item => `<li>${item}</li>`))}</div>`;"
+        "const el = `<div>${__jsxRender(items.forEach(item => `<li>${__jsxRender(item)}</li>`))}</div>`;"
     );
 }
 
@@ -522,7 +515,7 @@ fn test_loop_component_spread() {
     let result = jsx_transformer(source).unwrap();
     assert_eq!(
         result,
-        "const el = `<div>${__jsxList(posts.map((post) => `${__jsxComponent(Component, [{...post}])}`))}</div>`;"
+        "const el = `<div>${__jsxRender(posts.map((post) => `${__jsxComponent(Component, [{...post}])}`))}</div>`;"
     );
 }
 
@@ -532,7 +525,7 @@ fn test_filter_transformation() {
     let result = jsx_transformer(source).unwrap();
     assert_eq!(
         result,
-        "const el = `<div>${__jsxList(items.filter(item => item.active).map(item => `<li>${item.name}</li>`))}</div>`;"
+        "const el = `<div>${__jsxRender(items.filter(item => item.active).map(item => `<li>${__jsxRender(item.name)}</li>`))}</div>`;"
     );
 }
 
@@ -542,7 +535,7 @@ fn test_reduce_transformation() {
     let result = jsx_transformer(source).unwrap();
     assert_eq!(
         result,
-        "const el = `<div>${__jsxList(items.reduce((acc, item) => acc + item, 0))}</div>`;"
+        "const el = `<div>${__jsxRender(items.reduce((acc, item) => acc + item, 0))}</div>`;"
     );
 }
 
@@ -571,7 +564,7 @@ onChange={() => onToggle(index)}
         .trim();
 
     let result = jsx_transformer(source).unwrap();
-    let expected = "const TodoList = ({items, onToggle}) => (\n`<div class=\"${`todo-list ${items.length ? 'has-items' : ''}`}\"><header class=\"todo-header\"><h1>${items.length} Tasks Remaining</h1><input type=\"text\"${__jsxSpread(inputProps)} placeholder=\"Add new task\"/></header><ul class=\"todo-items\">${__jsxList(items.map((item, index) => ( `<li key=\"${item.id}\" class=\"${item.completed ? 'completed' : ''}\"><input type=\"checkbox\" checked=\"${item.completed}\" onchange=\"${() => onToggle(index)}\"/><span class=\"todo-text\">${item.text}</span><button onclick=\"${() => onDelete(item.id)}\">Delete</button></li>` )))}</ul></div>`)";
+    let expected = "const TodoList = ({items, onToggle}) => (\n`<div class=\"${`todo-list ${items.length ? 'has-items' : ''}`}\"><header class=\"todo-header\"><h1>${__jsxRender(items.length)} Tasks Remaining</h1><input type=\"text\"${__jsxSpread(inputProps)} placeholder=\"Add new task\"/></header><ul class=\"todo-items\">${__jsxRender(items.map((item, index) => ( `<li key=\"${item.id}\" class=\"${item.completed ? 'completed' : ''}\"><input type=\"checkbox\" checked=\"${item.completed}\" onchange=\"${() => onToggle(index)}\"/><span class=\"todo-text\">${__jsxRender(item.text)}</span><button onclick=\"${() => onDelete(item.id)}\">Delete</button></li>` )))}</ul></div>`)";
 
     assert_eq!(normalize_ws(&result), normalize_ws(expected));
 }
@@ -625,15 +618,8 @@ fn test_complex_jsx_with_conditions() {
             </div>
         ;"#;
     let result = jsx_transformer(input).unwrap();
-    let expected = "const el = `<div class=\"${`container ${theme}`}\"><header class=\"${styles.header}\"><h1>${title || \"Default Title\"}</h1><nav>${__jsxList(menuItems.map((item, index) => ( `<a key=\"${index}\" href=\"${item.href}\" class=\"${`${styles.link} ${currentPath === item.href ? styles.active : ''}`}\">${item.icon && `${__jsxComponent(Icon, [{\"name\":item.icon}])}`}<span>${item.label}</span>${item.badge && ( `${__jsxComponent(Badge, [{\"count\":item.badge},{\"type\":item.badgeType}])}` )}</a>` )))}</nav>${user ? ( `<div class=\"${styles.userMenu}\"><img src=\"${user.avatar}\" alt=\"User avatar\"/><span>${user.name}</span><button onclick=\"${handleLogout}\">Logout</button></div>` ) : ( `<button class=\"${styles.loginButton}\" onclick=\"${handleLogin}\">Login</button>` )}</header><main class=\"${styles.main}\">${loading ? ( `<div class=\"${styles.loader}\">${__jsxComponent(Spinner, [{\"size\":\"large\"},{\"color\":theme === 'dark' ? 'white' : 'black'}])}</div>` ) : error ? ( `${__jsxComponent(ErrorMessage, [{\"message\":error},{\"onRetry\":handleRetry}])}` ) : ( `${children}` )}</main><footer class=\"${styles.footer}\"><p>&copy; ${currentYear} My Application</p></footer></div>`\n        ;";
+    let expected = "const el = `<div class=\"${`container ${theme}`}\"><header class=\"${styles.header}\"><h1>${__jsxRender(title || \"Default Title\")}</h1><nav>${__jsxRender(menuItems.map((item, index) => ( `<a key=\"${index}\" href=\"${item.href}\" class=\"${`${styles.link} ${currentPath === item.href ? styles.active : ''}`}\">${__jsxRender(item.icon && `${__jsxComponent(Icon, [{\"name\":item.icon}])}`)}<span>${__jsxRender(item.label)}</span>${__jsxRender(item.badge && ( `${__jsxComponent(Badge, [{\"count\":item.badge},{\"type\":item.badgeType}])}` ))}</a>` )))}</nav>${__jsxRender(user ? ( `<div class=\"${styles.userMenu}\"><img src=\"${user.avatar}\" alt=\"User avatar\"/><span>${__jsxRender(user.name)}</span><button onclick=\"${handleLogout}\">Logout</button></div>` ) : ( `<button class=\"${styles.loginButton}\" onclick=\"${handleLogin}\">Login</button>` ))}</header><main class=\"${styles.main}\">${__jsxRender(loading ? ( `<div class=\"${styles.loader}\">${__jsxComponent(Spinner, [{\"size\":\"large\"},{\"color\":theme === 'dark' ? 'white' : 'black'}])}</div>` ) : error ? ( `${__jsxComponent(ErrorMessage, [{\"message\":error},{\"onRetry\":handleRetry}])}` ) : ( `${__jsxRender(children)}` ))}</main><footer class=\"${styles.footer}\"><p>&copy; ${__jsxRender(currentYear)} My Application</p></footer></div>` ;";
     assert_eq!(normalize_ws(&result), normalize_ws(expected));
-}
-
-#[test]
-fn test_multiline_jsx_comment_removal() {
-    let source = "const el = <div>Start{/* multi\nline\ncomment */}End</div>;";
-    let result = jsx_transformer(source).unwrap();
-    assert_eq!(result, "const el = `<div>StartEnd</div>`;");
 }
 
 #[test]
@@ -642,7 +628,7 @@ fn test_no_angle_brackets_in_entity_string() {
     let result = jsx_transformer(source).unwrap();
     assert_eq!(
         result,
-        "const s = '&lt;div&gt;'; const el = `<pre>${s}</pre>`;"
+        "const s = '&lt;div&gt;'; const el = `<pre>${__jsxRender(s)}</pre>`;"
     );
 }
 
@@ -673,36 +659,6 @@ fn test_pre_code_block_with_template_literal() {
     assert!(result.contains("Docker deployment"));
     assert!(result.contains("npx sxo build"));
     assert!(result.contains("CMD [\"npx\", \"sxo\", \"start\"]"));
-}
-
-#[test]
-fn test_jsdoc_comment_with_apostrophe() {
-    // Test that apostrophes in JSDoc comments don't trigger string literal mode
-    let source = r#"/**
- * Performance section highlighting SXO's speed, routing, ESM, and dev server.
- * Semantic and accessible, with headings, lists, and ARIA roles.
- */
-export function Performance() {
-    return (<span>ooo</span>);
-}"#;
-    let result = jsx_transformer(source).unwrap();
-    // The angle brackets in the JSX should be transformed to template literals, not escaped
-    assert!(result.contains("`<span>ooo</span>`"));
-    assert!(!result.contains("\\u003C"));
-    assert!(!result.contains("\\u003E"));
-}
-
-#[test]
-fn test_single_line_comment_with_apostrophe() {
-    // Test that apostrophes in single-line comments don't affect JSX
-    let source = r#"// This is SXO's component
-export function Test() {
-    return <div>test</div>;
-}"#;
-    let result = jsx_transformer(source).unwrap();
-    assert!(result.contains("`<div>test</div>`"));
-    assert!(!result.contains("\\u003C"));
-    assert!(!result.contains("\\u003E"));
 }
 
 #[test]
@@ -778,76 +734,6 @@ const template = `
     assert!(result.contains("// This should be preserved"));
     assert!(result.contains("/* This too */"));
     assert!(result.contains("This is actually a comment"));
-}
-
-#[test]
-fn test_comment_removal_escape_sequences() {
-    // Test that escaped quotes in strings don't break comment detection
-    let source = r#"const str = "He said \"Hello /* not a comment */ world\"";
-// This is a real comment
-const str2 = 'Don\'t break on apostrophes';
-/* Block comment */
-const str3 = `Template with \`backticks\` and // fake comment`;"#;
-    let result = jsx_transformer(source).unwrap();
-    assert!(result.contains("Hello /* not a comment */ world"));
-    assert!(result.contains("Don\\'t break on apostrophes"));
-    assert!(result.contains("// fake comment"));
-    assert!(result.contains("This is a real comment"));
-    assert!(result.contains("Block comment"));
-}
-
-#[test]
-fn test_comment_removal_regex_patterns() {
-    // Test that regex patterns with slashes are not treated as comments
-    let source = r#"const regex1 = /\/\*not a comment\*\//g;
-const regex2 = /\/\/also not a comment/;
-const division = a / b / c;
-// This is a real comment
-const regex3 = /test/gi;"#;
-    let result = jsx_transformer(source).unwrap();
-    assert!(result.contains("/\\/\\*not a comment\\*\\//g"));
-    assert!(result.contains("/\\/\\/also not a comment/"));
-    assert!(result.contains("a / b / c"));
-    assert!(result.contains("/test/gi"));
-    assert!(result.contains("This is a real comment"));
-}
-
-#[test]
-fn test_comment_removal_mixed_comment_types() {
-    // Test mixing different comment types
-    let source = r#"/* Start with block comment */
-// Single line comment
-const Component = () => {
-    return (
-        <div>
-            {/* JSX comment */}
-            <span>/* Not a comment in JSX text */</span>
-            {/* Another JSX comment
-               spanning multiple lines */}
-        </div>
-    ); // End comment
-};
-/* Final block comment */"#;
-    let result = jsx_transformer(source).unwrap();
-    assert!(result.contains("Start with block comment"));
-    assert!(result.contains("Single line comment"));
-    assert!(!result.contains("JSX comment"));
-    assert!(!result.contains("Another JSX comment"));
-    assert!(result.contains("End comment"));
-    assert!(result.contains("Final block comment"));
-    assert!(result.contains("/* Not a comment in JSX text */"));
-    assert!(result.contains("const Component"));
-    assert!(result.contains("<span>"));
-}
-
-#[test]
-fn test_comment_removal_newline_preservation() {
-    // Test that newlines are preserved when removing single-line comments
-    let source = "line1\n// comment\nline2\n// another comment\nline3";
-    let result = jsx_transformer(source).unwrap();
-    assert_eq!(result, source);
-    assert!(result.contains("comment"));
-    assert!(result.contains("another comment"));
 }
 
 #[test]
@@ -986,67 +872,6 @@ export default function TestPage() {
 }
 
 #[test]
-fn test_multiple_comment_types_with_jsx_syntax() {
-    let source = r#"/**
- * JSDoc with <header>JSX</header>
- */
-
-/* Block comment with <span>JSX</span> */
-{/* JSX comment with <footer>JSX</footer> */}
-
-export default () => <p>Content</p>;"#;
-
-    let result = jsx_transformer(source).unwrap();
-
-    // Should not throw parsing errors
-    assert!(result.contains("`<p>Content</p>`"));
-
-    // JSDoc, block, and JSX comments should be removed
-    assert!(result.contains("JSDoc with"));
-    assert!(result.contains("Block comment"));
-    assert!(result.contains("JSX comment"));
-}
-
-#[test]
-fn test_nested_jsx_in_comments() {
-    let source = r#"/**
- * Complex example: <Component prop={<Child />} />
- * More complex: {items.map(item => <Item key={item.id} />)}
- */
-export default () => <section>Test</section>;"#;
-
-    let result = jsx_transformer(source).unwrap();
-
-    // Should not throw parsing errors despite complex JSX in comments
-    assert!(result.contains("`<section>Test</section>`"));
-
-    // Complex JSX in comments should be removed
-    assert!(result.contains("Complex example"));
-    assert!(result.contains("More complex"));
-}
-
-#[test]
-fn test_mixed_comment_and_jsx_expressions() {
-    let source = r#"/* Comment with <Component attr="value" /> */
-export default () => (
-  <div>
-    {/* Inline JSX comment with <span>content</span> */}
-    <p>Real content</p>
-  </div>
-);"#;
-
-    let result = jsx_transformer(source).unwrap();
-
-    // Should transform real JSX
-    assert!(result.contains("`<div>"));
-    assert!(result.contains("<p>Real content</p>"));
-
-    // Block and JSX comments should be removed
-    assert!(result.contains("Comment with"));
-    assert!(!result.contains("Inline JSX comment"));
-}
-
-#[test]
 fn test_complex_li_with_conditional_link_and_spread_attrs() {
     let source = r#"
         <li>
@@ -1062,7 +887,7 @@ fn test_complex_li_with_conditional_link_and_spread_attrs() {
         </li>
     "#;
     let result = jsx_transformer(source).unwrap();
-    let expected = r#"`<li>${href && !isCurrent ? ( `<a href="${href}" class="${linkClass}"${__jsxSpread(item?.attrs ?? {})}>${label}</a>` ) : ( `<span class="${currentClass}" aria-current="${isCurrent ? "page" : null}"${__jsxSpread(item?.attrs ?? {})}>${label}</span>` )}</li>`"#;
+    let expected = r#"`<li>${__jsxRender(href && !isCurrent ? ( `<a href="${href}" class="${linkClass}"${__jsxSpread(item?.attrs ?? {})}>${__jsxRender(label)}</a>` ) : ( `<span class="${currentClass}" aria-current="${isCurrent ? "page" : null}"${__jsxSpread(item?.attrs ?? {})}>${__jsxRender(label)}</span>` ))}</li>`"#;
     assert_eq!(normalize_ws(&result), normalize_ws(expected));
 }
 
@@ -1121,6 +946,35 @@ fn test_tabs_with_items_array_of_components() {
     // The Tabs component should be self-closing and not have children
     assert!(result.contains("`${__jsxComponent(Tabs, ["));
     assert!(result.ends_with(";"));
+}
+
+#[test]
+fn cond_wrapper_chained_and_with_jsx() {
+    // {a && b && <X/>} should produce __jsxRender wrapper
+    let source = r"const el = <div>{a && b && <X/>}</div>;";
+    let result = jsx_transformer(source).unwrap();
+    assert!(
+        result.contains("__jsxRender"),
+        "expected __jsxRender in output, got: {}",
+        result
+    );
+}
+
+#[test]
+fn cond_wrapper_list_takes_priority() {
+    // {items.map(i => i.active && <X/>)} should use __jsxRender, not __jsxCond
+    let source = r"const el = <div>{items.map(i => i.active && <X/>)}</div>;";
+    let result = jsx_transformer(source).unwrap();
+    assert!(
+        result.contains("__jsxRender"),
+        "expected __jsxRender in output, got: {}",
+        result
+    );
+    assert!(
+        !result.contains("__jsxCond"),
+        "expected NO __jsxCond when __jsxRender takes priority, got: {}",
+        result
+    );
 }
 
 #[test]

@@ -94,7 +94,7 @@ test("onLoad: helpers virtual module returns JS loader and actual helpers conten
     // sanity check: known symbols from helpers
     assert.match(result.contents, /__jsxComponent/);
     assert.match(result.contents, /__jsxSpread/);
-    assert.match(result.contents, /__jsxList/);
+    assert.match(result.contents, /__jsxRender/);
 });
 
 test("onLoad: transforms .jsx file, prepends helpers import, and sets loader=jsx", async () => {

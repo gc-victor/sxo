@@ -4,14 +4,19 @@ const CAMEL_REPLACE = /[A-Z0-9]/g;
 const ON_ANI = /^on(Ani|Tra|Tou|BeforeInp|Compo)/;
 
 /**
- * Join array values or return fallback.
+ * Render JSX expressions by filtering React-falsy values and joining arrays.
  *
- * @param {string[] | undefined} value - Array to join or fallback value
- * @returns {string} Joined string or fallback
+ * React JSX semantics: false, null, undefined, and true render nothing.
+ * Numbers (including 0) and strings (including "") pass through.
+ * Arrays are filtered and joined into a string.
+ *
+ * @param {unknown} value - Expression value to render
+ * @returns {string} Rendered string
  */
-function __jsxList(value) {
-    if (Array.isArray(value)) return value.join("");
-    return value ?? "";
+function __jsxRender(value) {
+    if (Array.isArray(value)) return value.filter((v) => v !== false && v !== null && v !== undefined && v !== true).join("");
+    if (value === false || value === null || value === undefined || value === true) return "";
+    return value;
 }
 
 function __jsxFragment({ children }) {
@@ -71,7 +76,7 @@ function __jsxComponent(Component, props, children) {
         if (voidTags.has(tag)) {
             return `<${tag}${spread}/>`;
         }
-        return `<${tag}${spread}>${__jsxList(children)}</${tag}>`;
+        return `<${tag}${spread}>${__jsxRender(children)}</${tag}>`;
     }
 
     if (typeof Component !== "function") {
@@ -144,4 +149,4 @@ function normalizeAttributeName(name) {
 globalThis.__jsxComponent = __jsxComponent;
 globalThis.__jsxFragment = __jsxFragment;
 globalThis.__jsxSpread = __jsxSpread;
-globalThis.__jsxList = __jsxList;
+globalThis.__jsxRender = __jsxRender;
