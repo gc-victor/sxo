@@ -213,8 +213,15 @@ export function createHotReloadHandler(config) {
 
                 sseClients.push(clientRef);
 
-                const payload = await buildPayload(clientRef, getEsbuildError());
-                sendToClient(clientRef, payload);
+                // Skip the initial payload when there's no build error. The initial SSR is
+                // already correct so the sync is redundant — it only causes unnecessary body
+                // replacement, double reveal animations, and content flicker.
+                // BroadcastReload handles file-change-triggered updates.
+                const esbuildError = getEsbuildError();
+                if (esbuildError) {
+                    const payload = await buildPayload(clientRef, esbuildError);
+                    sendToClient(clientRef, payload);
+                }
             },
             cancel() {
                 if (clientRef) {
