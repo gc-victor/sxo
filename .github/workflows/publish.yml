@@ -65,11 +65,76 @@ jobs:
           name: tarball
           path: ${{ steps.pack.outputs.tarball }}
 
+  validate:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    needs:
+      - ci
+      - build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      TARBALL: ${{ needs.build.outputs.tarball }}
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        with:
+          name: tarball
+
+      - name: Check tarball contents
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAR="${{ github.workspace }}/$TARBALL"
+          if tar -xOf "$TAR" package/package.json | grep -q "workspace:"; then
+            echo "::error::tarball manifest still contains a workspace:* specifier"
+            exit 1
+          fi
+          if ! tar tzf "$TAR" | grep -q "packages/cli/jsx-transformer/jsx_transformer_bg.wasm"; then
+            echo "::error::tarball is missing jsx_transformer_bg.wasm"
+            exit 1
+          fi
+
+      - name: Install tarball into fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp -r examples/node /tmp/fixture
+          cd /tmp/fixture
+          node -e "const p = require('./package.json'); p.dependencies.sxo = 'file:${{ github.workspace }}/${TARBALL}'; require('fs').writeFileSync('package.json', JSON.stringify(p, null, 4))"
+          npm install --no-audit --no-fund
+
+      - name: Verify CLI version
+        shell: bash
+        run: |
+          set -euo pipefail
+          BANNER=$(node /tmp/fixture/node_modules/.bin/sxo --help 2>/dev/null | head -1)
+          echo "CLI banner: $BANNER"
+          if [[ "$BANNER" == *"v0.0.0"* ]]; then
+            echo "::error::CLI version resolves to 0.0.0 (broken tarball)"
+            exit 1
+          fi
+
+      - name: Build fixture
+        shell: bash
+        run: cd /tmp/fixture && node node_modules/.bin/sxo build
+
   publish:
     if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     needs:
       - ci
       - build
+      - validate
     runs-on: ubuntu-latest
     permissions:
       id-token: write
