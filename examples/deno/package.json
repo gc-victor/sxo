@@ -8,6 +8,6 @@
         "start": "deno run -A npm:sxo start"
     },
     "dependencies": {
-        "sxo": "file:../.."
+        "sxo": "workspace:*"
     }
 }

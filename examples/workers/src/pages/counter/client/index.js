@@ -1,4 +1,4 @@
-import { define } from "@sxo/client";
+import { define } from "sxo/client";
 
 define("rc-counter", ({ $state, $on }) => {
     // Initialize state

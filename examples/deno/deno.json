@@ -1,7 +1,7 @@
 {
     "tasks": {
-        "dev": "deno run -A npm:sxo dev",
-        "build": "deno run -A npm:sxo build",
-        "start": "deno run -A npm:sxo start"
+        "dev": "deno run -A ../../packages/cli/bin/sxo.js dev",
+        "build": "deno run -A ../../packages/cli/bin/sxo.js build",
+        "start": "deno run -A ../../packages/cli/bin/sxo.js start"
     }
 }

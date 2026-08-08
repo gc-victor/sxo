@@ -1,6 +1,10 @@
 packages:
   - packages/*
+  - examples/node
+  - examples/deno
+  - examples/workers
 
 allowBuilds:
   '@parcel/watcher': true
   esbuild: true
+  workerd: true

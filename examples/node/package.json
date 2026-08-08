@@ -8,6 +8,6 @@
         "start": "sxo start"
     },
     "dependencies": {
-        "sxo": "file:../.."
+        "sxo": "workspace:*"
     }
 }
