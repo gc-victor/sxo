@@ -67,10 +67,8 @@ export async function loadJsxModule(
         cache.delete(jsxPath);
     }
 
-    if (cache.has(jsxPath)) {
-        const cached = cache.get(jsxPath);
-        if (cached) return cached;
-    }
+    const cached = cache.get(jsxPath);
+    if (cached) return cached;
 
     try {
         const moduleUrl = bustCache ? `${modulePath}?t=${Date.now()}` : modulePath;
@@ -104,9 +102,9 @@ export async function loadJsxModule(
  *
  * @param {Array<{jsx: string}>} routes - Array of route objects with jsx property
  * @param {object} options
- * @param {(url: string) => Promise<any>} options.importer - Platform-specific import function
+ * @param {(url: string) => Promise<any>} [options.importer] - Platform-specific import function (defaults to Node `import()`)
  * @param {boolean} [options.bustCache=false] - Force fresh imports
- * @param {Map<string, Function>} [options.cache] - Shared cache map (required; batch callers must share one across routes)
+ * @param {Map<string, Function>} options.cache - Shared cache map (required; batch callers must share one across routes)
  * @param {boolean} [options.returnErrorStub=false] - Return error HTML stubs instead of throwing
  * @param {(msg: string) => void} [options.onError] - Optional error callback
  * @param {boolean} [options.isDev=false] - Passed through to loadJsxModule() for error message verbosity
@@ -124,12 +122,9 @@ export async function loadAllModules(routes, { importer, bustCache = false, cach
 
     // Load all modules in parallel
     await Promise.all(
-        routes.map((route) => {
-            if (route.jsx) {
-                return loadJsxModule(route.jsx, { importer, bustCache, cache, returnErrorStub, onError, isDev });
-            }
-            return Promise.resolve();
-        }),
+        routes
+            .filter((route) => route.jsx)
+            .map((route) => loadJsxModule(route.jsx, { importer, bustCache, cache, returnErrorStub, onError, isDev })),
     );
 }
 
