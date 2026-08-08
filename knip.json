@@ -1,11 +1,48 @@
 {
-  "$schema": "https://unpkg.com/knip@5/schema.json",
-  "entry": "src/js/**/*.js",
-  "project": ["src/js/**/*.{js,ts}"],
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "ignoreExportsUsedInFile": true,
   "ignore": [
-    "components/**", "examples/**", "web/**", "dist/**",
-    "jsx-transformer/**", "**/*.test.js", "**/*.spec.js",
-    "**/*.test.ts", "**/*.spec.ts", "scripts/**", ".github/**", "docs/**", "*.md"
+    "examples/**",
+    "templates/**",
+    "web/**"
   ],
-  "ignoreExportsUsedInFile": true
+  "ignoreFiles": [
+    "**/*.test.{js,ts,jsx,tsx}",
+    "**/test-utils.{js,ts}",
+    "**/*.test-utils.{js,ts}"
+  ],
+  "workspaces": {
+    "packages/server": {
+      "entry": [
+        "src/server/prod.js",
+        "src/server/middleware.js",
+        "src/config/resolve-aliases.js",
+        "src/server/hot-replace.client.js",
+        "src/shared/middleware-executor.js",
+        "src/server/prod/node.js",
+        "src/server/prod/bun.js",
+        "src/server/prod/deno.js"
+      ]
+    },
+    "packages/cli": {
+      "entry": [
+        "src/cli/sxo.js",
+        "src/esbuild/esbuild.config.js"
+      ]
+    },
+    "packages/components": {
+      "entry": [
+        "src/pages/**/index.{jsx,tsx}",
+        "src/**/*.client.{js,ts}",
+        "src/pages/client/index.js",
+        "src/middleware.js"
+      ],
+      "paths": {
+        "@/*": ["./src/*"],
+        "@components/*": ["./src/components/*"],
+        "@utils/*": ["./src/utils/*"],
+        "@pages/*": ["./src/pages/*"]
+      }
+    }
+  }
 }
