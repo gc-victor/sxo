@@ -51,6 +51,9 @@ export function discoverSpecialServerEntries(pagesDir) {
  * @returns {Promise<void>}
  */
 export async function generateModulesFile(routes, outDir = OUTPUT_DIR_SERVER) {
+    // Ensure output directory exists
+    await mkdir(outDir, { recursive: true });
+
     /** @type {string[]} */
     const imports = [];
     /** @type {string[]} */
