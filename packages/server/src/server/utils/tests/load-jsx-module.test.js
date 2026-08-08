@@ -3,7 +3,7 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import { test } from "node:test";
 import { withEnvCapture, withTempProject } from "../../../test-utils.js";
-import { loadJsxModule } from "../load-jsx-module.js";
+import { loadJsxModule } from "../../shared/module-loader.js";
 
 /* helpers */
 
@@ -152,7 +152,7 @@ test("loadJsxModule: returns error stub when no valid export and returnErrorStub
             const srcPath = `${pagesRel}/load-jsx-module/error-stub/index.jsx`;
             const cache = new Map();
 
-            const fn = await loadJsxModule(srcPath, { returnErrorStub: true, cache });
+            const fn = await loadJsxModule(srcPath, { returnErrorStub: true, cache, isDev: true });
             assert.equal(typeof fn, "function", "Should return a stub function instead of throwing");
 
             const html = await fn({});

@@ -25,9 +25,8 @@ import { pathToFileURL } from "node:url";
 
 import { OUTPUT_DIR_CLIENT, ROUTES_FILE } from "../constants.js";
 import { createFileReader } from "../server/shared/file-readers.js";
-
+import { loadJsxModule } from "../server/shared/module-loader.js";
 import { injectAssets, normalizePublicPath } from "../server/utils/inject-assets.js";
-import { loadJsxModule } from "../server/utils/load-jsx-module.js";
 
 /**
  * Determine if a route is dynamic (contains [param] segments).

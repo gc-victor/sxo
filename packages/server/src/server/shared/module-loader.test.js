@@ -5,7 +5,7 @@
 
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { clearModuleCache, loadAllModules, loadJsxModule, loadModulesWithFallback } from "./module-loader.js";
+import { loadAllModules, loadJsxModule, loadModulesWithFallback } from "./module-loader.js";
 
 // Helper factories to reduce repetitive setup code
 
@@ -195,14 +195,18 @@ describe("loadJsxModule", () => {
         assert.equal(callCount, 1);
     });
 
-    it("throws when importer is missing", async () => {
-        await assertRejectsWith(() => loadJsxModule("src/pages/index.jsx", { cache: createCache() }), /importer function is required/);
+    it("uses default importer when none provided", async () => {
+        const cache = createCache();
+        // Without a custom importer, defaults to Node import() which will fail
+        // because the resolved path doesn't point to a real module.
+        await assert.rejects(() => loadJsxModule("src/pages/index.jsx", { cache }), { code: "ERR_MODULE_NOT_FOUND" });
     });
 
-    it("throws when cache is missing", async () => {
+    it("uses default cache when none provided", async () => {
         const importer = createImporter();
-
-        await assertRejectsWith(() => loadJsxModule("src/pages/index.jsx", { importer }), /cache Map is required/);
+        // Should not throw about missing cache; proceeds with a new Map().
+        const fn = await loadJsxModule("src/pages/index.jsx", { importer });
+        assert.equal(typeof fn, "function");
     });
 });
 
@@ -384,17 +388,5 @@ describe("loadModulesWithFallback", () => {
                 }),
             /routes array is required/,
         );
-    });
-});
-
-describe("clearModuleCache", () => {
-    it("clears the cache", () => {
-        const cache = createCache();
-        cache.set("module1", () => "fn1");
-        cache.set("module2", () => "fn2");
-
-        clearModuleCache(cache);
-
-        assert.equal(cache.size, 0);
     });
 });
