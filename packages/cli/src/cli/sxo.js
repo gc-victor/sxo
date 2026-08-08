@@ -33,12 +33,24 @@ let VERSION = "0.0.0";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Create file reader and read version
+// Create file reader and read version from the nearest package.json whose name
+// identifies the CLI package ("sxo" or "@sxo/cli"). This resolves correctly in
+// the dev workspace, the monolith tarball, and a @sxo/cli-only tarball.
 const fileReader = createFileReader();
 try {
-    const pkgTxt = await fileReader.readText(path.resolve(__dirname, "../../../../package.json"));
-    if (pkgTxt !== null) {
-        VERSION = JSON.parse(pkgTxt).version || VERSION;
+    let dir = __dirname;
+    for (let depth = 0; depth < 8; depth += 1) {
+        const pkgTxt = await fileReader.readText(path.join(dir, "package.json"));
+        if (pkgTxt !== null) {
+            const pkg = JSON.parse(pkgTxt);
+            if (pkg.name === "sxo" || pkg.name === "@sxo/cli") {
+                VERSION = pkg.version || VERSION;
+                break;
+            }
+        }
+        const parent = path.dirname(dir);
+        if (parent === dir) break;
+        dir = parent;
     }
 } catch (err) {
     const verbose = process.env.VERBOSE === "true" || process.argv.includes("--verbose");
