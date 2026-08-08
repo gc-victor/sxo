@@ -15,16 +15,10 @@
  * - DropdownMenuSeparator (visual divider)
  * - DropdownMenuShortcut (right‑aligned hint)
  * - DropdownMenuGroup (fieldset + legend grouping)
- * - DropdownMenuSub (nested <details>)
- * - DropdownMenuSubTrigger (nested trigger)
- * - DropdownMenuSubContent (nested surface)
- * - DropdownMenuPortal (structural wrapper / placeholder)
  *
  * LIMITATIONS:
  * - No roving focus or arrow key navigation.
  * - No Escape / outside click dismissal beyond native summary toggle.
- * - Submenu positioning is static (CSS only).
- * - “Portal” is a no-op wrapper (no layering).
  *
  * @license MIT
  */
@@ -74,10 +68,6 @@ function DropdownMenu({ open = false, placement = "bottom", class: klass, classN
     );
 }
 
-/**
- * Default export alias.
- */
-export { DropdownMenu };
 export default DropdownMenu;
 
 /* -------------------------------------------------------------------------------------------------
@@ -256,86 +246,6 @@ export function DropdownMenuGroup({ label, id, class: klass, className, children
             {children}
         </fieldset>
     );
-}
-
-/* -------------------------------------------------------------------------------------------------
- * DropdownMenuSub
- * ------------------------------------------------------------------------------------------------- */
-
-/**
- * @typedef {HTMLDetailsAttributes & ComponentProps & {
- *   open?: boolean
- * }} DropdownMenuSubProps
- * @param {DropdownMenuSubProps} props
- */
-export function DropdownMenuSub({ open = false, class: klass, className, children, ...rest }) {
-    return (
-        <details class={cn("dropdown-menu-sub relative", className || klass)} {...(open ? { open: "" } : {})} {...rest}>
-            {children}
-        </details>
-    );
-}
-
-/* -------------------------------------------------------------------------------------------------
- * DropdownMenuSubTrigger
- * ------------------------------------------------------------------------------------------------- */
-
-/**
- * @typedef {HTMLDivAttributes & ComponentProps} DropdownMenuSubTriggerProps
- * @param {DropdownMenuSubTriggerProps} props
- */
-export function DropdownMenuSubTrigger({ class: klass, className, children, ...rest }) {
-    return (
-        <summary
-            class={cn(
-                "dropdown-menu-sub-trigger flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none",
-                "focus-visible:ring-2 focus-visible:ring-ring/50",
-                className || klass,
-            )}
-            {...rest}
-        >
-            {children}
-        </summary>
-    );
-}
-
-/* -------------------------------------------------------------------------------------------------
- * DropdownMenuSubContent
- * ------------------------------------------------------------------------------------------------- */
-
-/**
- * @typedef {HTMLDivAttributes & ComponentProps} DropdownMenuSubContentProps
- * @param {DropdownMenuSubContentProps} props
- */
-export function DropdownMenuSubContent({ class: klass, className, children, ...rest }) {
-    return (
-        <div
-            role="menu"
-            class={cn(
-                "dropdown-menu-sub-content ml-2 mt-1 flex flex-col gap-0 rounded-md border bg-popover p-1 text-popover-foreground shadow-md",
-                className || klass,
-            )}
-            {...rest}
-        >
-            {children}
-        </div>
-    );
-}
-
-/* -------------------------------------------------------------------------------------------------
- * DropdownMenuPortal
- * ------------------------------------------------------------------------------------------------- */
-
-/**
- * @typedef {HTMLDivAttributes & ComponentProps} DropdownMenuPortalProps
- * @param {DropdownMenuPortalProps} props
- */
-export function DropdownMenuPortal({ children, class: klass, className, ...rest }) {
-    void rest;
-    if (Array.isArray(children)) {
-        return <div class={cn("dropdown-menu-portal", className || klass)}>{children}</div>;
-    }
-    return <div class={cn("dropdown-menu-portal", className || klass)}>{children}</div>;
 }
 
 /* -------------------------------------------------------------------------------------------------
