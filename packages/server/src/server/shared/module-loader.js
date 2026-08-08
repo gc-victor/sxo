@@ -5,7 +5,7 @@
  * Supports both bundled modules.js and individual JSX module loading as fallback.
  *
  * Key features:
- * - Platform-agnostic (uses passed importer function)
+ * - Platform-agnostic (uses passed importer function; defaults to Node `import()`)
  * - Cache management (bust cache in dev, static cache in prod)
  * - Fallback from modules.js bundle to individual JSX loading
  * - Optional error stubbing (returns HTML error message instead of throwing)
@@ -14,7 +14,25 @@
  * @module server/shared/module-loader
  */
 
+import { createRequire } from "node:module";
 import { jsxBundlePath } from "../utils/jsx-bundle-path.js";
+
+// Make require available in ESM context so esbuild's __require shim works
+// for CJS dependencies bundled into the server output. Bun and Deno also
+// expose process.versions.node, so the typeof guard keeps this safe on
+// runtimes without a global process. First-wins guard ensures it runs once
+// regardless of which module triggers the first import.
+if (typeof process !== "undefined" && process.versions?.node && typeof globalThis.require !== "function") {
+    globalThis.require = createRequire(import.meta.url);
+}
+
+/**
+ * Default ESM importer used when no platform-specific importer is provided.
+ * Uses Node's dynamic import() directly.
+ * @param {string} url
+ * @returns {Promise<any>}
+ */
+const defaultImporter = (url) => import(url);
 
 /**
  * Minimal HTML escaper for error stub output.
@@ -30,27 +48,18 @@ function escapeHtmlLite(s) {
  *
  * @param {string} jsxPath - Source path to the page module (under PAGES_DIR)
  * @param {object} options
- * @param {(url: string) => Promise<any>} options.importer - Platform-specific import function
+ * @param {(url: string) => Promise<any>} [options.importer] - Platform-specific import function (defaults to Node `import()`)
  * @param {boolean} [options.bustCache=false] - Force fresh import
- * @param {Map<string, Function>} [options.cache] - Cache map (required)
+ * @param {Map<string, Function>} [options.cache] - Cache map (defaults to new Map())
  * @param {boolean} [options.returnErrorStub=false] - Return error HTML stub instead of throwing
  * @param {(msg: string) => void} [options.onError] - Optional error callback
- * @param {boolean} [options.isDev=false] - Development mode flag for error message detail
- * - Controls error message verbosity when `returnErrorStub` is true
- * - isDev=true: Shows detailed error with file path and error message (e.g., "Error loading path/to/page.jsx: TypeError: ...")
- * - isDev=false: Shows generic "Failed to load page" message (production-safe)
- * - This distinguishes the build-time DEV flag (from config resolution) from runtime NODE_ENV
- * - Use DEV flag to control build-time behavior (sourcemaps, minification) and isDev for runtime error detail
+ * @param {boolean} [options.isDev=false] - Show detailed error messages when true (safer generic message when false)
  * @returns {Promise<Function>} The resolved SSR render function
  */
-export async function loadJsxModule(jsxPath, { importer, bustCache = false, cache, returnErrorStub = false, onError, isDev = false }) {
-    if (!importer) {
-        throw new Error("loadJsxModule: importer function is required");
-    }
-    if (!cache) {
-        throw new Error("loadJsxModule: cache Map is required");
-    }
-
+export async function loadJsxModule(
+    jsxPath,
+    { importer = defaultImporter, bustCache = false, cache = new Map(), returnErrorStub = false, onError, isDev = false } = {},
+) {
     const modulePath = jsxBundlePath(jsxPath);
 
     // When busting, drop existing cache entry so a fresh import result will be stored
@@ -65,6 +74,7 @@ export async function loadJsxModule(jsxPath, { importer, bustCache = false, cach
 
     try {
         const moduleUrl = bustCache ? `${modulePath}?t=${Date.now()}` : modulePath;
+
         const mod = await importer(moduleUrl);
         const fn = mod.default || mod.jsx;
         if (typeof fn !== "function") {
@@ -96,14 +106,10 @@ export async function loadJsxModule(jsxPath, { importer, bustCache = false, cach
  * @param {object} options
  * @param {(url: string) => Promise<any>} options.importer - Platform-specific import function
  * @param {boolean} [options.bustCache=false] - Force fresh imports
- * @param {Map<string, Function>} [options.cache] - Cache map (required)
+ * @param {Map<string, Function>} [options.cache] - Shared cache map (required; batch callers must share one across routes)
  * @param {boolean} [options.returnErrorStub=false] - Return error HTML stubs instead of throwing
  * @param {(msg: string) => void} [options.onError] - Optional error callback
- * @param {boolean} [options.isDev=false] - Development mode flag for error message detail
- * - Passed through to loadJsxModule() to control error message verbosity
- * - isDev=true: Shows detailed error with file path and error message
- * - isDev=false: Shows generic "Failed to load page" message
- * - This distinguishes the build-time DEV flag from runtime NODE_ENV
+ * @param {boolean} [options.isDev=false] - Passed through to loadJsxModule() for error message verbosity
  * @returns {Promise<void>}
  */
 export async function loadAllModules(routes, { importer, bustCache = false, cache, returnErrorStub = false, onError, isDev = false }) {
@@ -120,17 +126,7 @@ export async function loadAllModules(routes, { importer, bustCache = false, cach
     await Promise.all(
         routes.map((route) => {
             if (route.jsx) {
-                const opts = {
-                    importer,
-                    bustCache,
-                    cache,
-                    returnErrorStub,
-                    isDev,
-                };
-                /** @type {any} */
-                const optsWithOptional = opts;
-                if (onError) optsWithOptional.onError = onError;
-                return loadJsxModule(route.jsx, optsWithOptional);
+                return loadJsxModule(route.jsx, { importer, bustCache, cache, returnErrorStub, onError, isDev });
             }
             return Promise.resolve();
         }),
@@ -149,11 +145,7 @@ export async function loadAllModules(routes, { importer, bustCache = false, cach
  * @param {(url: string) => Promise<any>} options.importer - Platform-specific import function
  * @param {(msg: string) => void} [options.onWarn] - Optional warning callback
  * @param {(msg: string) => void} [options.onError] - Optional error callback
- * @param {boolean} [options.isDev=false] - Development mode flag for error message detail
- * - Passed through to loadJsxModule() to control error message verbosity
- * - isDev=true: Shows detailed error with file path and error message
- * - isDev=false: Shows generic "Failed to load page" message
- * - This distinguishes the build-time DEV flag from runtime NODE_ENV
+ * @param {boolean} [options.isDev=false] - Passed through to loadJsxModule() for error message verbosity
  * @returns {Promise<Record<string, {default?: Function, jsx?: Function}>>} Modules object keyed by jsx path
  */
 export async function loadModulesWithFallback({ modulesPath, routes, importer, onWarn, onError, isDev = false }) {
@@ -187,7 +179,6 @@ export async function loadModulesWithFallback({ modulesPath, routes, importer, o
                         cache,
                         returnErrorStub: false,
                         isDev,
-                        // Don't pass onError here since we handle errors in catch block below
                     });
                     modules[route.jsx] = { default: fn };
                 } catch (e) {
@@ -201,13 +192,4 @@ export async function loadModulesWithFallback({ modulesPath, routes, importer, o
     }
 
     return modules;
-}
-
-/**
- * Clear all cached modules.
- *
- * @param {Map<string, Function>} cache - Cache map to clear
- */
-export function clearModuleCache(cache) {
-    cache.clear();
 }
