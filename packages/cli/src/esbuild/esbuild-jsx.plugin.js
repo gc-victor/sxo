@@ -14,7 +14,7 @@ const fileReader = createFileReader();
 const HELPERS_VIRTUAL_MODULE = "virtual:jsx-helpers";
 
 /**
- * @typedef {import("../server/shared/file-readers.js").FileReader} FileReader
+ * @typedef {import("@sxo/server/shared/file-readers").FileReader} FileReader
  */
 
 /**

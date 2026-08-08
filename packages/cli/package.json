@@ -10,7 +10,6 @@
     },
     "dependencies": {
         "@sxo/server": "workspace:*",
-        "@sxo/client": "workspace:*",
         "cac": "^7.0.0",
         "esbuild": "^0.28.0"
     }

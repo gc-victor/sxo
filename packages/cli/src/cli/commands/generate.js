@@ -21,7 +21,7 @@ export async function handleGenerateCommand(flags, inject = {}) {
         const impl = {
             resolveConfig: inject.resolveConfig ?? resolveConfig,
             pathExists: inject.pathExists ?? pathExists,
-            importGenerate: inject.importGenerate ?? (async () => import("../../generate/generate.js")),
+            importGenerate: inject.importGenerate ?? (async () => import("@sxo/server/generate")),
         };
 
         const root = path.resolve(process.cwd());
