@@ -22,20 +22,6 @@ export const CACHE_IMMUTABLE = "public, max-age=31536000, immutable";
 export const CACHE_SHORT = "public, max-age=300";
 
 /**
- * Cache-Control for error responses (no caching).
- * Used for 500 errors to prevent caching error pages.
- * @type {string}
- */
-export const CACHE_NO_STORE = "no-store";
-
-/**
- * Cache-Control for must-revalidate responses.
- * Used for SSR and 404 responses.
- * @type {string}
- */
-export const CACHE_MUST_REVALIDATE = "public, max-age=0, must-revalidate";
-
-/**
  * Generate a weak ETag from file size and modification time.
  *
  * @param {number} size - File size in bytes

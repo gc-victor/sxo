@@ -105,12 +105,6 @@ export const HTTP_HEADER_IF_NONE_MATCH = "If-None-Match";
 export const HTTP_HEADER_REFERRER_POLICY = "Referrer-Policy";
 
 /**
- * Strict-Transport-Security header - enforces HTTPS connections.
- * @type {string}
- */
-export const HTTP_HEADER_STRICT_TRANSPORT_SECURITY = "Strict-Transport-Security";
-
-/**
  * Access-Control-Allow-Origin header - specifies which origins can access the resource.
  * @type {string}
  */
@@ -127,12 +121,6 @@ export const HTTP_HEADER_X_FRAME_OPTIONS = "X-Frame-Options";
  * @type {string}
  */
 export const HTTP_HEADER_X_CONTENT_TYPE_OPTIONS = "X-Content-Type-Options";
-
-/**
- * HTML MIME type.
- * @type {string}
- */
-export const MIME_TYPE_HTML = "text/html";
 
 /**
  * HTML MIME type with UTF-8 charset.
@@ -171,19 +159,7 @@ export const MIME_TYPE_EVENT_STREAM = "text/event-stream";
 export const SECURITY_VALUE_NOSNIFF = "nosniff";
 
 /**
- * SAMEORIGIN value for X-Frame-Options header.
- * @type {string}
- */
-export const SECURITY_VALUE_SAMEORIGIN = "SAMEORIGIN";
-
-/**
  * DENY value for X-Frame-Options header.
  * @type {string}
  */
 export const SECURITY_VALUE_DENY = "DENY";
-
-/**
- * ALLOW value for security headers.
- * @type {string}
- */
-export const SECURITY_VALUE_ALLOW = "ALLOW";

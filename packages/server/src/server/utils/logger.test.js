@@ -12,7 +12,6 @@ import {
     customErrorMessage,
     customLogLevel,
     customSuccessMessage,
-    httpBunLogger,
     httpDenoLogger,
     ignorePath,
     levelLabel,
@@ -106,7 +105,7 @@ describe("logger utilities", () => {
     test("should skip logging for /.well-known/ paths", () => {
         const request = new Request("https://example.com/.well-known/test");
 
-        const log = httpBunLogger(request);
+        const log = httpDenoLogger(request);
 
         // Mock logger to verify it's NOT called
         const infoMock = mock.method(logger, "info", () => {});
@@ -118,7 +117,7 @@ describe("logger utilities", () => {
 
     test("should log for regular paths", () => {
         const request = new Request("https://example.com/api/test");
-        const log = httpBunLogger(request);
+        const log = httpDenoLogger(request);
 
         const infoMock = mock.method(logger, "info", () => {});
         log.finish(new Response("OK", { status: 200 }));
@@ -129,7 +128,7 @@ describe("logger utilities", () => {
 
     test("should use error level for 5xx status codes", () => {
         const request = new Request("https://example.com/error");
-        const log = httpBunLogger(request);
+        const log = httpDenoLogger(request);
 
         const errorMock = mock.method(logger, "error", () => {});
         log.finish(new Response("Error", { status: 500 }));
@@ -140,7 +139,7 @@ describe("logger utilities", () => {
 
     test("should use warn level for 4xx status codes", () => {
         const request = new Request("https://example.com/missing");
-        const log = httpBunLogger(request);
+        const log = httpDenoLogger(request);
 
         const warnMock = mock.method(logger, "warn", () => {});
         log.finish(new Response("Not Found", { status: 404 }));
@@ -149,45 +148,17 @@ describe("logger utilities", () => {
         warnMock.mock.restore();
     });
 
-    test("httpBunLogger handles remote address", () => {
-        const request = new Request("https://example.com/test");
-        const server = {
-            requestIP: () => ({ address: "1.2.3.4" }),
-        };
-
-        const log = httpBunLogger(request, server);
-        const infoMock = mock.method(logger, "info", () => {});
-        log.finish(new Response("OK"));
-
-        assert.strictEqual(infoMock.mock.calls[0].arguments[0].req.remoteAddress, "1.2.3.4");
-        infoMock.mock.restore();
-
-        // Edge case: requestIP returns null
-        const log2 = httpBunLogger(request, { requestIP: () => null });
-        const infoMock2 = mock.method(logger, "info", () => {});
-        log2.finish(new Response("OK"));
-        assert.strictEqual(infoMock2.mock.calls[0].arguments[0].req.remoteAddress, undefined);
-        infoMock2.mock.restore();
-
-        // Edge case: requestIP returns object without address
-        const log3 = httpBunLogger(request, { requestIP: () => ({}) });
-        const infoMock3 = mock.method(logger, "info", () => {});
-        log3.finish(new Response("OK"));
-        assert.strictEqual(infoMock3.mock.calls[0].arguments[0].req.remoteAddress, undefined);
-        infoMock3.mock.restore();
-    });
-
-    test("httpDenoLogger handles remote address", () => {
+    test("httpDenoLogger handles remote address from info", () => {
         const request = new Request("https://example.com/test");
         const info = {
-            remoteAddr: { hostname: "5.6.7.8" },
+            remoteAddr: { hostname: "1.2.3.4" },
         };
 
         const log = httpDenoLogger(request, info);
         const infoMock = mock.method(logger, "info", () => {});
         log.finish(new Response("OK"));
 
-        assert.strictEqual(infoMock.mock.calls[0].arguments[0].req.remoteAddress, "5.6.7.8");
+        assert.strictEqual(infoMock.mock.calls[0].arguments[0].req.remoteAddress, "1.2.3.4");
         infoMock.mock.restore();
 
         // Edge case: info without remoteAddr

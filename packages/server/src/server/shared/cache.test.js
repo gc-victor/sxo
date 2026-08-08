@@ -5,7 +5,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { CACHE_IMMUTABLE, CACHE_MUST_REVALIDATE, CACHE_NO_STORE, CACHE_SHORT, weakEtag, weakEtagFromStat } from "./cache.js";
+import { CACHE_IMMUTABLE, CACHE_SHORT, weakEtag, weakEtagFromStat } from "./cache.js";
 
 describe("Cache control constants", () => {
     it("should have CACHE_IMMUTABLE for hashed assets", () => {
@@ -14,14 +14,6 @@ describe("Cache control constants", () => {
 
     it("should have CACHE_SHORT for non-hashed assets", () => {
         assert.equal(CACHE_SHORT, "public, max-age=300");
-    });
-
-    it("should have CACHE_NO_STORE for errors", () => {
-        assert.equal(CACHE_NO_STORE, "no-store");
-    });
-
-    it("should have CACHE_MUST_REVALIDATE for 404s", () => {
-        assert.equal(CACHE_MUST_REVALIDATE, "public, max-age=0, must-revalidate");
     });
 });
 

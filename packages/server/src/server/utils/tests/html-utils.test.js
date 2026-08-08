@@ -1,31 +1,6 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { DIV_APP_REGEX, renderErrorHtml } from "../html-utils.js";
-
-// Tests for HTML utility helpers split out from original aggregated utils test.
-// Focus: DIV_APP_REGEX, renderErrorHtml, injectPageContent (and new alias injectPageContent)
-
-test('DIV_APP_REGEX matches <div id="page"> with simple content', () => {
-    const html = `<html><body><div id="page">Hello</div></body></html>`;
-    const match = html.match(DIV_APP_REGEX);
-    assert.ok(match, "Expected a match for #page container");
-    assert.equal(match[0], `<div id="page">Hello</div>`);
-});
-
-test("DIV_APP_REGEX matches with additional attributes and multiline content (single quotes)", () => {
-    const html = `<div id='page' class="main">\n  World\n</div>`;
-    const match = html.match(DIV_APP_REGEX);
-    assert.ok(match, "Expected a match for multiline #page container");
-    assert.ok(match[0].includes("World"), "Multiline content should be captured");
-    assert.ok(/class="main"/.test(match[0]), "Attributes should be retained");
-});
-
-test("DIV_APP_REGEX does not over-match nested following divs", () => {
-    const html = `<div id="page"><p>Inner</p></div><div id="other">X</div>`;
-    const match = html.match(DIV_APP_REGEX);
-    assert.ok(match);
-    assert.equal(match[0], `<div id="page"><p>Inner</p></div>`, "Match should stop at the first closing div for #page container");
-});
+import { renderErrorHtml } from "../html-utils.js";
 
 test("renderErrorHtml returns styled error HTML with escaping", () => {
     const msg = "Something went wrong";

@@ -1,6 +1,3 @@
-/** Regex to match the <div id="page">...</div> in HTML templates (lazy, DOTALL via [\s\S]) */
-export const DIV_APP_REGEX = /<div\s+id=["']page["'][^>]*>[\s\S]*?<\/div>/i;
-
 /**
  * Build a minimal HTML error page with semantic structure.
  *

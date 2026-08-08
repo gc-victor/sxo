@@ -18,6 +18,3 @@ export function extractBodyFromHtml(html) {
     const match = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
     return match ? match[1] : "";
 }
-
-// Re-export as extractBody for backward compatibility
-export { extractBodyFromHtml as extractBody };

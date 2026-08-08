@@ -1,31 +1,6 @@
 import path from "node:path";
 
 /**
- * Set tracking boolean values that have already been warned about.
- * Prevents duplicate warnings without LRU overhead.
- *
- * Replaces LRUWarningCache class (62 lines) with simple Set.
- *
- * @type {Set<string>}
- */
-export const warnedBoolValues = new Set();
-
-/**
- * Get the internal warned boolean values Set (for testing).
- * @returns {Set<string>}
- */
-export function getWarnedBoolValues() {
-    return warnedBoolValues;
-}
-
-/**
- * Clear all warned boolean values (for testing).
- */
-export function clearWarnedBoolValues() {
-    warnedBoolValues.clear();
-}
-
-/**
  * Normalize to POSIX-style relative path (forward slashes).
  * If absolute, converts to relative from cwd. Removes trailing slashes.
  *

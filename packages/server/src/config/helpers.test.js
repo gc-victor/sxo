@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { clearWarnedBoolValues, toAbsolutePath, toRelativePosixPath, warnedBoolValues } from "./helpers.js";
+import { toAbsolutePath, toRelativePosixPath } from "./helpers.js";
 
 /**
  * Parameterized test covering all toRelativePosixPath scenarios
@@ -85,28 +85,6 @@ test("helpers: toAbsolutePath handles various path formats", async () => {
             `toAbsolutePath(${JSON.stringify(input)}, ${JSON.stringify(cwd)}) should return ${expected}, got ${result}`,
         );
     }
-});
-
-/**
- * Unique test: Verify warnedBoolValues is a Set
- */
-test("helpers: warnedBoolValues is a Set", async () => {
-    // Should be a Set instance
-    assert.ok(warnedBoolValues instanceof Set);
-});
-
-/**
- * Unique test: Verify clearWarnedBoolValues clears Set
- */
-test("helpers: clearWarnedBoolValues clears Set", async () => {
-    // Add some values
-    warnedBoolValues.add("invalid1");
-    warnedBoolValues.add("invalid2");
-    assert.equal(warnedBoolValues.size, 2);
-
-    // Clear should empty Set
-    clearWarnedBoolValues();
-    assert.equal(warnedBoolValues.size, 0);
 });
 
 /**

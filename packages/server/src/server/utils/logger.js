@@ -236,22 +236,6 @@ const createWebLogger = (request, remoteAddress) => {
 };
 
 /**
- * HTTP logger for Bun runtime using Web Standard Request/Response.
- * @param {Request} request - Web Standard Request object
- * @param {{ requestIP?: (request: Request) => { address: string } | null }} [server] - Bun server instance
- * @returns {{ finish: (response: Response) => void, startTime: number }}
- * @example
- * const log = httpBunLogger(request, server);
- * const response = await handleRequest(request);
- * log.finish(response);
- * return response;
- */
-export const httpBunLogger = (request, server) => {
-    const remoteAddress = server?.requestIP?.(request)?.address;
-    return createWebLogger(request, remoteAddress);
-};
-
-/**
  * HTTP logger for Deno runtime using Web Standard Request/Response.
  * @param {Request} request - Web Standard Request object
  * @param {{ remoteAddr?: { hostname: string } }} [info] - Deno serve handler info

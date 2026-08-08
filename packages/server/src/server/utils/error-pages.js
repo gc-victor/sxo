@@ -77,14 +77,3 @@ export function resolve404Page() {
 export function resolve500Page() {
     return resolveErrorPage("500");
 }
-
-/**
- * Convenience to query both special pages at once.
- * @returns {{ "404": string | null, "500": string | null }}
- */
-export function resolveErrorPages() {
-    return {
-        404: resolve404Page(),
-        500: resolve500Page(),
-    };
-}

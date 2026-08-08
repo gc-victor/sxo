@@ -9,7 +9,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { PAGES_DIR } from "../../constants.js";
-import { resolve404Page, resolve500Page, resolveErrorPage, resolveErrorPages } from "./error-pages.js";
+import { resolve404Page, resolve500Page, resolveErrorPage } from "./error-pages.js";
 
 describe("server/utils/error-pages.js", () => {
     it("should resolve 404 page when it exists as .tsx", (t) => {
@@ -76,23 +76,6 @@ describe("server/utils/error-pages.js", () => {
         try {
             const result = resolve500Page();
             assert.strictEqual(result, path.join(PAGES_DIR, "500.jsx"));
-        } finally {
-            accessMock.mock.restore();
-        }
-    });
-
-    it("should return both pages in resolveErrorPages", (t) => {
-        const accessMock = t.mock.method(fs, "accessSync", (p) => {
-            if (p === path.join(PAGES_DIR, "404.tsx") || p === path.join(PAGES_DIR, "500.jsx")) return;
-            throw new Error("ENOENT");
-        });
-
-        try {
-            const result = resolveErrorPages();
-            assert.deepStrictEqual(result, {
-                404: path.join(PAGES_DIR, "404.tsx"),
-                500: path.join(PAGES_DIR, "500.jsx"),
-            });
         } finally {
             accessMock.mock.restore();
         }
