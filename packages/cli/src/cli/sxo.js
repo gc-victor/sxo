@@ -36,7 +36,7 @@ const __dirname = path.dirname(__filename);
 // Create file reader and read version
 const fileReader = createFileReader();
 try {
-    const pkgTxt = await fileReader.readText(path.resolve(__dirname, "../../../package.json"));
+    const pkgTxt = await fileReader.readText(path.resolve(__dirname, "../../../../package.json"));
     if (pkgTxt !== null) {
         VERSION = JSON.parse(pkgTxt).version || VERSION;
     }
