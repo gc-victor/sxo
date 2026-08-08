@@ -5,9 +5,9 @@
  * Inline content (no separate section file — this component is standalone).
  */
 
-import Tabs, { TabsContent, TabsList, TabsTrigger } from "@components/tabs.jsx";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@components/tabs.jsx";
 import CopyButton from "@pages/components/copy-button.jsx";
-import highlightJsx from "@pages/components/highlight-jsx.js";
+import { highlightJsx } from "@pages/components/highlight-jsx.js";
 import { Section, SectionDescription, SectionHeading } from "../../sections/section.jsx";
 import { DocLayout } from "../doc-layout.jsx";
 

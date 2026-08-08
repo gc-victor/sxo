@@ -266,5 +266,3 @@ export function highlightJsx(code) {
         })
         .join("");
 }
-
-export default highlightJsx;

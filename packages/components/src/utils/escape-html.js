@@ -61,5 +61,3 @@ export function escapeHtml(value) {
 
     return str.replace(/[&<>"']/g, (ch) => map[ch]);
 }
-
-export default escapeHtml;

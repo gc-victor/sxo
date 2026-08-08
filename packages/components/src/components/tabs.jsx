@@ -120,5 +120,3 @@ export function TabsContent({ class: klass, className, children, name, active, .
         </div>
     );
 }
-
-export default Tabs;

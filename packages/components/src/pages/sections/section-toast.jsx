@@ -1,8 +1,8 @@
 import Button from "@components/button.jsx";
-import Tabs, { TabsContent, TabsList, TabsTrigger } from "@components/tabs.jsx";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@components/tabs.jsx";
 import { Toast, ToastDescription, Toaster, ToastTitle } from "@components/toast.jsx";
 import CopyButton from "@pages/components/copy-button.jsx";
-import highlightJsx from "@pages/components/highlight-jsx.js";
+import { highlightJsx } from "@pages/components/highlight-jsx.js";
 import { Section, SectionDescription, SectionHeading } from "./section.jsx";
 
 /**

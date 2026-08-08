@@ -8,9 +8,9 @@ import {
     SelectMenuSearch,
     SelectMenuTrigger,
 } from "@components/select-menu.jsx";
-import Tabs, { TabsContent, TabsList, TabsTrigger } from "@components/tabs.jsx";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@components/tabs.jsx";
 import CopyButton from "@pages/components/copy-button.jsx";
-import highlightJsx from "@pages/components/highlight-jsx.js";
+import { highlightJsx } from "@pages/components/highlight-jsx.js";
 import { Section, SectionDescription, SectionHeading } from "./section.jsx";
 
 /**

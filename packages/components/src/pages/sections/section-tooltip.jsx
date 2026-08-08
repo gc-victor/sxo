@@ -21,10 +21,10 @@
  * @version 1.0.0
  */
 
-import Tabs, { TabsContent, TabsList, TabsTrigger } from "@components/tabs.jsx";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@components/tabs.jsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@components/tooltip.jsx";
 import CopyButton from "@pages/components/copy-button.jsx";
-import highlightJsx from "@pages/components/highlight-jsx.js";
+import { highlightJsx } from "@pages/components/highlight-jsx.js";
 import { Section, SectionDescription, SectionHeading } from "./section.jsx";
 
 /**

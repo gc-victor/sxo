@@ -19,9 +19,9 @@
 import Badge from "@components/badge.jsx";
 import Button from "@components/button.jsx";
 import Card, { CardFooter, CardHeader, CardHeaderDescription, CardHeaderTitle, CardSection } from "@components/card.jsx";
-import Tabs, { TabsContent, TabsList, TabsTrigger } from "@components/tabs.jsx";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@components/tabs.jsx";
 import CopyButton from "@pages/components/copy-button.jsx";
-import highlightJsx from "@pages/components/highlight-jsx.js";
+import { highlightJsx } from "@pages/components/highlight-jsx.js";
 import { Section, SectionDescription, SectionHeading } from "./section.jsx";
 
 /**

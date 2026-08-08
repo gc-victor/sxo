@@ -269,5 +269,3 @@ export function TableCell({ class: klass, className, children, ...rest }) {
         </td>
     );
 }
-
-export default Table;

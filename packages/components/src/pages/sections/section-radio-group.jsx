@@ -1,8 +1,8 @@
 import Label from "@components/label.jsx";
-import RadioGroup, { Radio, RadioGroupItem } from "@components/radio-group.jsx";
-import Tabs, { TabsContent, TabsList, TabsTrigger } from "@components/tabs.jsx";
+import { Radio, RadioGroup, RadioGroupItem } from "@components/radio-group.jsx";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@components/tabs.jsx";
 import CopyButton from "@pages/components/copy-button.jsx";
-import highlightJsx from "@pages/components/highlight-jsx.js";
+import { highlightJsx } from "@pages/components/highlight-jsx.js";
 import { Section, SectionDescription, SectionHeading } from "./section.jsx";
 
 /**

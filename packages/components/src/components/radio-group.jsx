@@ -111,4 +111,3 @@ export function Radio({ class: klass, className, label, children, ...rest }) {
 }
 
 // Backward compatibility: default export remains the group component.
-export default RadioGroup;

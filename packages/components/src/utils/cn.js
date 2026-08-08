@@ -51,5 +51,3 @@ export function cn(...tokens) {
     // adjust the filter to `v != null && v !== false && v !== ''`.
     return tokens.flat().filter(Boolean).join(" ");
 }
-
-export default cn;
