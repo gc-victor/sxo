@@ -31,11 +31,11 @@ jobs:
         run: rustup target add wasm32-unknown-unknown
 
       - name: Build
-        run: cargo build --release --target wasm32-unknown-unknown
+        run: cargo build --release --target wasm32-unknown-unknown --manifest-path packages/cli/jsx-transformer/Cargo.toml
 
       - name: Upload WASM artifact
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: wasm-build
-          path: target/wasm32-unknown-unknown/release/*.wasm
+          path: packages/cli/jsx-transformer/target/wasm32-unknown-unknown/release/*.wasm
           retention-days: 1

@@ -8,7 +8,7 @@ inputs:
   cargo-toml-path:
     description: "Path to Cargo.toml (to extract wasm-bindgen crate version)"
     required: false
-    default: "Cargo.toml"
+    default: "packages/cli/jsx-transformer/Cargo.toml"
 
 runs:
   using: "composite"
@@ -66,7 +66,7 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-        ARTIFACT_DIR="target/wasm32-unknown-unknown/release"
+        ARTIFACT_DIR="packages/cli/jsx-transformer/target/wasm32-unknown-unknown/release"
         WASM_FILE="$(ls -1 "$ARTIFACT_DIR"/*.wasm 2>/dev/null | head -n 1 || true)"
         if [ -n "$WASM_FILE" ]; then
           echo "Generating JSX Transformer from artifact: $WASM_FILE"
@@ -76,7 +76,7 @@ runs:
           rustup target add wasm32-unknown-unknown >/dev/null 2>&1 || true
           pnpm wasm-build
         fi
-        if [ ! -f "jsx-transformer/jsx_transformer.js" ]; then
+        if [ ! -f "packages/cli/jsx-transformer/jsx_transformer.js" ]; then
           echo "::error::JSX Transformer (jsx_transformer.js) not generated"
           exit 1
         fi

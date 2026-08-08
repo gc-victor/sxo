@@ -19,4 +19,4 @@ jobs:
         uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1
 
       - name: Test
-        run: cargo test --release
+        run: cargo test --release --manifest-path packages/cli/jsx-transformer/Cargo.toml
