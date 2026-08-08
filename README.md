@@ -1128,6 +1128,25 @@ Serve behind a reverse proxy (optional). Add your own middleware for:
 - Auth / session logic
 - Rate limiting
 
+## Releasing & Publishing
+
+The npm artifact is the root `sxo` package (CLI + server + client source, published by `.github/workflows/publish.yml` on a merged `release/<version>` branch). Two workspace packages must be published **before** the root:
+
+1. `@sxo/server` — `cd packages/server && npm publish --provenance --access public`
+2. `@sxo/client` — `cd packages/client && npm publish --provenance --access public`
+3. Root `sxo` — automatic via the release branch (or `npm publish` from the repo root)
+
+All three manifests share the same `version`. Workspace manifests declare **real semver ranges** (not `workspace:*`); `pnpm-workspace.yaml` sets `linkWorkspacePackages: true` so development still links the local workspace copies while `npm pack` ships publishable versions with no `workspace:*` leakage.
+
+Pre-publish checks:
+
+```shell
+npm pack --dry-run          # no "workspace:" in package/package.json, contains jsx_transformer_bg.wasm
+npm pack                    # then install the tarball in a temp dir and run: sxo --version, sxo build
+```
+
+The workflow gates itself: `publish.yml` validates the packed tarball (no `workspace:*`, WASM present, installable, `sxo --version` real, fixture build passes) before publishing.
+
 ## Acknowledgements
 
 - Built on top of esbuild — thanks to Evan Wallace and the esbuild project for the extremely fast bundler & plugin ecosystem: https://github.com/evanw/esbuild
