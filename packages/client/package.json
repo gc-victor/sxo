@@ -1,7 +1,12 @@
 {
     "name": "@sxo/client",
-    "private": true,
+    "version": "0.10.1",
     "type": "module",
+    "files": [
+        "src",
+        "!src/**/*.test.js",
+        "!src/**/test-utils.js"
+    ],
     "exports": {
         ".": "./src/index.ts"
     },

@@ -4,6 +4,10 @@ packages:
   - examples/deno
   - examples/workers
 
+# Link workspace packages for matching semver ranges so the published
+# manifests can declare real versions (npm pack) while dev uses local copies.
+linkWorkspacePackages: true
+
 allowBuilds:
   '@parcel/watcher': true
   esbuild: true

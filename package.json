@@ -74,6 +74,10 @@
         "typescript": "^6.0.3"
     },
     "dependencies": {
-        "@sxo/cli": "workspace:*"
+        "@sxo/client": "^0.10.1",
+        "@sxo/server": "^0.10.1",
+        "alien-signals": "^3.2.1",
+        "cac": "^7.0.0",
+        "esbuild": "^0.28.0"
     }
 }
