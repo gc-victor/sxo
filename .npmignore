@@ -1,9 +1,17 @@
 *
-!src/js/**/*
-!jsx-transformer/*
+!package.json
 !README.md
 !CHANGELOG.md
 !LICENSE
-!package.json
+!packages/cli/**
+!packages/server/**
+!packages/client/**
 
-src/js/**/*.test.js
+packages/**/*.test.js
+packages/**/*.test.ts
+packages/**/*.test.jsx
+packages/**/*.test.tsx
+packages/**/test-utils.js
+packages/**/test-utils.ts
+packages/**/target/
+packages/**/node_modules/
