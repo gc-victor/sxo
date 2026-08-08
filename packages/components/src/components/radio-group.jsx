@@ -109,5 +109,3 @@ export function Radio({ class: klass, className, label, children, ...rest }) {
         </label>
     );
 }
-
-// Backward compatibility: default export remains the group component.
