@@ -55,6 +55,12 @@ importers:
         specifier: workspace:*
         version: link:../..
 
+  examples/todo:
+    dependencies:
+      sxo:
+        specifier: workspace:*
+        version: link:../..
+
   examples/workers:
     dependencies:
       sxo:

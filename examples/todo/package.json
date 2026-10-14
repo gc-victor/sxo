@@ -1,0 +1,13 @@
+{
+    "name": "sxo-todo-example",
+    "type": "module",
+    "private": true,
+    "scripts": {
+        "dev": "sxo dev",
+        "build": "sxo build",
+        "start": "sxo start"
+    },
+    "dependencies": {
+        "sxo": "workspace:*"
+    }
+}

@@ -21,6 +21,8 @@ dist/
 target
 coverage
 **/global.css
+!examples/todo/src/pages/global.css
+*.db
 
 # Local planning documents
 .plans/

@@ -1,6 +1,7 @@
 packages:
   - packages/*
   - examples/node
+  - examples/todo
   - examples/deno
   - examples/workers
 

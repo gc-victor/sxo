@@ -1,0 +1,107 @@
+/* Plain global stylesheet: SXO includes src/pages/global.css on every route. */
+:root {
+    color-scheme: light;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    display: grid;
+    place-items: start center;
+    background: #f6f7f9;
+    color: #1c1e21;
+    font-family: system-ui, -apple-system, sans-serif;
+}
+
+main {
+    width: min(34rem, 92vw);
+    margin-top: 4rem;
+}
+
+h1 {
+    margin: 0 0 0.25rem;
+    font-size: 1.7rem;
+}
+
+.tagline {
+    margin: 0 0 1.5rem;
+    color: #5c6370;
+    font-size: 0.9rem;
+}
+
+form {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+form input[type="text"] {
+    flex: 1;
+    padding: 0.55rem 0.75rem;
+    border: 1px solid #c9ced6;
+    border-radius: 0.5rem;
+    font: inherit;
+    background: #fff;
+}
+
+button {
+    padding: 0.55rem 1rem;
+    border: 0;
+    border-radius: 0.5rem;
+    background: #2f6f4f;
+    color: #fff;
+    font: inherit;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #275c42;
+}
+
+ul {
+    margin: 0 0 1rem;
+    padding: 0;
+    list-style: none;
+    background: #fff;
+    border: 1px solid #e3e6ea;
+    border-radius: 0.75rem;
+}
+
+li {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.65rem 0.85rem;
+    border-bottom: 1px solid #eef0f3;
+}
+
+li:last-child {
+    border-bottom: 0;
+}
+
+li span {
+    flex: 1;
+}
+
+li span.done {
+    text-decoration: line-through;
+    opacity: 0.55;
+}
+
+li button {
+    padding: 0.15rem 0.55rem;
+    background: transparent;
+    color: #b0413e;
+    font-size: 1.1rem;
+    line-height: 1.4;
+}
+
+li.empty {
+    justify-content: center;
+    color: #8a8f98;
+}
+
+p {
+    color: #5c6370;
+    font-size: 0.9rem;
+}
