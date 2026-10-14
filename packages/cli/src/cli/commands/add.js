@@ -19,7 +19,7 @@ const SAFE_COMPONENT = /^[a-z0-9][a-z0-9-]*$/;
  * Fetches a component from GitHub or local fallback and installs it to the components directory.
  *
  * Attempts to fetch component files (.jsx, .client.js, .css, .script.js) from GitHub raw URLs first,
- * falling back to local components/src/components if GitHub is unavailable.
+ * falling back to local packages/components/src/components if GitHub is unavailable.
  *
  * @function addComponent
  * @param {string} component - Component name (e.g., 'button')
@@ -33,8 +33,8 @@ export async function addComponent(component, componentsDir) {
         throw new Error(`Invalid component name: ${component}`);
     }
 
-    const baseUrl = "https://raw.githubusercontent.com/gc-victor/sxo/main/components/src/components/";
-    const baseDir = path.join(process.cwd(), "components/src/components"); // fallback
+    const baseUrl = "https://raw.githubusercontent.com/gc-victor/sxo/main/packages/components/src/components/";
+    const baseDir = path.join(process.cwd(), "packages/components/src/components"); // fallback
     const extensions = [".jsx", ".client.js", ".css"];
     let installed = false;
 

@@ -20,7 +20,7 @@ async function setupTestEnv(tmp, { createBasecoat = false } = {}) {
     await fsp.mkdir(componentsDir, { recursive: true });
 
     if (createBasecoat) {
-        const basecoatDir = path.join(tmp, "components/src/components");
+        const basecoatDir = path.join(tmp, "packages/components/src/components");
         await fsp.mkdir(basecoatDir, { recursive: true });
     }
 
@@ -46,7 +46,7 @@ async function teardownTestEnv(originalCwd) {
  * @param {string} [ext=".jsx"] - File extension
  */
 async function createBasecoatComponent(tmp, name, content, ext = ".jsx") {
-    const basecoatDir = path.join(tmp, "components/src/components");
+    const basecoatDir = path.join(tmp, "packages/components/src/components");
     await writeFile(basecoatDir, `${name}${ext}`, content ?? `export function ${toPascalCase(name)}() {}`);
 }
 
@@ -82,8 +82,8 @@ describe("cli/commands/add", () => {
     it("installs component files from local basecoat to componentsDir", async () => {
         await withTempProject(async (tmp) => {
             await createBasecoatComponent(tmp, "test-component", "export function TestComponent() { return <div>Test</div>; }");
-            await writeFile(path.join(tmp, "components/src/components"), "test-component.client.js", 'console.log("client");');
-            await writeFile(path.join(tmp, "components/src/components"), "test-component.css", ".test { color: red; }");
+            await writeFile(path.join(tmp, "packages/components/src/components"), "test-component.client.js", 'console.log("client");');
+            await writeFile(path.join(tmp, "packages/components/src/components"), "test-component.css", ".test { color: red; }");
 
             const { componentsDir, originalCwd } = await setupTestEnv(tmp);
 
@@ -155,14 +155,23 @@ describe("cli/commands/add", () => {
             const { componentsDir, originalCwd } = await setupTestEnv(tmp);
 
             const originalFetch = global.fetch;
-            global.fetch = mock.fn(async () => ({
-                ok: true,
-                text: async () => "github-content",
-            }));
+            const requestedUrls = [];
+            global.fetch = mock.fn(async (url) => {
+                requestedUrls.push(url);
+                return {
+                    ok: true,
+                    text: async () => "github-content",
+                };
+            });
 
             try {
                 await handleAddCommand("github-component", { componentsDir: "src/components" });
                 assert.equal(process.exitCode, 0);
+                assert.deepEqual(requestedUrls, [
+                    "https://raw.githubusercontent.com/gc-victor/sxo/main/packages/components/src/components/github-component.jsx",
+                    "https://raw.githubusercontent.com/gc-victor/sxo/main/packages/components/src/components/github-component.client.js",
+                    "https://raw.githubusercontent.com/gc-victor/sxo/main/packages/components/src/components/github-component.css",
+                ]);
 
                 const installedJsx = await fsp.readFile(path.join(componentsDir, "github-component.jsx"), "utf8");
                 assert.equal(installedJsx, "github-content");
