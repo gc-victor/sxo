@@ -1,7 +1,27 @@
 {
     "name": "@sxo/client",
     "version": "0.10.1",
+    "description": "SXO client reactivity — tiny framework-free library for web-component islands (define(), ReactiveComponent, createContext), powered by alien-signals.",
+    "keywords": [
+        "sxo",
+        "reactive-components",
+        "web-components",
+        "custom-elements",
+        "islands",
+        "signals"
+    ],
+    "author": "Víctor García",
+    "license": "MIT",
     "type": "module",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/gc-victor/sxo.git",
+        "directory": "packages/client"
+    },
+    "homepage": "https://github.com/gc-victor/sxo#readme",
+    "bugs": {
+        "url": "https://github.com/gc-victor/sxo/issues"
+    },
     "files": [
         "src",
         "!src/**/*.test.js",

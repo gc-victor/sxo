@@ -22,8 +22,10 @@ A **fast**, minimal architecture convention and CLI for building websites with s
 - [Platform Adapters](#platform-adapters)
 - [Routing Guide](#routing-guide)
 - [Page Module API](#page-module-api)
+- [Client-Side Reactivity](#client-side-reactivity)
 - [Middleware](#middleware)
 - [Hot Replace (Dev)](#hot-replace-dev)
+- [Custom Error Pages (404/500)](#custom-error-pages-404500)
 - [Build Outputs & Manifest](#build-outputs--manifest)
 - [Static Generation & Production Behavior](#static-generation--production-behavior)
 - [HTML Template and Styles](#html-template-and-styles)
@@ -35,6 +37,7 @@ A **fast**, minimal architecture convention and CLI for building websites with s
 - [Security](#security)
 - [Testing](#testing)
 - [Deployment](#deployment)
+- [Releasing & Publishing](#releasing--publishing)
 - [Acknowledgements](#acknowledgements)
 - [Contributing](#contributing)
 - [License](#license)
@@ -55,7 +58,7 @@ A **fast**, minimal architecture convention and CLI for building websites with s
 - **Directory-based routing**: each directory is a route and can include dynamic parts (for example a post ID or slug) which are provided to the page at render time.
 - **Full HTML page components**: each page's render function returns a complete <html> document (including <head> and <body>).
 - **Full-document pages**: each page is self-contained and returns its own `<html>`, `<head>`, and `<body>`.
-- **Optimized for Reactive Components**: pair with tiny primitives from [reactive-component](https://github.com/gc-victor/reactive-component) to add islands only where needed.
+- **Built-in Reactive Components**: the bundled [`sxo/client`](#client-side-reactivity) library (`define()`, `ReactiveComponent`, `createContext`) adds framework-free islands only where needed.
 - **Dev server**: hot replace (SSE partial replacement) and auto-open with readiness probe.
 - **Production server**: minimal core (bring your own policy via middleware).
 - **Dual build outputs**: client assets use hashed filenames; separate server bundles (never exposed publicly).
@@ -113,7 +116,16 @@ npx sxo start  # Production server
    - Prod: Minimal HTTP server loads server bundles (ESM) and injects JSX output.
 
 **Aliases**
-Available in both client & server builds:
+
+Path aliases are resolved with the following precedence:
+
+1. `tsconfig.json` → `compilerOptions.paths` (explicit configuration takes full control)
+2. `package.json` → `imports` (`#foo` subpath imports become `@foo` aliases)
+3. Auto-discovery: each subdirectory of the source directory becomes `@<name>` (e.g., `src/components` → `@components`); entries starting with `.` or `_` are skipped
+
+`@pages` always points to the configured pages directory. Aliases apply to both client and server builds; on Node.js they are also resolved at runtime (dev/start) through a module loader hook.
+
+A typical `src` layout yields:
 
 ```shell
 @components -> src/components
@@ -187,7 +199,7 @@ Commands:
 
 ```shell
 sxo create [project]  # Create a new SXO project from templates (prompts for runtime; defaults to node)
-sxo add <component>     # Add a component from the basecoat library to src/components
+sxo add <component>     # Add an SXOUI component to the components directory (default: src/components)
 sxo dev                 # Start the development server with hot replace
 sxo build               # Build the project for production (client and server bundles)
 sxo start               # Start the production server to serve built output
@@ -255,6 +267,10 @@ pnpm install
 pnpm run dev
 ```
 
+**What's Included:**
+
+Templates ship with [Tailwind CSS v4](https://tailwindcss.com) and [basecoat-css](https://basecoatui.com) preconfigured (`src/styles.css` compiled to `src/pages/global.css` via the `tailwind` scripts), path aliases declared in `jsconfig.json`/`tsconfig.json`, and a reactive counter demo built with the bundled [`sxo/client`](#client-side-reactivity) library.
+
 Add components from SXOUI:
 
 ```shell
@@ -268,7 +284,7 @@ sxo add dialog
 # Browse all available components at https://sxoui.com
 ```
 
-**SXOUI Component Library**: SXO includes access to 25+ production-ready components via the `sxo add` command. Visit [**sxoui.com**](https://sxoui.com) to browse the complete component library with live demos, accessibility documentation, and copy-paste ready code examples.
+**SXOUI Component Library**: SXO includes access to 38 production-ready components via the `sxo add` command. Visit [**sxoui.com**](https://sxoui.com) to browse the complete component library with live demos, accessibility documentation, and copy-paste ready code examples.
 
 Point to a different pages directory:
 
@@ -298,9 +314,9 @@ LOADERS='{"svg":"file",".ts":"tsx"}' sxo dev
 
 ## SXOUI Component Library
 
-🎨 **[sxoui.com](https://sxoui.com)** — Production-ready components for SXO
+**[sxoui.com](https://sxoui.com)** — Production-ready components for SXO
 
-SXOUI is a comprehensive component library built specifically for SXO, featuring 25+ accessible, semantic, and performant components that work with server-side rendering and optional client-side interactivity.
+SXOUI is a comprehensive component library built specifically for SXO, featuring 38 accessible, semantic, and performant components that work with server-side rendering and optional client-side interactivity.
 
 ### Available Components
 
@@ -315,14 +331,18 @@ SXOUI is a comprehensive component library built specifically for SXO, featuring
 #### Form Controls
 
 - **Input** - Text, email, password, number inputs
+- **Input Group** - Grouped inputs with prefixes, suffixes, and addons
 - **Textarea** - Multi-line text with auto-resize
 - **Select** - Native dropdowns with styling
+- **Native Select** - Accessible native select with consistent styling
 - **Select Menu** - Custom accessible dropdowns with search
+- **Combobox** - Autocomplete input with filterable suggestions
 - **Checkbox** - Toggle selection with indeterminate state
 - **Radio Group** - Mutually exclusive options
 - **Switch** - Boolean toggle switches
 - **Slider** - Numeric range inputs
 - **Label** - Accessible form labels
+- **Field** - Form field composition with label, description, and errors
 - **Form** - Validation and layout utilities
 
 #### Feedback & Overlays
@@ -330,9 +350,11 @@ SXOUI is a comprehensive component library built specifically for SXO, featuring
 - **Alert** - Info, success, warning, error banners
 - **Alert Dialog** - Modal confirmations
 - **Dialog** - General-purpose modals
+- **Drawer** - Slide-in panels anchored to a screen edge
 - **Toast** - Temporary notifications
 - **Skeleton** - Loading placeholders
 - **Tooltip** - Contextual help
+- **Progress** - Determinate progress indicators
 
 #### Navigation
 
@@ -340,23 +362,27 @@ SXOUI is a comprehensive component library built specifically for SXO, featuring
 - **Dropdown Menu** - Action menus
 - **Popover** - Floating content panels
 - **Accordion** - Expandable sections
+- **Collapsible** - Show/hide content regions
+- **Command** - Command palette with searchable actions
 
 #### Content Display
 
 - **Avatar** - Profile images with fallback
 - **Button** - Interaction buttons with variants
+- **Button Group** - Joined button sets with shared focus
 - **Icon** - SVG icon system
+- **Empty** - Empty-state placeholders
 
 ### Key Features
 
-- ✅ **Zero Framework Dependencies** - Built on vanilla JSX, no React required
-- ♿ **WCAG 2.1 AA Compliant** - Full accessibility with ARIA attributes
-- ⌨️ **Keyboard Navigation** - Complete keyboard support for all interactive elements
-- 🎨 **Dark Mode Ready** - Built-in theme support with CSS custom properties
-- 📱 **Responsive Design** - Mobile-first approach
-- 🚀 **Performance Optimized** - Minimal bundle size with tree-shaking
-- 📝 **Type Safe** - Comprehensive JSDoc type definitions
-- 🎯 **Progressive Enhancement** - Works without JavaScript where possible
+- **Zero Framework Dependencies** - Built on vanilla JSX, no React required
+- **WCAG 2.1 AA Compliant** - Full accessibility with ARIA attributes
+- **Keyboard Navigation** - Complete keyboard support for all interactive elements
+- **Dark Mode Ready** - Built-in theme support with CSS custom properties
+- **Responsive Design** - Mobile-first approach
+- **Performance Optimized** - Minimal bundle size with tree-shaking
+- **Type Safe** - Comprehensive JSDoc type definitions
+- **Progressive Enhancement** - Works without JavaScript where possible
 
 ### Installation
 
@@ -373,18 +399,18 @@ sxo add dialog
 
 Visit **[sxoui.com](https://sxoui.com)** for:
 
-- 🎭 Live interactive demos for all components
-- 📋 Copy-paste ready code snippets
-- 📚 Complete API documentation (props, variants, usage)
-- ♿ Accessibility notes and keyboard shortcuts
-- 🔧 Integration guides and best practices
+- Live interactive demos for all components
+- Copy-paste ready code snippets
+- Complete API documentation (props, variants, usage)
+- Accessibility notes and keyboard shortcuts
+- Integration guides and best practices
 
 ### Example Usage
 
 ```jsx
 // src/pages/index.jsx
 import Button from "@components/button.jsx";
-import Card from "@components/card.jsx";
+import Card, { CardFooter, CardHeader, CardHeaderTitle, CardSection } from "@components/card.jsx";
 
 export default () => (
   <html lang="en">
@@ -394,20 +420,22 @@ export default () => (
     </head>
     <body>
       <Card>
-        <Card.Header>
-          <Card.Title>Welcome</Card.Title>
-        </Card.Header>
-        <Card.Content>
+        <CardHeader>
+          <CardHeaderTitle>Welcome</CardHeaderTitle>
+        </CardHeader>
+        <CardSection>
           <p>Get started with SXOUI components</p>
-        </Card.Content>
-        <Card.Footer>
+        </CardSection>
+        <CardFooter>
           <Button variant="primary">Get Started</Button>
-        </Card.Footer>
+        </CardFooter>
       </Card>
     </body>
   </html>
 );
 ```
+
+Components are plain functions: some ship a default export (e.g., `Button`, `Card`), compound parts are named exports (e.g., `CardHeader`, `CardSection`), and interactive components include a colocated `*.client.js` entry.
 
 ## Examples
 
@@ -644,8 +672,76 @@ A page module can export:
 | Export    | Type                        | Required | Description          |
 | --------- | --------------------------- | -------- | -------------------- |
 | `default` | `(params) => JSX` or string | Yes\*    | Page render function |
+| `jsx`     | `(params) => JSX` or string | Yes\*    | Named alternative    |
+
+\* Exactly one of `default` or `jsx` must be provided; resolution is `module.default || module.jsx`.
 
 Note: Pages must return a full `<html>...</html>` document (including `<head>` and `<body>`). The separate `head` export is no longer supported.
+
+## Client-Side Reactivity
+
+SXO ships a tiny, framework-free reactivity library, exposed as the `sxo/client` export (also published standalone as `@sxo/client`). It powers the "islands" pattern: pages are server-rendered HTML, and interactivity is added only where needed via per-route client entries (`<route>/client/index.(ts|tsx|js|jsx)`).
+
+### `define(tag, definition)`
+
+Registers a custom element with declarative state, refs, events, and computed values:
+
+```jsx
+// src/pages/counter/counter.jsx
+export function Counter({ count }) {
+  return (
+    <rc-counter>
+      <button type="button" $onclick="decrement">−</button>
+      <span $state="count">{count}</span>
+      <button type="button" $onclick="increment">+</button>
+    </rc-counter>
+  );
+}
+```
+
+```javascript
+// src/pages/counter/client/index.js
+import { define } from "sxo/client";
+
+define("rc-counter", ({ $state, $on }) => {
+  $state.count = 0;
+
+  $on.increment = () => {
+    $state.count++;
+  };
+  $on.decrement = () => {
+    $state.count--;
+  };
+});
+```
+
+The definition callback receives a context object:
+
+| Key       | Purpose |
+| --------- | ------- |
+| `$state`  | Reactive state proxy; read/write properties; elements with `$state="key"` update automatically |
+| `$on`     | Bind event handlers referenced by `$on<event>` attributes (e.g., `$onclick="increment"`) |
+| `$bind`   | Bind methods referenced by `$bind-<type>` attributes (value, text, html, checked, class, style, …) |
+| `$ref`    | Access elements marked with `$ref="name"` |
+| `$compute`| Derive state from other keys: `$compute("double", ["count"], (count) => count * 2)` |
+| `$effect` | Run a callback after state changes; returns a cleanup function |
+
+The definition may return lifecycle methods (`connected`, `disconnected`, `adopted`, `attributeChanged`).
+
+### `ReactiveComponent` and `createContext`
+
+For class-based authoring, extend the `ReactiveComponent` base class directly. Use `createContext(stateKey)` with `exposeContext`/`consumeContext` to share state between components without prop drilling.
+
+```javascript
+import { createContext, define } from "sxo/client";
+
+const ThemeContext = createContext("theme");
+
+define("theme-provider", ({ $state, $element }) => {
+  $state.theme = "light";
+  $element.exposeContext(ThemeContext);
+});
+```
 
 ## Middleware
 
@@ -809,6 +905,7 @@ Readiness Probe:
   3. Folder with index: `PAGES_DIR/404/index.tsx` / `PAGES_DIR/500/index.tsx`
   4. Folder with index: `PAGES_DIR/404/index.jsx` / `PAGES_DIR/500/index.jsx`
 - Export shape: default export or named `jsx`; pages must return a full `<html>` document and include their own `<head>`.
+- Fallback: when no custom page exists, the server responds with a minimal HTML error document (not plain text) carrying the correct status, `Content-Type: text/html; charset=utf-8`, and Cache-Control headers.
 - Not routable: compiled as server-only modules (not matched by URL routing).
 - Client assets: folder-based error pages support client entry files at `PAGES_DIR/404/client/index.js` (and `*.index.*` patterns). These are built and injected automatically, just like regular route client assets.
 - Build and generation: server build includes 404/500 SSR modules; not generated by `sxo generate`.
@@ -943,6 +1040,7 @@ Example `sxo.config.json`:
 {
   "port": 4000,
   "pagesDir": "src/pages",
+  "componentsDir": "src/components",
   "outDir": "dist",
   "open": false,
   "build": {
@@ -969,6 +1067,7 @@ Key flags:
 --open / --no-open                # Auto-open the browser when the dev server is ready (toggle)
 --public-path <path>              # Public base URL for emitted asset URLs (default: "/"); empty string "" allowed for relative paths
 --client-dir <name>               # Subdirectory name for per-route client entry (default: client)
+--components-dir <path>           # Components directory used by 'sxo add' (default: src/components)
 --loaders <ext=loader>            # esbuild server loaders (dev/build only; repeatable or comma-separated). Example: --loaders ".svg=file" --loaders ".ts=tsx"
 --verbose                         # Enable verbose logging for debugging and diagnostics
 --no-color                        # Disable ANSI/colorized log output (useful for CI)
@@ -987,6 +1086,7 @@ Recognized:
 | OPEN | Auto-open dev browser | true (dev) |
 | PUBLIC_PATH | Public base URL for asset URLs (esbuild publicPath). Empty string "" allowed and preserved. | "/" |
 | CLIENT_DIR | Per-route client entry subdirectory name | client |
+| COMPONENTS_DIR | Components directory used by `sxo add` | src/components |
 | LOADERS | esbuild server loaders as JSON map (e.g., `{"svg":"file"}` or `{".ts":"tsx"}`) | (unset) |
 | VERBOSE | Verbose logging | false |
 | NO_COLOR | Disable colorized output | (unset) |
@@ -1035,9 +1135,9 @@ Runtime helpers:
 
 SXO provides **foundational security controls** while giving you full control over application-specific security policies through middleware.
 
-### 🔒 Built-in Protections
+### Built-in Protections
 
-✅ **What SXO Provides:**
+**What SXO Provides:**
 
 - Path traversal protection (automatic)
 - Security headers: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`
@@ -1046,9 +1146,9 @@ SXO provides **foundational security controls** while giving you full control ov
 - Static asset security (MIME type restrictions, no directory listing)
 - Secure file serving with ETag/caching controls
 
-### 🛡️ Your Responsibility (via Middleware)
+### Your Responsibility (via Middleware)
 
-❌ **What You Must Implement:**
+**What You Must Implement:**
 
 - Authentication & Authorization
 - Session Management
@@ -1059,7 +1159,7 @@ SXO provides **foundational security controls** while giving you full control ov
 - HTTPS/TLS Configuration
 - Application-specific security logging
 
-### 📖 Comprehensive Security Guide
+### Comprehensive Security Guide
 
 **See [SECURITY.md](./SECURITY.md) for detailed guidance on:**
 
@@ -1075,7 +1175,7 @@ SXO provides **foundational security controls** while giving you full control ov
 - [Security headers](./SECURITY.md#security-headers) reference
 - [Security testing](./SECURITY.md#security-testing) checklist
 
-### ⚡ Quick Security Checklist
+### Quick Security Checklist
 
 Before deploying to production:
 
@@ -1089,7 +1189,7 @@ Before deploying to production:
 - [ ] Error messages don't expose sensitive data
 - [ ] Dependencies audited (`npm audit` / `pnpm audit`)
 
-### 🐛 Reporting Security Issues
+### Reporting Security Issues
 
 **Do not open public issues for security vulnerabilities.**
 
@@ -1101,6 +1201,14 @@ Run all tests:
 
 ```shell
 pnpm test
+```
+
+Additional suites:
+
+```shell
+pnpm run test:client     # @sxo/client unit tests (vitest)
+pnpm run test:e2e        # SXOUI component end-to-end tests (Playwright)
+pnpm run test:runtimes   # Smoke tests across Node, Bun, and Deno (requires curl, bun, deno)
 ```
 
 Focused suites:
@@ -1152,7 +1260,8 @@ The workflow gates itself: `publish.yml` validates the packed tarball (no `works
 - Built on top of esbuild — thanks to Evan Wallace and the esbuild project for the extremely fast bundler & plugin ecosystem: https://github.com/evanw/esbuild
 - Custom metafile-based asset injection — thanks to the internal plugin that maps entry points to outputs via esbuild's metafile
 - Utility inspiration / helper code from gc-victor/query — thanks for the lightweight query primitives used for route and JSX transform: https://github.com/gc-victor/query
-- Reactive components primitives: reactive-component — thanks for the tiny, framework-agnostic signals/effects runtime that powers "islands": https://github.com/gc-victor/reactive-component
+- Reactive components primitives: reactive-component — the tiny, framework-agnostic runtime that inspired the built-in `sxo/client` islands library: https://github.com/gc-victor/reactive-component
+- Signals runtime powering `sxo/client` reactivity: alien-signals — https://github.com/stackblitz/alien-signals
 - Extra thanks to the open-source community for libraries and examples that influenced SXO's ergonomics and performance.
 
 ## Contributing

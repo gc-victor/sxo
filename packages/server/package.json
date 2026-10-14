@@ -1,7 +1,27 @@
 {
     "name": "@sxo/server",
     "version": "0.10.1",
+    "description": "SXO server runtime — dev/prod servers, SSR handler, config resolution, and platform adapters for Node.js, Bun, Deno, and Cloudflare Workers.",
+    "keywords": [
+        "sxo",
+        "server-side-jsx",
+        "ssr",
+        "multi-runtime",
+        "cloudflare-workers",
+        "esbuild"
+    ],
+    "author": "Víctor García",
+    "license": "MIT",
     "type": "module",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/gc-victor/sxo.git",
+        "directory": "packages/server"
+    },
+    "homepage": "https://github.com/gc-victor/sxo#readme",
+    "bugs": {
+        "url": "https://github.com/gc-victor/sxo/issues"
+    },
     "files": [
         "src",
         "!src/**/*.test.js",
