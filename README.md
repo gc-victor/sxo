@@ -680,7 +680,7 @@ Note: Pages must return a full `<html>...</html>` document (including `<head>` a
 
 ## Client-Side Reactivity
 
-SXO ships a tiny, framework-free reactivity library, exposed as the `sxo/client` export (also published standalone as `@sxo/client`). It powers the "islands" pattern: pages are server-rendered HTML, and interactivity is added only where needed via per-route client entries (`<route>/client/index.(ts|tsx|js|jsx)`).
+SXO ships a tiny, framework-free reactivity library, exposed as the `sxo/client` export (also published standalone as `@sxo/client`). It powers the "islands" pattern: pages are server-rendered HTML, and interactivity is added only where needed via per-route client entries (`<route>/client/index.(ts|tsx|js|jsx)`). The public API includes `define`, `ReactiveComponent`, `createContext`, and `swapFragment`. `swapFragment` fetches a fragment URL and reconciles its HTML with the live DOM.
 
 ### `define(tag, definition)`
 

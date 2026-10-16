@@ -5,6 +5,12 @@ import { type Context, ReactiveComponent, type StateValue } from "../../src/inde
  */
 export type EventType = "click" | "input" | "change" | "focus" | "blur" | "keydown" | "keyup";
 
+/** Return a required fixture node or fail with a useful test error. */
+export function requiredElement<T extends Element>(element: T | null): T {
+    if (!element) throw new Error("Expected fixture element to exist");
+    return element;
+}
+
 /**
  * Creates a test fixture from HTML string and returns the root element
  * @param html The HTML content to create the fixture from

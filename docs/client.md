@@ -155,6 +155,60 @@ $effect(() => {
 });
 ```
 
+## Fragment swaps
+
+`swapFragment` applies server-rendered HTML to a live element using **outer semantics**: the response must contain the target element itself, not only its children. Pass a URL to fetch the fragment. A same-tag response patches the existing root; a different root tag replaces it.
+
+```javascript
+import { define, swapFragment } from "sxo/client";
+
+define("rc-todos", ({ $ref }) => {
+  const events = new EventSource("/api/todos/events");
+  events.addEventListener("todos-update", () => {
+    void swapFragment("/fragments/todos", $ref.list);
+  });
+
+  return { disconnected() { events.close(); } };
+});
+```
+
+The target may be `<ul id="todo-list" $ref="list">…</ul>` inside `rc-todos`. `/fragments/todos` must return the matching `<ul>` root. An SSE notification can trigger `swapFragment` to fetch and reconcile the latest fragment.
+
+The target may be a selector string or an `Element`. A selector string is used to find the twin in the response. For an element target, SXO locates the twin by its escaped `id`, or—if it has no `id`—uses the response's first element child only when its tag matches.
+
+```typescript
+interface SwapOptions {
+  signal?: AbortSignal;
+  /** Set false to force replacement instead of patching. Default: patch. */
+  patch?: boolean;
+}
+
+swapFragment(url: string, target: string | Element, options?: SwapOptions): Promise<boolean>;
+```
+
+`false` means the DOM was left untouched. This happens when the target is missing or disconnected, a detectable binding remains on it, a newer request supersedes the request, fetch fails or is aborted, the response is not OK, its body is empty, or no matching root is found. Concurrent requests are ordered per target: only the most recently started request may apply.
+
+**Write fragment endpoints as ordinary page modules** that return a subtree root, such as `<ul>…</ul>`, rather than a complete document. `sxo generate` skips these non-document responses. The endpoint and full page should render the same shared component to keep their markup in sync.
+
+Same-tag swaps preserve the live root, matched descendants, event listeners, custom-element instance, form values and checked state. Background swaps also patch in place, so an island's subscriptions are not torn down just because nothing is focused. Use unique `data-key` values on sibling elements when items can reorder; other matching is positional, and unkeyed reorder behavior is best-effort.
+
+Observe these constraints:
+
+- Do not put `$bind-html`, `$bind-text`, or `$state` on the swap target. These bindings compete with swaps. The runtime can reject a target only if those attributes are still present; hydration strips them, so this rule is enforced primarily by documentation.
+- A swapped-in plain-element root's own `$` directives are not processed. Prefer a custom-element root, which wires itself on connection, or put directives on an inner wrapper. Descendant directives can be wired by the containing island.
+- Do not nest islands inside a swap target. The reconciler patches nested custom-element internals and the outer island's observer may bind their descendants to the wrong owner.
+- Fragment HTML is trusted and inserted without sanitization. Escape untrusted values on the server; SXO does not escape JSX interpolation. There is no same-origin gate. See [Security: Fragment swaps](security.md#fragment-swaps).
+
+**Not preserved:**
+
+- On a **tag change**, the old root and its instance are discarded; the new element connects fresh and re-hydrates from its server-rendered attributes.
+- `<video>`/`<audio>` position, `<canvas>` contents, `<iframe>` state in *replaced* subtrees. Matched nodes keep theirs.
+- Nested custom-element internals: the reconciler descends and patches them to server state, and the enclosing island's observer can wire directives inside them with the wrong owner. Do not nest islands inside a swap target.
+- Reorder stability beyond positional matching plus `data-key` hints.
+- A swapped-in plain-element root's own `$` directives.
+
+Use `patch: false` only when replacement is intentional. `await swapFragment(...)` resolves after applying the DOM change, so callers can query the updated DOM immediately afterward if needed.
+
 ## `ReactiveComponent` and `createContext`
 
 For class-based authoring, extend `ReactiveComponent` directly. `createContext(stateKey)` with `exposeContext`/`consumeContext` shares state between components without prop drilling:

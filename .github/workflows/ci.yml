@@ -6,6 +6,7 @@ on:
     paths:
       - "src/**"
       - "packages/components/**"
+      - "packages/client/**"
       - "package.json"
       - "Cargo.toml"
 

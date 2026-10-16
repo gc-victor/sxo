@@ -25,3 +25,6 @@ jobs:
 
       - name: Run tests
         run: pnpm test
+
+      - name: Run client tests
+        run: pnpm run test:client

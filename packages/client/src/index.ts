@@ -10,4 +10,5 @@ export {
     type LifecycleMethods,
     type State,
 } from "./define.js";
+export { type SwapOptions, swapFragment } from "./fragment.js";
 export { type Context, createContext, ReactiveComponent, type StateValue } from "./rc.js";

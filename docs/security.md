@@ -47,7 +47,11 @@ export function escapeHtml(value) {
 <a href={`/posts/${escapeHtml(slug)}`}>…</a>
 ```
 
-The same applies to client-side rendering with `$bind-html` — escape before building HTML strings (see the [todo tutorial](tutorials/todo-app.md) `renderList`). Prefer `textContent`-style bindings (`$bind-text`, `$state`) where you don't need markup.
+The same applies to client-side rendering with `$bind-html` — escape before building HTML strings. Prefer `textContent`-style bindings (`$bind-text`, `$state`) where you don't need markup.
+
+### Fragment swaps
+
+[`swapFragment`](client.md#fragment-swaps) inserts the server response as HTML without sanitizing it. Escape every untrusted value on the server before rendering the fragment; SXO does not escape JSX interpolation. No same-origin check is applied, so trust and escaping remain the application's responsibility.
 
 When embedding server state for hydration, escape the JSON payload too so it can't break out of its element:
 
