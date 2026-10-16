@@ -1,10 +1,13 @@
-import { define } from "sxo/client";
+import { define, swapFragment } from "sxo/client";
 
 define("rc-todos", ({ $state, $on, $ref, $compute }) => {
     // null until hydrated from the server-rendered JSON island (in connected).
     $state.todos = null;
 
     $compute("remaining", ["todos"], (todos) => (todos ? todos.filter((todo) => !todo.completed).length : 0));
+
+    let events;
+    let refreshId = 0;
 
     async function api(method, path, body) {
         const response = await fetch(path, {
@@ -15,10 +18,18 @@ define("rc-todos", ({ $state, $on, $ref, $compute }) => {
         return response.json();
     }
 
-    async function refreshList() {
-        const response = await fetch("/fragments/todos");
-        if (!response.ok) throw new Error("Failed to refresh todos");
-        $ref.list.innerHTML = await response.text();
+    async function updateList() {
+        const requestId = ++refreshId;
+        try {
+            const [todos, swapped] = await Promise.all([
+                api("GET", "/api/todos"),
+                swapFragment("/fragments/todos", $ref.list),
+            ]);
+            if (requestId !== refreshId || !swapped) return;
+            $state.todos = todos;
+        } catch (error) {
+            console.error("Failed to refresh todos", error);
+        }
     }
 
     $on.add = async (event) => {
@@ -27,11 +38,9 @@ define("rc-todos", ({ $state, $on, $ref, $compute }) => {
         if (!title) return;
         await api("POST", "/api/todos", { title });
         $state.draft = "";
-        $state.todos = await api("GET", "/api/todos");
-        await refreshList();
     };
 
-    // One delegated listener survives server-rendered fragment replacement.
+    // The list root is patched in place, so its delegated listener survives.
     $on.onListClick = async (event) => {
         const action = event.target.closest("[data-action]")?.dataset.action;
         const item = event.target.closest("li[data-id]");
@@ -44,14 +53,19 @@ define("rc-todos", ({ $state, $on, $ref, $compute }) => {
         } else if (action === "delete") {
             await api("DELETE", `/api/todos/${id}`);
         }
-        $state.todos = await api("GET", "/api/todos");
-        await refreshList();
     };
 
     return {
         // Runs after refs/bindings are processed: hydrate from SSR state.
         connected() {
             $state.todos = JSON.parse(decodeURIComponent($ref.data.textContent));
+            events = new EventSource("/api/todos/events");
+            events.addEventListener("todos-update", () => {
+                void updateList();
+            });
+        },
+        disconnected() {
+            events?.close();
         },
     };
 });

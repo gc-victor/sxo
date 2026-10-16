@@ -1,5 +1,6 @@
 import { addTodo, listTodos } from "../store.js";
 import { json } from "./json.js";
+import { publishTodosUpdate } from "./todos-events.js";
 
 /** Handle collection requests for /api/todos. */
 export async function todosApi(request) {
@@ -11,7 +12,9 @@ export async function todosApi(request) {
         const body = await request.json().catch(() => null);
         const title = typeof body?.title === "string" ? body.title.trim() : "";
         if (!title) return json({ error: "title is required" }, 400);
-        return json(addTodo(title), 201);
+        const todo = addTodo(title);
+        publishTodosUpdate();
+        return json(todo, 201);
     }
     return json({ error: "method not allowed" }, 405);
 }

@@ -57,6 +57,9 @@ importers:
 
   examples/todo:
     dependencies:
+      '@sxo/components':
+        specifier: workspace:*
+        version: link:../../packages/components
       sxo:
         specifier: workspace:*
         version: link:../..

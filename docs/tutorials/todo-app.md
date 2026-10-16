@@ -2,8 +2,8 @@
 
 Build a complete todo app that demonstrates both halves of SXO:
 
-- **Server**: a JSON API (`/api/todos`) built with Web Standard [middleware](../server.md), backed by [`node:sqlite`](https://nodejs.org/api/sqlite.html).
-- **Client**: a reactive island built with [`sxo/client`](../client.md) that hydrates from server-rendered state and talks to the API.
+- **Server**: a JSON API (`/api/todos`) and an SSE stream (`/api/todos/events`) built with Web Standard [middleware](../server.md), backed by [`node:sqlite`](https://nodejs.org/api/sqlite.html).
+- **Client**: a reactive island built with [`sxo/client`](../client.md) that hydrates from server-rendered state, talks to the API, and applies streamed list fragments.
 
 The page is fully server-rendered and works without JavaScript; the client entry progressively enhances it.
 
@@ -42,11 +42,13 @@ src/
 ├── api/
 │   ├── json.js             # JSON response helper
 │   ├── todos.js            # /api/todos collection endpoint
-│   └── todo.js             # /api/todos/:id item endpoint
+│   ├── todo.js             # /api/todos/:id item endpoint
+│   └── todos-events.js     # SSE stream and in-process publisher
 ├── store.js               # node:sqlite persistence (server)
 ├── components/Todos.jsx   # Island markup
 └── pages/
     ├── index.jsx          # Route "/" — SSR from the store
+    ├── fragments/todos/index.jsx # Fragment route returning the shared list root
     ├── global.css         # Shared stylesheet
     └── client/index.js    # define("rc-todos") — hydration + API calls
 ```
@@ -119,11 +121,12 @@ SXO has no file-based API routes — APIs are middleware that short-circuits wit
 // src/middleware.js
 import { todoApi } from "./api/todo.js";
 import { todosApi } from "./api/todos.js";
+import { todosEventsApi } from "./api/todos-events.js";
 
-export default [todosApi, todoApi];
+export default [todosApi, todoApi, todosEventsApi];
 ```
 
-`src/api/todos.js` handles `GET` and `POST /api/todos`; `src/api/todo.js` handles `PATCH` and `DELETE /api/todos/:id`. Both import the shared `json` response helper and store operations. Keep the defensive JSON parsing, field validation with `400`s, `201` on create, `404` on missing, and `405` on wrong method shown in the runnable [example](../../examples/todo/src/api).
+`src/api/todos.js` handles `GET` and `POST /api/todos`; `src/api/todo.js` handles `PATCH` and `DELETE /api/todos/:id`; and `src/api/todos-events.js` handles `GET /api/todos/events`. Successful writes publish a small `todos-update` notification to connected SSE clients. Each client then fetches `/api/todos` for reactive state and the shared todo-list fragment with `swapFragment` in parallel. The broadcaster is in-memory, so updates reach tabs connected to this Node process. Keep the defensive JSON parsing, field validation with `400`s, `201` on create, `404` on missing, and `405` on wrong method shown in the runnable [example](../../examples/todo/src/api).
 
 Try it:
 
@@ -135,26 +138,50 @@ curl -X PATCH localhost:3000/api/todos/1 -H 'Content-Type: application/json' -d 
 curl -X DELETE localhost:3000/api/todos/1
 ```
 
+To inspect updates, keep this open in a second terminal while using the app:
+
+```shell
+curl -N localhost:3000/api/todos/events
+```
+
 ## 3. The Island Markup (`src/components/Todos.jsx`)
 
-JSX interpolation is **raw** — SXO does not auto-escape (see [Pages](../pages.md#jsx-rendering-rules)). This example renders todo titles directly and is suitable only for trusted input; do not expose it to untrusted titles without adding appropriate output handling.
+JSX interpolation is **raw** — SXO does not auto-escape (see [Pages](../pages.md#jsx-rendering-rules)). `TodoItem` escapes todo titles before rendering, so user-provided text is not interpreted as markup.
 
-A plain function component rendering the `<rc-todos>` custom element with `$` directives. Three details matter:
+A plain function component renders the `<rc-todos>` custom element with `$` directives. Three details matter:
 
 1. **The hidden data island** — `<div hidden $ref="data">` carries the server state as URI-encoded JSON. This keeps JSON characters from being parsed as HTML; the client decodes it during hydration.
-2. **`$bind-html="listHtml"` on the `<ul>`** — the client re-renders the list into this element whenever state changes.
+2. **The shared list component** — `TodoList` renders the same `<ul>` for the page and fragment endpoint. Successful writes publish an SSE notification; clients fetch the fragment with `swapFragment`, which preserves matching nodes.
 3. **`$state="remaining"`** — the span's server-rendered number *becomes* the initial client state (hydration from content), then tracks the computed value.
 
 ```jsx
+function escapeHtml(value) {
+    if (value === null || value === undefined) return "";
+    return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+}
+
 export function TodoItem({ todo }) {
     return (
-        <li data-id={todo.id}>
+        <li data-key={todo.id} data-id={todo.id}>
             <input type="checkbox" data-action="toggle" {...(todo.completed ? { checked: true } : {})} />
-            <span className={todo.completed ? "done" : ""}>{todo.title}</span>
+            <span className={todo.completed ? "done" : ""}>{escapeHtml(todo.title)}</span>
             <button type="button" data-action="delete" aria-label="Delete todo">
                 ×
             </button>
         </li>
+    );
+}
+
+export function TodoList({ todos }) {
+    return (
+        <ul $ref="list" $onclick="onListClick">
+            {todos.length ? todos.map((todo) => <TodoItem todo={todo} />) : <li className="empty" data-key="empty">Nothing to do yet.</li>}
+        </ul>
     );
 }
 
@@ -176,14 +203,24 @@ export function Todos({ todos }) {
                 />
                 <button type="submit">Add</button>
             </form>
-            <ul $bind-html="listHtml" $onclick="onListClick">
-                {todos.length ? todos.map((todo) => <TodoItem todo={todo} />) : <li className="empty">Nothing to do yet.</li>}
-            </ul>
+            <TodoList todos={todos} />
             <p>
                 <span $state="remaining">{todos.filter((todo) => !todo.completed).length}</span> remaining
             </p>
         </rc-todos>
     );
+}
+```
+
+The fragment route returns the shared list component. When a mutation publishes an SSE notification, clients fetch this route with `swapFragment`:
+
+```jsx
+// src/pages/fragments/todos/index.jsx
+import { TodoList } from "@components/Todos.jsx";
+import { listTodos } from "../../../store.js";
+
+export default function TodosFragment() {
+    return <TodoList todos={listTodos()} />;
 }
 ```
 
@@ -223,29 +260,19 @@ Because the page hits a live database, **don't run `sxo generate`** here — it 
 
 ## 6. The Client Island (`src/pages/client/index.js`)
 
-The root route's client entry lives at `src/pages/client/index.js`. It defines `rc-todos`:
+The root route's client entry lives at `src/pages/client/index.js`. It defines `rc-todos`. After a mutation, the SSE event notifies connected pages to fetch the latest todos from `/api/todos` and the rendered `<ul>` from `/fragments/todos` in parallel. `swapFragment` reconciles the fragment and preserves the live root and matching nodes.
 
 ```javascript
-import { define } from "sxo/client";
-
-// Mirrors the server-rendered TodoItem markup so hydration is seamless.
-const renderTodo = (todo) => `
-    <li data-id="${todo.id}">
-        <input type="checkbox" data-action="toggle" ${todo.completed ? "checked" : ""} />
-        <span class="${todo.completed ? "done" : ""}">${todo.title}</span>
-        <button type="button" data-action="delete" aria-label="Delete todo">×</button>
-    </li>`;
-
-function renderList(todos) {
-    return todos.length ? todos.map(renderTodo).join("") : '<li class="empty">Nothing to do yet.</li>';
-}
+import { define, swapFragment } from "sxo/client";
 
 define("rc-todos", ({ $state, $on, $ref, $compute }) => {
     // null until hydrated from the server-rendered JSON island (in connected).
     $state.todos = null;
 
-    $compute("listHtml", ["todos"], (todos) => (todos ? renderList(todos) : ""));
     $compute("remaining", ["todos"], (todos) => (todos ? todos.filter((todo) => !todo.completed).length : 0));
+
+    let events;
+    let refreshId = 0;
 
     async function api(method, path, body) {
         const response = await fetch(path, {
@@ -256,17 +283,29 @@ define("rc-todos", ({ $state, $on, $ref, $compute }) => {
         return response.json();
     }
 
+    async function updateList() {
+        const requestId = ++refreshId;
+        try {
+            const [todos, swapped] = await Promise.all([
+                api("GET", "/api/todos"),
+                swapFragment("/fragments/todos", $ref.list),
+            ]);
+            if (requestId !== refreshId || !swapped) return;
+            $state.todos = todos;
+        } catch (error) {
+            console.error("Failed to refresh todos", error);
+        }
+    }
+
     $on.add = async (event) => {
         event.preventDefault();
         const title = String($state.draft ?? "").trim();
         if (!title) return;
         await api("POST", "/api/todos", { title });
         $state.draft = "";
-        $state.todos = await api("GET", "/api/todos");
     };
 
-    // One delegated listener: the list's innerHTML is replaced on every
-    // render, so per-item listeners would not survive.
+    // The list root is patched in place, so its delegated listener survives.
     $on.onListClick = async (event) => {
         const action = event.target.closest("[data-action]")?.dataset.action;
         const item = event.target.closest("li[data-id]");
@@ -279,13 +318,19 @@ define("rc-todos", ({ $state, $on, $ref, $compute }) => {
         } else if (action === "delete") {
             await api("DELETE", `/api/todos/${id}`);
         }
-        $state.todos = await api("GET", "/api/todos");
     };
 
     return {
         // Runs after refs/bindings are processed: hydrate from SSR state.
         connected() {
             $state.todos = JSON.parse(decodeURIComponent($ref.data.textContent));
+            events = new EventSource("/api/todos/events");
+            events.addEventListener("todos-update", () => {
+                void updateList();
+            });
+        },
+        disconnected() {
+            events?.close();
         },
     };
 });
@@ -313,10 +358,12 @@ GET /            → middleware (no match, falls through)
                  → SSR: index.jsx → listTodos() → Todos markup + JSON island
                  → browser: client/index.js defines rc-todos
                  → connected(): $state.todos = JSON.parse($ref.data.textContent)
-                 → $compute: listHtml, remaining → bindings update DOM
+                 → $compute: remaining → binding updates DOM
 
-click (checkbox) → delegated $onclick → PATCH /api/todos/:id → GET /api/todos
-                 → $state.todos = fresh list → compute → innerHTML re-render
+click (checkbox) → delegated $onclick → PATCH /api/todos/:id
+                 → API publishes an SSE notification
+                 → browser fetches /api/todos and /fragments/todos in parallel
+                 → swapFragment reconciles <ul>; JSON updates $state.todos and remaining
 ```
 
 Key lessons:
@@ -324,12 +371,12 @@ Key lessons:
 - **Middleware is the server API** — match path, switch method, return `Response`; fall through for pages.
 - **Server-only modules** (`store.js`) are safely shared by middleware and pages; they live in the private server bundle.
 - **Hydration from content** — `$state="key"` and the hidden JSON island let the client start from exactly what the server rendered, with no flash and no extra request.
-- **Event delegation** survives `$bind-html` re-renders; per-item listeners don't.
-- **Know the rendering boundary** — JSX interpolation and `$bind-html` are raw; this example assumes trusted todo titles.
+- **SSE invalidates live data** — each successful mutation notifies connected pages, which fetch JSON state and the latest fragment in parallel; `swapFragment` preserves the live list root and matching nodes.
+- **Know the rendering boundary** — JSX interpolation is raw, so escape untrusted values at the server render boundary.
 
 ## Exercises
 
-1. **Filters** — add "All / Active / Done" buttons; derive `listHtml` from `$state.todos` + `$state.filter` (pure client state, no API change).
+1. **Filters** — add "All / Active / Done" buttons and pass the selected filter to a fragment endpoint.
 2. **Inline edit** — double-click a title to edit; `PATCH` with a `title` field (extend the middleware validation).
 3. **Optimistic UI** — update `$state.todos` before the fetch resolves; roll back on failure.
 4. **Tests** — assert the API contract with Hurl files; drive the page with Playwright (start the dev server on a fixed `PORT` first).

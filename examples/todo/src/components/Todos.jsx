@@ -1,25 +1,37 @@
-/**
- * Server-rendered list item. The client island re-renders items with
- * identical markup (see renderList in src/pages/client/index.js), so the
- * page looks the same before and after hydration.
- */
+import Button from "@sxo/components/src/components/button.jsx";
+import Checkbox from "@sxo/components/src/components/checkbox.jsx";
+import Input from "@sxo/components/src/components/input.jsx";
+
+function escapeHtml(value) {
+    if (value === null || value === undefined) return "";
+    return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+}
+
 export function TodoItem({ todo }) {
     return (
-        <li data-id={todo.id}>
-            <input type="checkbox" data-action="toggle" {...(todo.completed ? { checked: true } : {})} />
-            <span className={todo.completed ? "done" : ""}>{todo.title}</span>
-            <button type="button" data-action="delete" aria-label="Delete todo">
+        <li data-key={todo.id} data-id={todo.id}>
+            <Checkbox data-action="toggle" {...(todo.completed ? { checked: true } : {})} />
+            <span className={todo.completed ? "done" : ""}>{escapeHtml(todo.title)}</span>
+            <Button type="button" variant="ghost" data-action="delete" aria-label="Delete todo">
                 ×
-            </button>
+            </Button>
         </li>
     );
 }
 
-/**
- * The todo island: static markup + directives, hydrated by rc-todos.
- * The hidden div carries a URI-encoded JSON snapshot, decoded by the client
- * during hydration.
- */
+export function TodoList({ todos }) {
+    return (
+        <ul $ref="list" $onclick="onListClick">
+            {todos.length ? todos.map((todo) => <TodoItem todo={todo} />) : <li className="empty" data-key="empty">Nothing to do yet.</li>}
+        </ul>
+    );
+}
+
 export function Todos({ todos }) {
     return (
         <rc-todos>
@@ -27,7 +39,7 @@ export function Todos({ todos }) {
                 {encodeURIComponent(JSON.stringify(todos))}
             </div>
             <form $onsubmit="add">
-                <input
+                <Input
                     type="text"
                     name="title"
                     $bind-value="draft"
@@ -36,11 +48,9 @@ export function Todos({ todos }) {
                     autoComplete="off"
                     required
                 />
-                <button type="submit">Add</button>
+                <Button type="submit">Add</Button>
             </form>
-            <ul $ref="list" $onclick="onListClick">
-                {todos.length ? todos.map((todo) => <TodoItem todo={todo} />) : <li className="empty">Nothing to do yet.</li>}
-            </ul>
+            <TodoList todos={todos} />
             <p>
                 <span $state="remaining">{todos.filter((todo) => !todo.completed).length}</span> remaining
             </p>

@@ -1,5 +1,6 @@
 import { getTodo, removeTodo, setCompleted } from "../store.js";
 import { json } from "./json.js";
+import { publishTodosUpdate } from "./todos-events.js";
 
 /** Handle item requests for /api/todos/:id. */
 export async function todoApi(request) {
@@ -15,10 +16,12 @@ export async function todoApi(request) {
         if (typeof body?.completed !== "boolean") {
             return json({ error: "completed (boolean) is required" }, 400);
         }
-        return json(setCompleted(id, body.completed));
+        const todo = setCompleted(id, body.completed);
+        publishTodosUpdate();
+        return json(todo);
     }
     if (request.method === "DELETE") {
-        removeTodo(id);
+        if (removeTodo(id)) publishTodosUpdate();
         return json({ ok: true });
     }
     return json({ error: "method not allowed" }, 405);

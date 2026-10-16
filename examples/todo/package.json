@@ -5,9 +5,11 @@
     "scripts": {
         "dev": "sxo dev",
         "build": "sxo build",
-        "start": "sxo start"
+        "start": "sxo start",
+        "test:parity": "pnpm build && node --test tests/parity.test.js"
     },
     "dependencies": {
+        "@sxo/components": "workspace:*",
         "sxo": "workspace:*"
     }
 }
