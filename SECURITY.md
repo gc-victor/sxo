@@ -1202,7 +1202,40 @@ class RateLimiter {
 
 ## Security Headers
 
-SXO automatically adds basic security headers (see [Security Philosophy](#security-philosophy)). You can add more via middleware.
+SXO automatically adds basic security headers to production responses (see [Security Philosophy](#security-philosophy)). The dev server does not add them. You can add more via the `securityHeaders` config key or via middleware.
+
+### Configuring Headers
+
+Static headers can be set without middleware:
+
+```json
+{
+  "securityHeaders": {
+    "Content-Security-Policy": "default-src 'self'",
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains"
+  }
+}
+```
+
+The same value can come from the environment as JSON:
+
+```shell
+SECURITY_HEADERS='{"Content-Security-Policy":"default-src '"'"'self'"'"'"}' sxo start
+```
+
+Precedence follows the normal config order: CLI flags > config file > environment > defaults.
+
+### Protected Headers
+
+Headers added by middleware are merged into the response, but these security-critical headers are **protected**: middleware values are ignored unless you opt in.
+
+- `Content-Security-Policy`
+- `Strict-Transport-Security`
+- `X-Frame-Options`
+- `X-Content-Type-Options`
+- `Referrer-Policy`
+
+Opt in with the `allowMiddlewareSecurityOverride` config key or `ALLOW_MIDDLEWARE_SECURITY_OVERRIDE=true`. Leave it off so a middleware bug or a per-route override cannot silently weaken the application's security posture. `Set-Cookie` is never subject to this policy; multiple cookies are appended, not replaced.
 
 ### Recommended Security Headers
 

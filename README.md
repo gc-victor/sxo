@@ -1092,6 +1092,8 @@ Recognized:
 | NO_COLOR | Disable colorized output | (unset) |
 | HEADER_TIMEOUT_MS | Node headers timeout in ms (server.headersTimeout). Set a non-negative integer to override; unset to use Node default. | (unset) |
 | REQUEST_TIMEOUT_MS | Request timeout in ms (server.requestTimeout). | 120000 |
+| SECURITY_HEADERS | JSON object of extra security headers applied to production responses (e.g., `{"Content-Security-Policy":"default-src 'self'"}`) | (unset) |
+| ALLOW_MIDDLEWARE_SECURITY_OVERRIDE | When `true`, middleware may override protected security headers (see [Security](#security)) | false |
 
 Derived / injected:
 | Variable | Meaning |
@@ -1145,6 +1147,25 @@ SXO provides **foundational security controls** while giving you full control ov
 - Route slug validation (`^[A-Za-z0-9._-]{1,200}$`)
 - Static asset security (MIME type restrictions, no directory listing)
 - Secure file serving with ETag/caching controls
+
+### Configuring Security Headers
+
+Production responses carry these headers by default: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`. CSP and HSTS are deliberately not set (they need per-application tuning and HTTPS). The dev server does not add security headers.
+
+Add your own via the `securityHeaders` config key:
+
+```json
+{
+  "securityHeaders": {
+    "Content-Security-Policy": "default-src 'self'",
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains"
+  }
+}
+```
+
+Or via the `SECURITY_HEADERS` environment variable (same JSON shape).
+
+**Protected headers**: middleware responses are merged into the outgoing response, but `Content-Security-Policy`, `Strict-Transport-Security`, `X-Frame-Options`, `X-Content-Type-Options`, and `Referrer-Policy` set by middleware are ignored unless you opt in with `allowMiddlewareSecurityOverride` (config) or `ALLOW_MIDDLEWARE_SECURITY_OVERRIDE=true` (env). `Set-Cookie` is always appended, never replaced.
 
 ### Your Responsibility (via Middleware)
 
