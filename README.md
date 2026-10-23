@@ -1,8 +1,4 @@
-<picture>
-    <source media="(prefers-color-scheme: dark)" srcset="./docs/sxo-dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="./docs/sxo-light.svg">
-    <img alt="SXO" src="./docs/sxo-light.svg">
-</picture>
+![SXO](./docs/sxo-dark.svg#gh-dark-mode-only)![SXO](./docs/sxo-light.svg#gh-light-mode-only)
 
 # Server-Side JSX. Build Simple. Build Fast
 
@@ -46,7 +42,7 @@ A **fast**, minimal architecture convention and CLI for building websites with s
 ## Why SXO
 
 - **Server-side JSX**, zero client framework by default.
-- **Directory-based routing** that stays explicit (route = folder with `index.(jsx|tsx)`).
+- **Directory-based routing** that stays explicit (route = folder with `index.(tsx|jsx|ts|js)`).
 - **Composable HTML ergonomics** using plain functions.
 - **Blazing-fast builds** via esbuild and a Rust/WASM JSX transform step.
 - **Single CLI** covering dev, build, start & clean.
@@ -71,7 +67,7 @@ A **fast**, minimal architecture convention and CLI for building websites with s
 
 SXO is designed as a **truly multi-runtime library** that runs seamlessly across different JavaScript runtimes:
 
-- **Node.js**: Full-featured production server with HTTP/2 support and timeouts. No special signal handling; process interruptions (SIGINT/SIGTERM) immediately terminate the server without graceful shutdown.
+- **Node.js**: Full-featured production server with request/header timeouts. No special signal handling; process interruptions (SIGINT/SIGTERM) immediately terminate the server without graceful shutdown.
 - **Bun**: High-performance runtime with native file I/O optimizations. No special signal handling; process interruptions (SIGINT/SIGTERM) immediately terminate the server without graceful shutdown.
 - **Deno**: Secure-by-default runtime with native TypeScript support. No special signal handling; process interruptions (SIGINT/SIGTERM) immediately terminate the server without graceful shutdown.
 - **Cloudflare Workers**: Edge computing with distributed deployment
@@ -102,10 +98,11 @@ npx sxo start  # Production server
    - Optional `middleware.js` defining user middleware chain
 2. **Pages Directory** (default `src/pages`) containing:
    - `global.css` (optional)
-   - Route directories each with an `index.(tsx|jsx)`
+   - Route directories each with an `index.(tsx|jsx|ts|js)`
 3. **Entry Point Discovery**
    - Each directory containing an `index.*` page file becomes a route.
-   - Optional `<clientDir>/index.(ts|tsx|js|jsx)` inside that route directory is added as a client entry (default `clientDir` is "client"; precedence: .ts > .tsx > .js > .jsx).
+   - Every `<clientDir>/index.*` and `<clientDir>/*.index.*` file inside that route directory is collected as a client entry (default `clientDir` is "client"). All matching variants are added; there is no extension precedence.
+   - Root-level `<clientDir>/index.*` / `*.index.*` files (e.g. `src/pages/client/index.js`) are added to every route, so shared interactive components work on every page.
    - `global.css`, if present, is added as a shared stylesheet entry for every route.
 4. **Build**
    - Client bundle → `dist/client`
@@ -303,7 +300,7 @@ sxo build --loaders "svg=file,ts=tsx"
 # Via environment variable (JSON format)
 LOADERS='{"svg":"file",".ts":"tsx"}' sxo dev
 
-# Via config file (sxo.config.json or sxo.config.js)
+# Via config file (sxo.config.mjs, .js, .cjs, or .json)
 {
   "loaders": {
     ".svg": "file",
@@ -568,6 +565,18 @@ pnpm run dev
 
 SXO supports multiple deployment platforms beyond the standard CLI server. Adapters share the same core runtime and use Web Standard APIs (`Request`, `Response`).
 
+### Package Exports
+
+| Export | Purpose |
+| ------ | ------- |
+| `sxo` | CLI entry point (all commands: `dev`, `build`, `start`, `clean`, `generate`, `create`, `add`); server runtime auto-detected |
+| `sxo/client` | Client reactivity library (`define`, `ReactiveComponent`, `createContext`, `swapFragment`) |
+| `sxo/cloudflare` | Cloudflare Workers factory (`createHandler()`) |
+| `sxo/runtime` | Web Standard core handler (`createCoreHandler()`) for custom platforms — no Node APIs, bring your own `routes` and `modules` |
+| `sxo/dev-node` / `sxo/dev-bun` / `sxo/dev-deno` | Runtime-specific dev adapters invoked by the CLI |
+
+Advanced internals — config resolution, resolved constants, route matching, and the pre-renderer — are exposed as subpath exports of the published `@sxo/server` package (e.g. `@sxo/server/config`, `@sxo/server/constants`, `@sxo/server/generate`), not via `sxo/*`.
+
 ### 1. Node.js Adapter
 
 For running on Node.js.
@@ -680,18 +689,33 @@ Parameters object passed to the page render function is shaped from bracket name
 - Must be unique within each route
 - Examples: `[id]`, `[userId]`, `[post_id]`, `[category123]`
 
+**Matching precedence**: routes are sorted at build time so static routes outrank dynamic siblings, routes with fewer dynamic segments win, and equal-specificity routes are ordered alphabetically for stable matching. The root route (`/`) is the least specific.
+
 ## Page Module API
 
 A page module can export:
 
-| Export    | Type                        | Required | Description          |
-| --------- | --------------------------- | -------- | -------------------- |
-| `default` | `(params) => JSX` or string | Yes\*    | Page render function |
-| `jsx`     | `(params) => JSX` or string | Yes\*    | Named alternative    |
+| Export    | Type                                             | Required | Description          |
+| --------- | ------------------------------------------------ | -------- | -------------------- |
+| `default` | `(params, request) => JSX \| string \| Response` | Yes\*    | Page render function |
+| `jsx`     | `(params, request) => JSX \| string \| Response` | Yes\*    | Named alternative    |
 
 \* Exactly one of `default` or `jsx` must be provided; resolution is `module.default || module.jsx`.
 
-Note: Pages must return a full `<html>...</html>` document (including `<head>` and `<body>`). The separate `head` export is no longer supported.
+Render function arguments:
+
+- `params` — route parameters (`{}` for static routes, `{ slug: "..." }` for `/blog/[slug]`).
+- `request` — the incoming Web Standard `Request` (URL, method, headers, cookies). Error pages (404/500) are rendered with `{}` and no request.
+
+Return values:
+
+- A full `<html>...</html>` document (JSX or string) — route assets are injected and `<!doctype html>` is prepended.
+- Any other string — sent as-is with `Content-Type: text/html; charset=utf-8`.
+- A `Response` — full control over status, headers, and body (useful for redirects, cookies, or non-HTML output). HTML responses still get route assets injected and a doctype prepended; non-HTML responses are returned untouched.
+
+The separate `head` export is no longer supported.
+
+> **`sxo/runtime` caveat**: the Web Standard core handler (`createCoreHandler` from `sxo/runtime`) calls render functions with `params` only and does not honor a page-returned `Response`. The Node, Bun, Deno, and Cloudflare adapters support both.
 
 ## Client-Side Reactivity
 
@@ -772,6 +796,20 @@ SXO uses one middleware contract across dev, prod, and platform adapters.
 
 - Return a `Response` to short-circuit the request.
 - Return nothing to continue to the next middleware or route handler.
+
+### Module Shape
+
+Middleware is discovered at `src/middleware.{js,ts,mjs}` (checked in that order, first match wins) and may export:
+
+```javascript
+export default async function (request, env, context) {}   // single function
+export default [auth, logging]                             // ordered array
+export const middlewares = [auth, logging]                 // named array
+export const middleware = [auth, logging]                  // named alias
+export const mw = auth                                     // named alias
+```
+
+Resolution is `default ?? middlewares ?? middleware ?? mw`. A non-array export is wrapped as a single middleware; non-function entries are filtered out. Load failures are logged and treated as an empty chain. Functions run in array order, before route handling.
 
 ### Rendering JSX Modules from Middleware
 
@@ -919,11 +957,12 @@ Readiness Probe:
   2. Flat file: `PAGES_DIR/404.jsx` / `PAGES_DIR/500.jsx`
   3. Folder with index: `PAGES_DIR/404/index.tsx` / `PAGES_DIR/500/index.tsx`
   4. Folder with index: `PAGES_DIR/404/index.jsx` / `PAGES_DIR/500/index.jsx`
+- Extension mismatch (known issue): the build also bundles flat `404.ts`/`404.js`, but runtime resolution only accepts `.tsx`/`.jsx`, so those files are built and never served. Use `.tsx` or `.jsx`.
 - Export shape: default export or named `jsx`; pages must return a full `<html>` document and include their own `<head>`.
 - Fallback: when no custom page exists, the server responds with a minimal HTML error document (not plain text) carrying the correct status, `Content-Type: text/html; charset=utf-8`, and Cache-Control headers.
 - Not routable: compiled as server-only modules (not matched by URL routing).
 - Client assets: folder-based error pages support client entry files at `PAGES_DIR/404/client/index.js` (and `*.index.*` patterns). These are built and injected automatically, just like regular route client assets.
-- Build and generation: server build includes 404/500 SSR modules; not generated by `sxo generate`.
+- Build and generation: the server build includes 404/500 SSR modules. Flat-file error pages are never pre-rendered; folder-based error pages (`404/index.*`) are currently treated as regular static routes by `sxo generate` — pre-rendered to `dist/client/404/index.html` and marked `generated: true`. That is a known issue: the generate filter only checks for dynamic segments and lacks an error-page exclusion.
 - Response semantics:
   - HEAD requests: responses include headers only (no body) for 404/500 (custom or fallback).
   - Cache-Control: 404 → `public, max-age=0, must-revalidate`; 500 → `no-store`.
@@ -964,11 +1003,10 @@ Fields:
 - `jsx` source page module relative path
 - `hash` boolean (true in dev for cache-busting semantics)
 - `path` (omitted for root route)
+- `isErrorPage` boolean (present and `true` only for folder-based 404/500 pages; these entries have no `path` and are not routable)
 - `generated` boolean; if true, the production server serves the built HTML as-is (skips SSR) with Cache-Control: public, max-age=300. Non-generated/dynamic pages are served with Cache-Control: public, max-age=0, must-revalidate.
 
-Manifest Reuse:
-
-- On rebuild, if every referenced `jsx` file still exists _and_ no new route `index.*` appeared, the existing manifest is reused with global.css refreshed.
+The manifest is rewritten on every `sxo build`; there is no reuse step.
 
 ## Static Generation & Production Behavior
 
@@ -993,6 +1031,7 @@ Production server behavior:
 Notes:
 
 - Dynamic routes (paths containing `[param]`) are never generated.
+- Folder-based error pages (`404/index.*`, `500/index.*`) are **not** excluded and get pre-rendered like static routes (known issue).
 - The manifest's `generated` flag is persisted to `dist/server/routes.json`.
 - Page module selection remains `module.default || module.jsx`.
 
@@ -1027,7 +1066,7 @@ Features:
 - **Extension gating**: only known MIME types served.
 - **Immutable caching**: hashed filenames (`public, max-age=31536000, immutable`).
 - **Short caching**: non-hashed (`public, max-age=300`).
-- **ETag + Last-Modified** with conditional request support.
+- **ETag** with conditional request support (`If-None-Match` → `304`).
 - **Precompressed**: selects `.br` > `.gz` variant if client supports & asset is compressible.
 - **Traversal protection**: `../` style attempts rejected (403/404).
 - **HEAD requests** supported.
@@ -1082,10 +1121,17 @@ Key flags:
 --open / --no-open                # Auto-open the browser when the dev server is ready (toggle)
 --public-path <path>              # Public base URL for emitted asset URLs (default: "/"); empty string "" allowed for relative paths
 --client-dir <name>               # Subdirectory name for per-route client entry (default: client)
---components-dir <path>           # Components directory used by 'sxo add' (default: src/components)
 --loaders <ext=loader>            # esbuild server loaders (dev/build only; repeatable or comma-separated). Example: --loaders ".svg=file" --loaders ".ts=tsx"
 --verbose                         # Enable verbose logging for debugging and diagnostics
 --no-color                        # Disable ANSI/colorized log output (useful for CI)
+```
+
+Command-specific flags:
+
+```shell
+sxo clean -y, --yes               # Skip the confirmation prompt
+sxo add <component>               # Components directory comes from COMPONENTS_DIR or the componentsDir config key
+sxo generate --out-dir <dir>      # Output directory (also: --public-path, --client-dir)
 ```
 
 ## Environment Variables
@@ -1117,9 +1163,9 @@ Derived / injected:
 | OUTPUT_DIR_SERVER | `<outDir>/server` |
 | SXO_RESOLVED_CONFIG | JSON blob of resolved config |
 | DEV | `"true"` in dev command, else `"false"` |
-| SXO_COMMAND | Current command (`dev|build|start|clean`) |
-| BUILD | Custom esbuild client config object propagated to child build process (only in dev/build) |
-| LOADERS | esbuild server loaders map propagated to child build process (only in dev/build) |
+| SXO_COMMAND | Current command (`dev|build|start|clean|generate|add`) |
+| BUILD | Custom esbuild client config object propagated to child build process (dev/build/generate only) |
+| LOADERS | esbuild server loaders map propagated to child build process (dev/build/generate only) |
 | PUBLIC_PATH | Public base URL for assets propagated to the build (defaults to "/" when unset; empty string preserved) |
 | CLIENT_DIR | Configured per-route client entry subdirectory name |
 
@@ -1143,7 +1189,6 @@ Runtime helpers:
 ## Performance and DX
 
 - Rust/WASM JSX transform drastically reduces parse overhead.
-- Entry manifest reuse avoids unnecessary directory traversal.
 - Dual build isolates server SSR bundles from public output.
 - Hot replace patches fragment and assets.
 - Readiness probe prevents race on browser auto-open.
