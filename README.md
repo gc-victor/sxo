@@ -548,6 +548,22 @@ pnpm install
 pnpm run dev
 ```
 
+### Todo Example
+
+A complete todo app built from two halves: a JSON API under `/api/todos` implemented with Web Standard middleware and `node:sqlite`, and a server-rendered page progressively enhanced by an `sxo/client` island. Live updates are delivered over SSE from `/api/todos/events`.
+
+**Location**: `examples/todo`
+
+**Quickstart**:
+
+```shell
+cd examples/todo
+pnpm install
+pnpm run dev
+```
+
+> Requires Node.js 22.13+ for `node:sqlite`. Do not run `sxo generate` here: the index route reads live data.
+
 ## Platform Adapters
 
 SXO supports multiple deployment platforms beyond the standard CLI server. Adapters share the same core runtime and use Web Standard APIs (`Request`, `Response`).
