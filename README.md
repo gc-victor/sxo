@@ -463,17 +463,17 @@ pnpm run dev
 
 ### Cloudflare Workers Example
 
-A full example demonstrating SXO with Cloudflare Workers, including dynamic routes, per‑route client entries, global HTML/CSS, and deployment via Wrangler.
+A full example demonstrating SXO with Cloudflare Workers, including dynamic routes, a per‑route client entry, middleware, and deployment via Wrangler.
 
 **Location**: `examples/workers`
 
 **Features**:
 
-- Dynamic routing with `[slug]` segments
-- Optional per‑route client entry (`src/pages/<route>/client/index.js`)
-- Shared components under `src/components`
-- Global stylesheet (`src/pages/global.css`)
-- Post‑build script for edge import generation
+- Dynamic routing with `[slug]` segments and multi-parameter routes (`[category]/[product]`)
+- Per‑route client entry (`src/pages/counter/client/index.js`)
+- Web Standard middleware with a `GET /api/health` endpoint (`src/middleware.js`)
+- Worker entry using the `sxo/cloudflare` `createHandler()` factory (`src/index.js`)
+- Wrangler aliases (`sxo:routes`, `sxo:modules`) resolved to the build output
 - Local dev and production deploy using Wrangler
 
 **Quickstart**:
@@ -485,11 +485,11 @@ pnpm i
 # SXO dev server (SSE hot replace)
 pnpm dev
 
-# Optional: run Worker locally in another terminal
-pnpm start   # wrangler dev
-
-# Build (triggers postbuild import generation)
+# Build the client and server bundles
 pnpm build
+
+# Run the Worker locally with Wrangler
+pnpm start
 
 # Deploy to Cloudflare Workers
 pnpm deploy
@@ -499,27 +499,26 @@ pnpm deploy
 
 ```shell
 examples/workers/
-├── scripts/
-│   ├── generate-imports.js
-│   └── index.js
 ├── src/
-│   ├── components/
-│   │   ├── Header.jsx
-│   │   └── Page.jsx
+│   ├── index.js             # Worker entry (createHandler from "sxo/cloudflare")
+│   ├── middleware.js        # Web Standard middleware (GET /api/health)
 │   └── pages/
-│       ├── global.css
 │       ├── index.jsx
 │       ├── about/
 │       │   ├── index.jsx
 │       │   └── [slug]/index.jsx
-│       └── counter/
-│           ├── index.jsx
-│           ├── counter.jsx
-│           └── client/index.js
+│       ├── counter/
+│       │   ├── index.jsx
+│       │   ├── counter.jsx
+│       │   └── client/index.js
+│       └── shop/
+│           └── [category]/[product]/index.jsx
 ├── sxo.config.js
 ├── wrangler.jsonc
-└── vitest.config.js
+└── package.json
 ```
+
+Build output is written to `dist/` (`dist/client` public assets, `dist/server` SSR bundles and `routes.json`).
 
 ### Bun Example
 

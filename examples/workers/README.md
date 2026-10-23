@@ -52,13 +52,14 @@ The worker entry point (`src/index.js`) imports:
 
 ```javascript
 import { createHandler } from "sxo/cloudflare";
-import routes from "../dist/server/routes.json" with { type: "json" };
-import modules from "../dist/server/modules.js";
+import middleware from "./middleware.js";
 
-export default createHandler({
-    routes,
-    modules,
+// Routes and modules resolve through the wrangler.jsonc aliases:
+// - sxo:routes -> ./dist/server/routes.json
+// - sxo:modules -> ./dist/server/modules.js
+export default await createHandler({
     publicPath: "/",
+    middleware,
 });
 ```
 
