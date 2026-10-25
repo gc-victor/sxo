@@ -11,43 +11,48 @@
  * @param {Function} context.render - Render a page module by JSX path
  * @returns {Response|undefined} Response or undefined to pass through
  */
-export default async function middleware(request, _env, context) {
-    const url = new URL(request.url);
-    const pathname = url.pathname;
+function getRootRedirect(pathname) {
+    if (pathname !== "/" && pathname !== "") return undefined;
+    return new Response(null, {
+        status: 302,
+        headers: { location: "/installation" },
+    });
+}
 
-    // Redirect root to installation page
-    if (pathname === "/" || pathname === "") {
-        return new Response(null, {
-            status: 302,
-            headers: { location: "/installation" },
-        });
-    }
+function getMarkdownSourcePath(pathname) {
+    if (!pathname.endsWith(".md")) return null;
 
-    // Only handle .md requests beyond this point
-    if (!pathname.endsWith(".md")) {
-        return undefined;
-    }
-
-    // Derive the JSX source path from the URL
     // e.g., /components/button.md -> src/pages/components/button/index.jsx
     const basePath = pathname.replace(/\.md$/, "");
-    if (!basePath || basePath === "/index") {
-        return undefined;
-    }
+    if (!basePath || basePath === "/index") return null;
+    return `src/pages${basePath}/index.jsx`;
+}
 
-    const jsxPath = `src/pages${basePath}/index.jsx`;
-
+async function createTurndownService() {
     // Lazy-import turndown (CJS-only, use createRequire)
     const { createRequire } = await import("node:module");
     const require = createRequire(import.meta.url);
     const TurndownService = require("turndown");
-
-    const turndownService = new TurndownService({
+    return new TurndownService({
         headingStyle: "atx",
         codeBlockStyle: "fenced",
         emDelimiter: "*",
     });
+}
 
+function isRenderableHtml(html) {
+    if (typeof html !== "string") return false;
+    if (/^Error loading/i.test(html)) return false;
+    return /<html[\s>]/i.test(html);
+}
+
+function getArticleContent(html) {
+    const contentMatch = html.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
+    return contentMatch ? contentMatch[1] : html;
+}
+
+async function renderMarkdownPage(jsxPath, context) {
+    const turndownService = await createTurndownService();
     let fullHtml;
     try {
         fullHtml = await context.render(jsxPath);
@@ -56,24 +61,20 @@ export default async function middleware(request, _env, context) {
         return undefined;
     }
 
-    // Module loader may return error stub instead of throwing
-    if (typeof fullHtml !== "string" || /^Error loading/i.test(fullHtml)) {
-        return undefined;
-    }
+    if (!isRenderableHtml(fullHtml)) return undefined;
 
-    // Verify the render produced actual HTML content (not an error message)
-    if (/<html[\s>]/i.test(fullHtml)) {
-        // Extract article content (strip header/sidebar/footer boilerplate)
-        const contentMatch = fullHtml.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
-        const contentHtml = contentMatch ? contentMatch[1] : fullHtml;
+    const markdown = turndownService.turndown(getArticleContent(fullHtml));
+    return new Response(markdown, {
+        headers: { "content-type": "text/markdown; charset=utf-8" },
+    });
+}
 
-        const markdown = turndownService.turndown(contentHtml);
+export default async function middleware(request, _env, context) {
+    const pathname = new URL(request.url).pathname;
+    const redirect = getRootRedirect(pathname);
+    if (redirect) return redirect;
 
-        return new Response(markdown, {
-            headers: { "content-type": "text/markdown; charset=utf-8" },
-        });
-    }
-
-    // Not valid HTML — pass through
-    return undefined;
+    const jsxPath = getMarkdownSourcePath(pathname);
+    if (!jsxPath) return undefined;
+    return renderMarkdownPage(jsxPath, context);
 }
