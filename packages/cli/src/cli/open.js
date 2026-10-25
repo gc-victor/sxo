@@ -84,6 +84,20 @@ function anySignal(a, b) {
     return ctrl.signal;
 }
 
+function isReadyStatus(status) {
+    return status >= 200 && status < 500;
+}
+
+async function requestIsReady(url, method, signal) {
+    const response = await fetch(url, { method, redirect: "manual", signal });
+    return isReadyStatus(response.status);
+}
+
+async function probeHttp(url, headFirst, attemptSignal, perAttempt) {
+    if (headFirst && (await requestIsReady(url, "HEAD", attemptSignal(perAttempt)))) return true;
+    return requestIsReady(url, "GET", attemptSignal(perAttempt));
+}
+
 /**
  * Wait for an HTTP endpoint to be ready.
  * Considered ready if status is < 500 (so 2xx/3xx/404 count as "server is up").
@@ -123,22 +137,12 @@ export async function waitForHttp(url, opts = {}) {
         return anySignal(opts.signal, timeoutSignal);
     };
 
-    const isReadyStatus = (/** @type {number} */ status) => status >= 200 && status < 500;
-
     while (Date.now() < deadline) {
         const remaining = Math.max(0, deadline - Date.now());
         const perAttempt = Math.min(2000, Math.max(300, remaining)); // 0.3s..2s per attempt
 
         try {
-            let res;
-            if (headFirst) {
-                res = await fetch(url, { method: "HEAD", redirect: "manual", signal: attemptSignal(perAttempt) });
-                if (isReadyStatus(res.status)) return true;
-                // If HEAD returns 405/501, fall through to GET (server may not support HEAD)
-            }
-            // GET attempt
-            res = await fetch(url, { method: "GET", redirect: "manual", signal: attemptSignal(perAttempt) });
-            if (isReadyStatus(res.status)) return true;
+            if (await probeHttp(url, headFirst, attemptSignal, perAttempt)) return true;
         } catch {
             // Network error or timeout -> retry
         }
