@@ -13,17 +13,13 @@
  */
 
 import { PAGES_DIR } from "../../constants.js";
-import { createFileReader } from "../shared/file-readers.js";
 import { hasFileExtension } from "../shared/path.js";
-import { createStaticHandler } from "../shared/static-handler.js";
 import { logger } from "../utils/logger.js";
 import { reloadRoutesManifest } from "./core.js";
 import { createDevHandler } from "./core-handler.js";
-import { createFileWatcher } from "./shared/file-watcher.js";
+import { createDevAdapter, logDevRequest } from "./shared/dev-adapter.js";
 import { createEsbuildSpawner } from "./shared/process-spawner.js";
 import { performInitialSetup } from "./shared/server-lifecycle.js";
-
-const HOT_REPLACE_PATHS = new Set(["/hot-replace", "/hot-replace.js"]);
 
 const { config, handler, createDebouncedEsbuild, createDebouncedReloadMiddleware } = await performInitialSetup({
     platform: "deno",
@@ -42,23 +38,7 @@ const { config, handler, createDebouncedEsbuild, createDebouncedReloadMiddleware
     },
 });
 
-const debouncedEsbuild = createDebouncedEsbuild(250);
-const debouncedReloadMiddleware = createDebouncedReloadMiddleware(500);
-
-createFileWatcher({
-    watchDir: config.srcDir,
-    onChange: (/** @type {string} */ filename) => {
-        debouncedReloadMiddleware(filename);
-        debouncedEsbuild(filename);
-    },
-});
-
-const handleStaticRequest = createStaticHandler({
-    staticDir: config.staticDir,
-    fileReader: createFileReader(),
-    cacheControl: "no-cache",
-    skipCompression: true,
-});
+const handleStaticRequest = createDevAdapter({ config, createDebouncedEsbuild, createDebouncedReloadMiddleware });
 
 // Register signal handlers: immediate exit only
 Deno.addSignalListener("SIGINT", () => Deno.exit(0));
@@ -69,23 +49,12 @@ async function handleDenoRequest(request, pathname) {
     return staticResponse || handler(request);
 }
 
-function logDenoRequest(method, pathname, status) {
-    if (HOT_REPLACE_PATHS.has(pathname)) return;
-    if (status >= 500) {
-        logger.error(`${method} ${pathname} ${status}`);
-    } else if (status >= 400) {
-        logger.warn(`${method} ${pathname} ${status}`);
-    } else {
-        logger.info(`${method} ${pathname} ${status}`);
-    }
-}
-
 Deno.serve({
     port: config.port,
     handler: async (/** @type {Request} */ request) => {
         const pathname = new URL(request.url).pathname;
         const response = await handleDenoRequest(request, pathname);
-        logDenoRequest(request.method, pathname, response.status);
+        logDevRequest(request.method, pathname, response.status);
         return response;
     },
 });
