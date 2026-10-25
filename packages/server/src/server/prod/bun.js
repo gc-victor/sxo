@@ -16,25 +16,11 @@
 
 import path from "node:path";
 
-import {
-    ALLOW_MIDDLEWARE_SECURITY_OVERRIDE,
-    OUTPUT_DIR_CLIENT,
-    OUTPUT_DIR_SERVER,
-    PORT,
-    ROUTES_FILE,
-    ROUTES_RELATIVE_PATH,
-    SECURITY_HEADERS,
-} from "../../constants.js";
-import { loadUserDefinedMiddlewares } from "../middleware.js";
-import { loadErrorPages } from "../shared/error-pages-loader.js";
-import { createFileReader } from "../shared/file-readers.js";
-import { loadModulesWithFallback } from "../shared/module-loader.js";
+import { OUTPUT_DIR_SERVER, PORT, ROUTES_FILE, ROUTES_RELATIVE_PATH } from "../../constants.js";
 import { loadRoutesManifest } from "../shared/routes-loader.js";
-import { createStaticHandler } from "../shared/static-handler.js";
-import { resolve404Page, resolve500Page } from "../utils/error-pages.js";
 import { jsxBundlePath } from "../utils/jsx-bundle-path.js";
 import { logger } from "../utils/logger.js";
-import { createFetchHandler, createGeneratedRouteHandler, createProdHandler } from "./core-handler.js";
+import { createProductionFetchHandler } from "./adapter-handler.js";
 
 /** Check if running in test mode */
 function isTestMode() {
@@ -65,77 +51,16 @@ try {
     }
 }
 
-// Load modules from generated modules.js (falls back to loading JSX modules individually)
-const modulesPath = path.join(OUTPUT_DIR_SERVER, "modules.js");
-const modules = await loadModulesWithFallback({
-    modulesPath,
+// Build the shared production request handler with Bun module paths/imports.
+const { handleFetch } = await createProductionFetchHandler({
     routes: routes ?? [],
+    modulesPath: path.join(OUTPUT_DIR_SERVER, "modules.js"),
     importer: bunImporter,
-    onWarn: (msg) => logger.warn(msg),
-    onError: (msg) => logger.error(msg),
-    isDev: false,
-});
-
-// Load user-defined middleware
-/** @type {Function[]} */
-let userMiddlewares = [];
-try {
-    userMiddlewares = await loadUserDefinedMiddlewares();
-} catch (e) {
-    logger.error({ err: e }, "Failed to load user-defined middleware");
-}
-
-// Load custom error pages if they exist
-const { render404, render500 } = await loadErrorPages({
-    resolve404Page,
-    resolve500Page,
     loadJsxModule: async (jsxPath) => {
         const fn = await bunImporter(jsxBundlePath(jsxPath));
         return fn.default || fn.jsx;
     },
-    redactErrors: true,
-});
-
-// Normalize public path once at startup
-const publicPath = process.env.PUBLIC_PATH ?? "/";
-
-// Create file reader once
-const fileReader = createFileReader();
-
-// Create prod handler with core logic
-const { handleRequest, send404, send500 } = createProdHandler({
-    getRoutes: () => routes ?? [],
-    modules,
-    publicPath,
-    getMiddleware: /** @type {() => Array<(request: Request, env?: object) => Response | void | Promise<Response | void>>} */ (
-        () => userMiddlewares
-    ),
-    render404,
-    render500,
-    securityHeaders: SECURITY_HEADERS,
-    allowMiddlewareSecurityOverride: ALLOW_MIDDLEWARE_SECURITY_OVERRIDE,
-});
-
-// Create static file handler with Bun file reader
-const handleStaticRequest = createStaticHandler({
-    staticDir: OUTPUT_DIR_CLIENT,
-    fileReader,
-});
-
-// Create generated route handler
-const serveGeneratedRoute = createGeneratedRouteHandler({
-    staticDir: OUTPUT_DIR_CLIENT,
-    fileReader,
-    securityHeaders: SECURITY_HEADERS,
-});
-
-// Create unified fetch handler
-const handleFetch = createFetchHandler({
-    handleStaticRequest,
-    handleRequest,
-    serveGeneratedRoute,
-    send404,
-    send500,
+    publicPath: process.env.PUBLIC_PATH ?? "/",
 });
 
 /**

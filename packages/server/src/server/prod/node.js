@@ -19,26 +19,12 @@ import http from "node:http";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-import {
-    ALLOW_MIDDLEWARE_SECURITY_OVERRIDE,
-    OUTPUT_DIR_CLIENT,
-    OUTPUT_DIR_SERVER,
-    PORT,
-    ROUTES_FILE,
-    ROUTES_RELATIVE_PATH,
-    SECURITY_HEADERS,
-} from "../../constants.js";
-import { loadUserDefinedMiddlewares } from "../middleware.js";
-import { loadErrorPages } from "../shared/error-pages-loader.js";
-import { createFileReader } from "../shared/file-readers.js";
+import { OUTPUT_DIR_SERVER, PORT, ROUTES_FILE, ROUTES_RELATIVE_PATH } from "../../constants.js";
 import { fromWebResponse, toWebRequest } from "../shared/http-adapters.js";
-import { loadModulesWithFallback } from "../shared/module-loader.js";
 import { loadRoutesManifest } from "../shared/routes-loader.js";
-import { createStaticHandler } from "../shared/static-handler.js";
-import { resolve404Page, resolve500Page } from "../utils/error-pages.js";
 import { jsxBundlePath } from "../utils/jsx-bundle-path.js";
 import { httpLogger, logger } from "../utils/logger.js";
-import { createFetchHandler, createGeneratedRouteHandler, createProdHandler } from "./core-handler.js";
+import { createProductionFetchHandler } from "./adapter-handler.js";
 import { handleClientError, handleUncaughtException, handleUnhandledRejection } from "./node-handlers.js";
 
 // Server timeout defaults (milliseconds)
@@ -70,80 +56,16 @@ try {
     process.exit(1);
 }
 
-// Load modules from generated modules.js (falls back to loading JSX modules individually)
-const modulesPath = path.join(OUTPUT_DIR_SERVER, "modules.js");
-const modules = await loadModulesWithFallback({
-    modulesPath: pathToFileURL(modulesPath).href,
+// Build the shared production request handler with Node.js module paths/imports.
+const { handleFetch } = await createProductionFetchHandler({
     routes,
+    modulesPath: pathToFileURL(path.join(OUTPUT_DIR_SERVER, "modules.js")).href,
     importer: nodeImporter,
-    onWarn: (msg) => logger.warn(msg),
-    onError: (msg) => logger.error(msg),
-    isDev: false,
-});
-
-// Load user-defined middleware
-/** @type {Function[]} */
-let userMiddlewares = [];
-try {
-    userMiddlewares = await loadUserDefinedMiddlewares();
-} catch (e) {
-    // DEFENSIVE CODE: loadUserDefinedMiddlewares validates middleware module structure.
-    // Server continues without middleware on error, falling back to default behavior.
-    // This path is tested via dev/prod server smoke tests with invalid middleware.
-    logger.error({ err: e }, "Failed to load user-defined middleware");
-}
-
-// Load custom error pages if they exist
-const { render404, render500 } = await loadErrorPages({
-    resolve404Page,
-    resolve500Page,
     loadJsxModule: async (jsxPath) => {
         const fn = await nodeImporter(pathToFileURL(jsxBundlePath(jsxPath)).href);
         return fn.default || fn.jsx;
     },
-    redactErrors: true,
-});
-
-// Normalize public path once at startup
-const publicPath = process.env.PUBLIC_PATH ?? "/";
-
-// Create file reader once
-const fileReader = createFileReader();
-
-// Create prod handler with core logic
-const { handleRequest, send404, send500 } = createProdHandler({
-    getRoutes: () => routes,
-    modules,
-    publicPath,
-    getMiddleware: /** @type {() => Array<(request: Request, env?: object) => Response | void | Promise<Response | void>>} */ (
-        () => userMiddlewares
-    ),
-    render404,
-    render500,
-    securityHeaders: SECURITY_HEADERS,
-    allowMiddlewareSecurityOverride: ALLOW_MIDDLEWARE_SECURITY_OVERRIDE,
-});
-
-// Create static file handler with Node.js file reader
-const handleStaticRequest = createStaticHandler({
-    staticDir: OUTPUT_DIR_CLIENT,
-    fileReader,
-});
-
-// Create generated route handler
-const serveGeneratedRoute = createGeneratedRouteHandler({
-    staticDir: OUTPUT_DIR_CLIENT,
-    fileReader,
-    securityHeaders: SECURITY_HEADERS,
-});
-
-// Create unified fetch handler (Web Standard)
-const handleFetch = createFetchHandler({
-    handleStaticRequest,
-    handleRequest,
-    serveGeneratedRoute,
-    send404,
-    send500,
+    publicPath: process.env.PUBLIC_PATH ?? "/",
 });
 
 const server = http.createServer(async (req, res) => {

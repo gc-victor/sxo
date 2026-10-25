@@ -109,6 +109,19 @@ describe("ssr-executor", () => {
             assert.equal(body, `<!doctype html>\n${html}`);
         });
 
+        it("passes the incoming Request to the render function", async () => {
+            const request = new Request("http://localhost/page", { headers: { "X-Request": "retained" } });
+            let receivedRequest;
+            const { route, modules } = createFixtures("page.jsx", async (_params, received) => {
+                receivedRequest = received;
+                return "<html></html>";
+            });
+
+            await executeSSR(route, {}, modules, PUBLIC_PATH, false, null, request);
+
+            assert.equal(receivedRequest, request);
+        });
+
         it("passes route parameters to the render function", async () => {
             const params = { slug: "test-slug" };
             const renderFn = async (p) => `<html>${p.slug}</html>`;

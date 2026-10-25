@@ -14,25 +14,11 @@
  * @module server/prod/deno
  */
 
-import {
-    ALLOW_MIDDLEWARE_SECURITY_OVERRIDE,
-    OUTPUT_DIR_CLIENT,
-    OUTPUT_DIR_SERVER,
-    PORT,
-    ROUTES_FILE,
-    ROUTES_RELATIVE_PATH,
-    SECURITY_HEADERS,
-} from "../../constants.js";
-import { loadUserDefinedMiddlewares } from "../middleware.js";
-import { loadErrorPages } from "../shared/error-pages-loader.js";
-import { createFileReader } from "../shared/file-readers.js";
-import { loadModulesWithFallback } from "../shared/module-loader.js";
+import { OUTPUT_DIR_SERVER, PORT, ROUTES_FILE, ROUTES_RELATIVE_PATH } from "../../constants.js";
 import { loadRoutesManifest } from "../shared/routes-loader.js";
-import { createStaticHandler } from "../shared/static-handler.js";
-import { resolve404Page, resolve500Page } from "../utils/error-pages.js";
 import { jsxBundlePath } from "../utils/jsx-bundle-path.js";
 import { httpDenoLogger, logger } from "../utils/logger.js";
-import { createFetchHandler, createGeneratedRouteHandler, createProdHandler } from "./core-handler.js";
+import { createProductionFetchHandler } from "./adapter-handler.js";
 
 const YELLOW = "\x1b[33m";
 
@@ -78,73 +64,15 @@ const modulesUrl = modulesPath.startsWith("file://")
     ? modulesPath
     : `file://${modulesPath.startsWith("/") ? modulesPath : `${cwd}/${modulesPath}`}`;
 
-const modules = await loadModulesWithFallback({
-    modulesPath: modulesUrl,
+const { handleFetch } = await createProductionFetchHandler({
     routes,
+    modulesPath: modulesUrl,
     importer: denoImporter,
-    onWarn: (msg) => logger.warn(msg),
-    onError: (msg) => logger.error(msg),
-    isDev: false,
-});
-
-// Load user-defined middleware
-/** @type {any[]} */
-let userMiddlewares = [];
-try {
-    userMiddlewares = await loadUserDefinedMiddlewares();
-} catch (e) {
-    logger.error({ err: e }, "Failed to load user-defined middleware");
-}
-
-// Load custom error pages if they exist
-const { render404, render500 } = await loadErrorPages({
-    resolve404Page,
-    resolve500Page,
     loadJsxModule: async (jsxPath) => {
         const fn = await denoImporter(`file://${jsxBundlePath(jsxPath)}`);
         return fn.default || fn.jsx;
     },
-    redactErrors: true,
-});
-
-// Normalize public path once at startup
-const publicPath = Deno.env.get("PUBLIC_PATH") ?? "/";
-
-// Create file reader once
-const fileReader = createFileReader();
-
-// Create prod handler with core logic
-const { handleRequest, send404, send500 } = createProdHandler({
-    getRoutes: () => routes,
-    modules,
-    publicPath,
-    getMiddleware: () => userMiddlewares,
-    render404,
-    render500,
-    securityHeaders: SECURITY_HEADERS,
-    allowMiddlewareSecurityOverride: ALLOW_MIDDLEWARE_SECURITY_OVERRIDE,
-});
-
-// Create static file handler with Deno file reader
-const handleStaticRequest = createStaticHandler({
-    staticDir: OUTPUT_DIR_CLIENT,
-    fileReader,
-});
-
-// Create generated route handler
-const serveGeneratedRoute = createGeneratedRouteHandler({
-    staticDir: OUTPUT_DIR_CLIENT,
-    fileReader,
-    securityHeaders: SECURITY_HEADERS,
-});
-
-// Create unified fetch handler
-const handleFetch = createFetchHandler({
-    handleStaticRequest,
-    handleRequest,
-    serveGeneratedRoute,
-    send404,
-    send500,
+    publicPath: Deno.env.get("PUBLIC_PATH") ?? "/",
 });
 
 /**

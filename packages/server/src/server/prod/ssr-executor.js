@@ -37,42 +37,38 @@ export async function executeSSR(route, params, modules, normalizedPublicPath, i
         throw new Error(`No valid export found in ${route.jsx}`);
     }
 
-    let page = await renderFn(params, request);
-    // If the page renders its own Response (full control), process it
+    const page = await renderFn(params, request);
     if (page instanceof Response) {
-        const contentType = page.headers.get(HTTP_HEADER_CONTENT_TYPE) || "";
-        if (contentType.includes("text/html")) {
-            const text = await page.text();
-            const isHtml = /^<html[\s>]/i.test(text);
-            let output = text;
-            if (isHtml && route.assets && typeof route.assets === "object") {
-                output = injectAssets(text, route.assets, normalizedPublicPath);
-            }
-            if (isHead) {
-                return { type: "response", response: new Response(null, { status: page.status, headers: page.headers }) };
-            }
-            return {
-                type: "response",
-                response: new Response(isHtml ? `<!doctype html>\n${output}` : output, {
-                    status: page.status,
-                    headers: page.headers,
-                }),
-            };
-        }
+        return processResponsePage(page, route, normalizedPublicPath, isHead);
+    }
+    return createRenderedPageResponse(page, route, normalizedPublicPath, isHead, securityHeaders);
+}
+
+async function processResponsePage(page, route, normalizedPublicPath, isHead) {
+    const contentType = page.headers.get(HTTP_HEADER_CONTENT_TYPE) || "";
+    if (!contentType.includes("text/html")) {
         return { type: "response", response: page };
     }
-    // Coerce to string in case render function returns non-string (number, null, etc.)
+
+    const text = await page.text();
+    const isHtml = /^<html[\s>]/i.test(text);
+    const output =
+        isHtml && route.assets && typeof route.assets === "object" ? injectAssets(text, route.assets, normalizedPublicPath) : text;
+    const response = isHead
+        ? new Response(null, { status: page.status, headers: page.headers })
+        : new Response(isHtml ? `<!doctype html>\n${output}` : output, { status: page.status, headers: page.headers });
+    return { type: "response", response };
+}
+
+function createRenderedPageResponse(page, route, normalizedPublicPath, isHead, securityHeaders) {
     if (typeof page !== "string") {
         page = String(page ?? "");
     }
     const isHtml = /^<html[\s>]/i.test(page);
-
-    // Inject built assets for non-generated routes
     if (route.assets && typeof route.assets === "object" && isHtml) {
         page = injectAssets(page, route.assets, normalizedPublicPath);
     }
 
-    // Response headers
     const headers = withSecurityHeaders(
         {
             [HTTP_HEADER_CONTENT_TYPE]: MIME_TYPE_HTML_UTF8,
@@ -80,12 +76,8 @@ export async function executeSSR(route, params, modules, normalizedPublicPath, i
         },
         securityHeaders ?? undefined,
     );
-
-    if (isHead) {
-        return { type: "response", response: new Response(null, { status: 200, headers }) };
-    }
-
-    return { type: "response", response: new Response(isHtml ? `<!doctype html>\n${page}` : page, { status: 200, headers }) };
+    const body = isHead ? null : isHtml ? `<!doctype html>\n${page}` : page;
+    return { type: "response", response: new Response(body, { status: 200, headers }) };
 }
 
 /**
