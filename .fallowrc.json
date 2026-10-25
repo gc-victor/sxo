@@ -1,0 +1,61 @@
+{
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+
+  "ignorePatterns": [
+    "packages/components/src/pages/**",
+    "examples/**",
+    "templates/**"
+  ],
+
+  "ignoreDependencies": [
+    // jsconfig path aliases (packages/components): fallow does not resolve
+    // tsconfig/jsconfig paths, so these look like unlisted packages.
+    "@utils/*",
+    "@components/*",
+    "@pages/*",
+    // @sxo/cli is consumed only through its `sxo` bin in
+    // packages/components package scripts; fallow does not count bin usage
+    // as an import.
+    "@sxo/cli"
+  ],
+
+  // TestReactiveComponent exposes test bridges (testSetState, etc.) around
+  // ReactiveComponent's protected API; tests call them via this.* inside
+  // subclasses, which the class-member detector does not attribute across
+  // inheritance (no tsconfig in this repo, so --type-aware stays unresolved).
+  "usedClassMembers": [
+    {
+      "extends": "ReactiveComponent",
+      "members": [
+        "testSetState",
+        "testGetState",
+        "testConsumeContext",
+        "testExposeContext",
+        "testCompute",
+        "testRefs"
+      ]
+    }
+  ],
+
+  "entry": [
+    "packages/components/src/components/**"
+  ],
+
+  "dynamicallyLoaded": [
+    "**/sxo.config.js",
+    "**/sxo.config.ts",
+    "packages/components/src/middleware.js",
+    "packages/server/src/config/resolve-aliases.js",
+    "packages/server/src/server/prod.js",
+    "packages/server/src/server/prod/node.js",
+    "packages/server/src/server/prod/bun.js",
+    "packages/server/src/server/prod/deno.js",
+    "scripts/test/test-coverage-report.js",
+    "scripts/test/test-fail.js",
+    "scripts/test/test-silent-report.js"
+  ],
+
+  "ignoreFindings": [
+    "packages/components/src/utils/**"
+  ]
+}
