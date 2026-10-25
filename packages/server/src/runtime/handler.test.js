@@ -298,6 +298,27 @@ describe("createCoreHandler - middleware render context", () => {
         const text = await response.text();
         ok(text.includes("Home Page"), "should contain rendered page content");
         ok(text.startsWith("<!doctype html>"), "should prepend doctype");
+        ok(text.includes('href="/index.css"'), "should find the route and inject its CSS asset");
+        ok(text.includes('src="/index.js"'), "should inject the route's JavaScript asset");
+    });
+
+    test("middleware context render stringifies values and maps nullish values to empty strings", async () => {
+        const handler = createCoreHandler({
+            routes: mockRoutes,
+            modules: {
+                "src/pages/value.jsx": { default: ({ value }) => value },
+            },
+            middleware: [
+                async (_req, _env, { render }) =>
+                    new Response(
+                        `${await render("src/pages/value.jsx", { value: 42 })}|${await render("src/pages/value.jsx", { value: null })}`,
+                    ),
+            ],
+        });
+
+        const response = await handler(createRequest("/"));
+
+        strictEqual(await response.text(), "42|");
     });
 
     test("middleware can pass params to context.render", async () => {

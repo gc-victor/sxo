@@ -214,6 +214,34 @@ describe("core-handler.js", () => {
                 const body = await response.text();
                 ok(body.includes("Slug: hello"), "should pass params");
             });
+
+            it("finds route assets and stringifies middleware-rendered values", async () => {
+                mockGetMiddleware = () => [
+                    async (_req, _env, { render }) => {
+                        const html = await render("src/pages/context.jsx", { value: 42 });
+                        const empty = await render("src/pages/context.jsx", { value: null });
+                        return new Response(`${html}|${empty}`);
+                    },
+                ];
+                setupHandler({
+                    getRoutes: () => [
+                        { path: "/context", jsx: "src/pages/context.jsx", assets: { css: ["context.css"], js: ["context.js"] } },
+                    ],
+                    publicPath: "/cdn",
+                    loadJsxModule:
+                        async () =>
+                        async ({ value }) =>
+                            value === 42 ? "<html><head></head><body>Context</body></html>" : value,
+                });
+
+                const response = await handler(makeRequest("/"));
+                const body = await response.text();
+
+                ok(body.startsWith("<!doctype html>\n<html>"));
+                ok(body.includes('href="/cdn/context.css"'));
+                ok(body.includes('src="/cdn/context.js"'));
+                strictEqual(body.endsWith("|"), true);
+            });
         });
 
         describe("When middleware throws error", () => {

@@ -30,10 +30,11 @@ import {
     HTTP_METHOD_OPTIONS,
     MIME_TYPE_HTML_UTF8,
 } from "../shared/http-constants.js";
+import { createMiddlewareContext } from "../shared/middleware-context.js";
 import { resolveSafePath } from "../shared/path.js";
 import { withSecurityHeaders } from "../shared/security-headers.js";
 import { getErrorPageAssets } from "../utils/error-page-assets.js";
-import { injectAssets, normalizePublicPath } from "../utils/inject-assets.js";
+import { normalizePublicPath } from "../utils/inject-assets.js";
 import { logger } from "../utils/logger.js";
 import { routeMatch } from "../utils/route-match.js";
 import { executeSSR, handleSSRError } from "./ssr-executor.js";
@@ -258,38 +259,11 @@ export function createProdHandler(config) {
     const errorPageAssets404 = getErrorPageAssets(getRoutes, "404");
     const errorPageAssets500 = getErrorPageAssets(getRoutes, "500");
 
-    // Build middleware context with render function
-    const middlewareContext = {
-        /**
-         * Render any page module by source JSX path.
-         * @param {string} jsxPath - Source path to the page module
-         * @param {Record<string, string>} [params={}] - Route parameters
-         * @returns {Promise<string>} Rendered HTML string
-         */
-        render: async (jsxPath, params = {}) => {
-            const mod = modules[jsxPath];
-            if (!mod) {
-                throw new Error(`Module not found: ${jsxPath}`);
-            }
-            const renderFn = mod.default || mod.jsx;
-            if (typeof renderFn !== "function") {
-                throw new Error(`No valid export found in ${jsxPath}`);
-            }
-            let html = await renderFn(params);
-            if (typeof html !== "string") {
-                html = String(html ?? "");
-            }
-            if (/^<html[\s>]/i.test(html)) {
-                const routes = getRoutes();
-                const route = routes.find((r) => r.jsx === jsxPath);
-                if (route?.assets) {
-                    html = injectAssets(html, route.assets, normalizedPublicPath);
-                }
-                html = `<!doctype html>\n${html}`;
-            }
-            return html;
-        },
-    };
+    const middlewareContext = createMiddlewareContext({
+        modules,
+        getRoutes,
+        getPublicPath: () => normalizedPublicPath,
+    });
 
     /**
      * Handle an incoming HTTP request.

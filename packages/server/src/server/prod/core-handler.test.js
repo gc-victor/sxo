@@ -293,6 +293,22 @@ describe("createProdHandler", () => {
             const body = await response.text();
             assert.ok(body.includes("<h1>Home</h1>"), "should contain rendered page content");
             assert.ok(body.startsWith("<!doctype html>"), "should prepend doctype");
+            assert.ok(body.includes('href="/index.css"'), "should find the route and inject its CSS asset");
+            assert.ok(body.includes('src="/index.js"'), "should inject the route's JavaScript asset");
+        });
+
+        it("middleware context render stringifies values and maps nullish values to empty strings", async () => {
+            config.modules["src/pages/value.jsx"] = { default: ({ value }) => value };
+            config.getMiddleware = () => [
+                async (_req, _env, { render }) =>
+                    new Response(
+                        `${await render("src/pages/value.jsx", { value: 42 })}|${await render("src/pages/value.jsx", { value: null })}`,
+                    ),
+            ];
+
+            const result = await executeRequest(config, "http://localhost:3000/");
+
+            await assertResponseBody(result.response, "42|");
         });
 
         it("middleware can pass params to context.render", async () => {

@@ -4,6 +4,7 @@ import {
     HTTP_METHOD_HEAD,
     MIME_TYPE_HTML_UTF8,
 } from "../server/shared/http-constants.js";
+import { createMiddlewareContext, resolveModuleRenderFunction } from "../server/shared/middleware-context.js";
 import { htmlErrorPage } from "../server/utils/html-utils.js";
 import { injectAssets, normalizePublicPath } from "../server/utils/inject-assets.js";
 import { routeMatch } from "../server/utils/route-match.js";
@@ -100,18 +101,7 @@ import { executeMiddleware } from "../shared/middleware-executor.js";
  * ```
  */
 export async function renderSSR(route, request, modules, params) {
-    // Load module from map
-    const mod = modules[route.jsx];
-    if (!mod) {
-        throw new Error(`Module not found: ${route.jsx}`);
-    }
-
-    // Get render function (default export or named jsx)
-    const jsxModule = /** @type {JsxModule} */ (mod);
-    const renderFn = jsxModule.default || jsxModule.jsx;
-    if (typeof renderFn !== "function") {
-        throw new Error(`No valid export found in ${route.jsx}`);
-    }
+    const renderFn = resolveModuleRenderFunction(modules, route.jsx);
 
     // Use pre-matched params if provided, otherwise extract from request URL
     if (!params) {
@@ -187,37 +177,11 @@ export function createCoreHandler(/** @type {HandlerConfig} */ config) {
      * @returns {Promise<Response | null>} Response or null if no route matched
      */
     return async function handler(request, env = {}) {
-        // Build middleware context with render function
-        const middlewareContext = {
-            /**
-             * Render any page module by source JSX path.
-             * @param {string} jsxPath - Source path to the page module (e.g., "src/pages/custom.jsx")
-             * @param {Record<string, string>} [params={}] - Route parameters
-             * @returns {Promise<string>} Rendered HTML string
-             */
-            render: async (jsxPath, params = {}) => {
-                const mod = modules[jsxPath];
-                if (!mod) {
-                    throw new Error(`Module not found: ${jsxPath}`);
-                }
-                const renderFn = mod.default || mod.jsx;
-                if (typeof renderFn !== "function") {
-                    throw new Error(`No valid export found in ${jsxPath}`);
-                }
-                let html = await renderFn(params);
-                if (typeof html !== "string") {
-                    html = String(html ?? "");
-                }
-                if (/^<html[\s>]/i.test(html)) {
-                    const route = routes.find((r) => r.jsx === jsxPath);
-                    if (route?.assets) {
-                        html = injectAssets(html, route.assets, normalizedPublicPath);
-                    }
-                    html = `<!doctype html>\n${html}`;
-                }
-                return html;
-            },
-        };
+        const middlewareContext = createMiddlewareContext({
+            modules,
+            getRoutes: () => routes,
+            getPublicPath: () => normalizedPublicPath,
+        });
 
         // Execute middleware chain first
         if (middleware.length > 0) {

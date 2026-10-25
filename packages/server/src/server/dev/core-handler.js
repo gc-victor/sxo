@@ -13,7 +13,8 @@ import { decodeURIComponentSafe } from "../../shared/url-validator.js";
 import { badRequestResponse, uriTooLongResponse } from "../shared/error-responses.js";
 import { optionsResponse } from "../shared/http-adapters.js";
 import { HTTP_METHOD_HEAD, HTTP_METHOD_OPTIONS } from "../shared/http-constants.js";
-import { injectAssets, normalizePublicPath } from "../utils/inject-assets.js";
+import { createMiddlewareContext } from "../shared/middleware-context.js";
+import { normalizePublicPath } from "../utils/inject-assets.js";
 import { logger } from "../utils/logger.js";
 import { routeMatch } from "../utils/route-match.js";
 import { createHotReloadHandler } from "./handlers/hot-reload-handler.js";
@@ -116,31 +117,11 @@ export function createDevHandler(config) {
             return optionsResponse();
         }
 
-        // Build middleware context with render function
-        const middlewareContext = {
-            /**
-             * Render any page module by source JSX path.
-             * @param {string} jsxPath - Source path to the page module
-             * @param {Record<string, string>} [params={}] - Route parameters
-             * @returns {Promise<string>} Rendered HTML string
-             */
-            render: async (jsxPath, params = {}) => {
-                const fn = await loadJsxModule(jsxPath);
-                let html = await fn(params);
-                if (typeof html !== "string") {
-                    html = String(html ?? "");
-                }
-                if (/^<html[\s>]/i.test(html)) {
-                    const routes = getRoutes();
-                    const route = routes.find((r) => r.jsx === jsxPath);
-                    if (route?.assets) {
-                        html = injectAssets(html, route.assets, normalizePublicPath(publicPath));
-                    }
-                    html = `<!doctype html>\n${html}`;
-                }
-                return html;
-            },
-        };
+        const middlewareContext = createMiddlewareContext({
+            loadJsxModule,
+            getRoutes,
+            getPublicPath: () => normalizePublicPath(publicPath),
+        });
 
         try {
             const middlewares = getMiddleware();
