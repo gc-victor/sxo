@@ -13,7 +13,76 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 
-import { mockConsoleError, mockConsoleWarn, withEnvCapture, withTempProject, writeFile } from "./test-utils.js";
+import { createSymlinkTestStructure, mockConsoleError, mockConsoleWarn, withEnvCapture, withTempProject, writeFile } from "./test-utils.js";
+
+test("test-utils: createSymlinkTestStructure marks privilege-code errors for platform skips", async (t) => {
+    const symlinkError = Object.assign(new Error("Operation denied"), { code: "EPERM" });
+
+    await withTempProject(async (baseDir) => {
+        t.mock.method(fsp, "symlink", async () => {
+            throw symlinkError;
+        });
+
+        await assert.rejects(createSymlinkTestStructure(baseDir, "privilege-code"), (error) => {
+            assert.equal(error.message, "Symlink test skipped - requires elevated privileges on Windows");
+            assert.equal(error.skipPlatform, "windows");
+            assert.equal(error.symlinkTest, true);
+            return true;
+        });
+    });
+});
+
+test("test-utils: createSymlinkTestStructure marks Windows privilege messages for platform skips", async (t) => {
+    const symlinkError = new Error("The required privilege is not held");
+
+    await withTempProject(async (baseDir) => {
+        t.mock.method(fsp, "symlink", async () => {
+            throw symlinkError;
+        });
+
+        await assert.rejects(createSymlinkTestStructure(baseDir, "privilege-message"), (error) => {
+            assert.equal(error.message, "Symlink test skipped - requires elevated privileges on Windows");
+            assert.equal(error.skipPlatform, "windows");
+            assert.equal(error.symlinkTest, true);
+            return true;
+        });
+    });
+});
+
+test("test-utils: createSymlinkTestStructure rethrows unrelated symlink errors", async (t) => {
+    const symlinkError = Object.assign(new Error("Permission denied"), { code: "EIO" });
+
+    await withTempProject(async (baseDir) => {
+        t.mock.method(fsp, "symlink", async () => {
+            throw symlinkError;
+        });
+
+        await assert.rejects(createSymlinkTestStructure(baseDir, "unrelated-error"), (error) => {
+            assert.strictEqual(error, symlinkError);
+            return true;
+        });
+    });
+});
+
+test("test-utils: createSymlinkTestStructure rethrows non-error symlink rejections", async (t) => {
+    for (const [testName, rejection] of [
+        ["null", null],
+        ["string", "not an error object"],
+    ]) {
+        await t.test(testName, async (subtest) => {
+            await withTempProject(async (baseDir) => {
+                subtest.mock.method(fsp, "symlink", async () => {
+                    throw rejection;
+                });
+
+                await assert.rejects(createSymlinkTestStructure(baseDir, testName), (error) => {
+                    assert.strictEqual(error, rejection);
+                    return true;
+                });
+            });
+        });
+    }
+});
 
 test("test-utils: withTempProject creates and cleans up directory", async () => {
     const createdDirs = [];
