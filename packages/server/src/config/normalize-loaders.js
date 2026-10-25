@@ -83,6 +83,40 @@ export function mergeLoadersMaps(...maps) {
     return ordered;
 }
 
+function normalizeLoaderEntries(entries) {
+    /** @type {Record<string, string>} */
+    const normalized = {};
+    for (const [key, value] of entries) {
+        normalized[normalizeLoaderKey(key)] = String(value);
+    }
+
+    const keys = Object.keys(normalized).sort();
+    if (keys.length === 0) return undefined;
+
+    /** @type {Record<string, string>} */
+    const ordered = {};
+    for (const key of keys) ordered[key] = normalized[key];
+    return ordered;
+}
+
+function normalizeLoadersString(raw) {
+    const value = raw.trim();
+    if (value.startsWith("{")) {
+        try {
+            const parsed = JSON.parse(value);
+            if (typeof parsed === "object" && !Array.isArray(parsed)) {
+                const normalized = normalizeLoaderEntries(Object.entries(parsed));
+                if (normalized) return normalized;
+            }
+        } catch {
+            // Fall through to key=value parsing
+        }
+    }
+
+    const parsedLoaders = parseLoadersString(value);
+    return Object.keys(parsedLoaders).length > 0 ? parsedLoaders : undefined;
+}
+
 /**
  * Normalize esbuild loaders from various input formats.
  *
@@ -121,58 +155,18 @@ export function mergeLoadersMaps(...maps) {
 export function normalizeLoaders(loaders) {
     if (loaders === undefined || loaders === null) return undefined;
 
-    if (typeof loaders === "object" && !Array.isArray(loaders)) {
-        // Already an object map, normalize keys
-        /** @type {Record<string, string>} */
-        const normalized = {};
-        for (const [k, v] of Object.entries(loaders)) {
-            normalized[normalizeLoaderKey(k)] = String(v);
-        }
-        // Return with deterministic (alphabetical) ordering
-        if (Object.keys(normalized).length === 0) return undefined;
-        /** @type {Record<string, string>} */
-        const ordered = {};
-        for (const k of Object.keys(normalized).sort()) ordered[k] = normalized[k];
-        return ordered;
-    }
-
     if (Array.isArray(loaders)) {
         // Array of strings (repeatable flag), merge them all with deterministic ordering
         const maps = loaders.map((item) => parseLoadersString(String(item)));
         return maps.length > 0 ? mergeLoadersMaps(...maps) : undefined;
     }
 
+    if (typeof loaders === "object") {
+        return normalizeLoaderEntries(Object.entries(loaders));
+    }
+
     if (typeof loaders === "string") {
-        // Single string value; may be JSON object or key=value format
-        const s = String(loaders).trim();
-        /** @type {Record<string, string>} */
-        let result = {};
-
-        // Try JSON parse first (for env var LOADERS="{...}")
-        if (s.startsWith("{")) {
-            try {
-                const parsed = JSON.parse(s);
-                if (typeof parsed === "object" && !Array.isArray(parsed)) {
-                    for (const [k, v] of Object.entries(parsed)) {
-                        result[normalizeLoaderKey(k)] = String(v);
-                    }
-                }
-            } catch {
-                // Fall through to string parsing
-            }
-        }
-
-        // If JSON parse failed or wasn't JSON, try key=value format
-        if (Object.keys(result).length === 0) {
-            result = parseLoadersString(s);
-        }
-
-        // Return with deterministic (alphabetical) ordering
-        if (Object.keys(result).length === 0) return undefined;
-        /** @type {Record<string, string>} */
-        const ordered = {};
-        for (const k of Object.keys(result).sort()) ordered[k] = result[k];
-        return ordered;
+        return normalizeLoadersString(loaders);
     }
 
     return undefined;

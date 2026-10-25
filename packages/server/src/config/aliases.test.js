@@ -7,7 +7,8 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, it } from "node:test";
-import { resolveAliases } from "./aliases.js";
+import { pathToFileURL } from "node:url";
+import { initialize, resolve as resolveAlias, resolveAliases } from "./aliases.js";
 
 describe("resolveAliases", () => {
     /** @type {string} */
@@ -237,5 +238,31 @@ describe("resolveAliases", () => {
                 "@pages": pagesDir,
             });
         });
+    });
+});
+
+describe("Node.js alias loader hook", () => {
+    let tmp;
+
+    beforeEach(async () => {
+        tmp = await mkdtemp(path.join(os.tmpdir(), "sxo-alias-hook-"));
+    });
+
+    afterEach(async () => {
+        initialize({ aliasMap: {}, projectRoot: "" });
+        await rm(tmp, { recursive: true, force: true });
+    });
+
+    it("resolves extensionless aliases with TypeScript fallbacks and delegates unmatched imports", async () => {
+        const target = path.join(tmp, "src", "utils");
+        await mkdir(target, { recursive: true });
+        await writeFile(path.join(target, "index.ts"), "export default 1;");
+        await writeFile(path.join(target, "view.tsx"), "export default 2;");
+        initialize({ aliasMap: { "@utils": "src/utils" }, projectRoot: tmp });
+
+        const resolveNext = async (specifier) => specifier;
+        assert.equal(await resolveAlias("@utils/index", {}, resolveNext), pathToFileURL(path.join(target, "index.ts")).href);
+        assert.equal(await resolveAlias("@utils/view", {}, resolveNext), pathToFileURL(path.join(target, "view.tsx")).href);
+        assert.equal(await resolveAlias("react", {}, resolveNext), "react");
     });
 });

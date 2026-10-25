@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { rm } from "node:fs/promises";
 import { describe, it } from "node:test";
 import { withTempProject, writeFile } from "../test-utils.js";
 import { loadConfigFile } from "./loaders.js";
@@ -43,14 +44,18 @@ describe("loadConfigFile", () => {
      */
     it("should respect loading order: .mjs > .js > .cjs > .json", async () => {
         await withTempProject(async (dir) => {
-            // Create multiple config files
+            await writeFile(dir, "sxo.config.mjs", "export default { source: 'mjs' };");
             await writeFile(dir, "sxo.config.js", "export default { source: 'js' };");
+            await writeFile(dir, "sxo.config.cjs", "module.exports = { source: 'cjs' };");
             await writeFile(dir, "sxo.config.json", JSON.stringify({ source: "json" }));
 
-            const config = await loadConfigFile(dir);
-
-            // .js should be loaded (takes precedence over .json)
-            assert.equal(config.source, "js");
+            assert.equal((await loadConfigFile(dir)).source, "mjs");
+            await rm(`${dir}/sxo.config.mjs`);
+            assert.equal((await loadConfigFile(dir)).source, "js");
+            await rm(`${dir}/sxo.config.js`);
+            assert.equal((await loadConfigFile(dir)).source, "cjs");
+            await rm(`${dir}/sxo.config.cjs`);
+            assert.equal((await loadConfigFile(dir)).source, "json");
         });
     });
 

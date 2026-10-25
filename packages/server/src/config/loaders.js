@@ -2,6 +2,25 @@ import fs from "node:fs";
 import * as nodeModule from "node:module";
 import { pathToFileURL } from "node:url";
 
+async function parseConfigFile(configPath, extension, content) {
+    switch (extension) {
+        case ".json":
+            return JSON.parse(content);
+        case ".mjs":
+        case ".js": {
+            const loadedModule = await import(pathToFileURL(configPath).href);
+            return loadedModule.default;
+        }
+        case ".cjs": {
+            const require = nodeModule.createRequire(import.meta.url);
+            const loadedConfig = require(configPath);
+            return loadedConfig.default || loadedConfig;
+        }
+        default:
+            return undefined;
+    }
+}
+
 /**
  * Loads project configuration file.
  *
@@ -26,36 +45,14 @@ export async function loadConfigFile(root) {
 
     for (const ext of extensions) {
         const configPath = `${root}/${configName}${ext}`;
+        if (!fs.existsSync(configPath)) continue;
 
-        if (fs.existsSync(configPath)) {
-            const content = await fs.promises.readFile(configPath, "utf8");
-
-            try {
-                if (ext === ".json") {
-                    return JSON.parse(content);
-                }
-                if (ext === ".mjs") {
-                    // Dynamic import of ESM module
-                    const loadedModule = await import(pathToFileURL(configPath).href);
-                    return loadedModule.default;
-                }
-                if (ext === ".js") {
-                    // Dynamic import of ESM module
-                    const loadedModule = await import(pathToFileURL(configPath).href);
-                    return loadedModule.default;
-                }
-                if (ext === ".cjs") {
-                    // CommonJS file - use interop via createRequire
-                    // Node.js provides createRequire to load CJS from ESM context
-                    // Extract default export if present, otherwise use module.exports directly
-                    const require = nodeModule.createRequire(import.meta.url);
-                    const loadedConfig = require(configPath);
-                    return loadedConfig.default || loadedConfig;
-                }
-            } catch (error) {
-                const message = error instanceof Error ? error.message : String(error);
-                throw new Error(`Failed to parse config file ${configPath}: ${message}`);
-            }
+        const content = await fs.promises.readFile(configPath, "utf8");
+        try {
+            return await parseConfigFile(configPath, ext, content);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            throw new Error(`Failed to parse config file ${configPath}: ${message}`);
         }
     }
 

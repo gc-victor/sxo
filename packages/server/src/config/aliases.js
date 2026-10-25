@@ -262,6 +262,36 @@ export function initialize(data) {
     hookProjectRoot = data.projectRoot || "";
 }
 
+function findMatchingAlias(specifier) {
+    for (const alias of Object.keys(hookAliasMap)) {
+        if (specifier.startsWith(`${alias}/`) || specifier === alias) return alias;
+    }
+    return null;
+}
+
+function resolveAliasPath(specifier, alias, context, nextResolve) {
+    const target = hookAliasMap[alias];
+    const rest = specifier.slice(alias.length);
+    const basePath = path.isAbsolute(target) ? target : path.join(hookProjectRoot, target);
+    const absPath = path.resolve(basePath, rest ? `.${rest}` : ".");
+
+    if (absPath.endsWith(".ts") || absPath.endsWith(".tsx")) {
+        return nextResolve(pathToFileURL(absPath).href, context);
+    }
+
+    const tsPath = `${absPath}.ts`;
+    if (fs.existsSync(tsPath)) {
+        return nextResolve(pathToFileURL(tsPath).href, context);
+    }
+
+    const tsxPath = `${absPath}.tsx`;
+    if (fs.existsSync(tsxPath)) {
+        return nextResolve(pathToFileURL(tsxPath).href, context);
+    }
+
+    return nextResolve(pathToFileURL(absPath).href, context);
+}
+
 /**
  * Resolve @-prefixed bare specifiers to absolute file:// URLs.
  *
@@ -274,25 +304,7 @@ export function initialize(data) {
  * @returns {Promise<{ url: string }>}
  */
 export async function resolve(specifier, context, nextResolve) {
-    for (const [alias, target] of Object.entries(hookAliasMap)) {
-        if (specifier.startsWith(`${alias}/`) || specifier === alias) {
-            const rest = specifier.slice(alias.length);
-            const absPath = path.resolve(path.isAbsolute(target) ? target : path.join(hookProjectRoot, target), rest ? `.${rest}` : ".");
-            // If the resolved path already has a .ts/.tsx extension, use it directly
-            if (absPath.endsWith(".ts") || absPath.endsWith(".tsx")) {
-                return nextResolve(pathToFileURL(absPath).href, context);
-            }
-            // Try .ts extension as fallback for extensionless imports
-            const tsPath = `${absPath}.ts`;
-            if (fs.existsSync(tsPath)) {
-                return nextResolve(pathToFileURL(tsPath).href, context);
-            }
-            const tsxPath = `${absPath}.tsx`;
-            if (fs.existsSync(tsxPath)) {
-                return nextResolve(pathToFileURL(tsxPath).href, context);
-            }
-            return nextResolve(pathToFileURL(absPath).href, context);
-        }
-    }
-    return nextResolve(specifier, context);
+    const alias = findMatchingAlias(specifier);
+    if (alias === null) return nextResolve(specifier, context);
+    return resolveAliasPath(specifier, alias, context, nextResolve);
 }

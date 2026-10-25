@@ -34,7 +34,7 @@ const CONFIG_SCHEMA = [
  * @param {unknown} x - Value to convert
  * @returns {number|undefined} Integer value or undefined if invalid
  */
-export function toNumber(x) {
+function toNumber(x) {
     if (typeof x === "number" && Number.isFinite(x)) return Math.trunc(x);
     const n = parseInt(String(x), 10);
     return Number.isFinite(n) ? n : undefined;

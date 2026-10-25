@@ -239,6 +239,28 @@ describe("config/validate-config.js", () => {
     });
 
     describe("Security: Reject escape (no symlinks required)", () => {
+        it("should reject symlinks that resolve outside the project directory", async (t) => {
+            if (!(await canCreateSymlinks())) return t.skip("Symlinks are not supported on this platform");
+
+            const structure = await createSymlinkTestStructure(testBaseDir, "symlink-escape");
+            const baseConfig = {
+                port: 3000,
+                pagesDir: "pages-symlink",
+                outDir: path.join(structure.projectDir, "dist"),
+                clientDir: "client",
+                componentsDir: "target",
+            };
+
+            await assert.rejects(
+                validateConfig(baseConfig, structure.projectDir),
+                /Invalid pagesDir.*attempts to escape project directory/,
+            );
+            await assert.rejects(
+                validateConfig({ ...baseConfig, pagesDir: "pages-valid", componentsDir: "components-symlink" }, structure.projectDir),
+                /Invalid componentsDir.*attempts to escape project directory/,
+            );
+        });
+
         it("should reject pagesDir escaping via parent reference", async () => {
             const projectDir = path.join(testBaseDir, "project-escape-pages");
             await fsp.mkdir(projectDir, { recursive: true });

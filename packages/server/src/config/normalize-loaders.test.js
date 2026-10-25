@@ -41,6 +41,11 @@ test("normalize-loaders: handles various input formats", async () => {
  * Parameterized test: normalizeLoaders handles mixed dot notation
  * Consolidates 3 redundant tests into single test with loop
  */
+test("normalize-loaders: converts object and JSON values to strings", () => {
+    assert.deepEqual(normalizeLoaders({ svg: 42 }), { ".svg": "42" });
+    assert.deepEqual(normalizeLoaders('{"svg":42}'), { ".svg": "42" });
+});
+
 test("normalize-loaders: handles mixed dot notation", async () => {
     const dotNotationCases = [
         {
