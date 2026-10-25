@@ -13,6 +13,74 @@ import { getCliScriptPaths, getErrorMessage } from "./utils.js";
 
 const { ESBUILD_CONFIG_FILE, RESOLVE_ALIASES_HOOK, SERVER_DEV_FILE } = getCliScriptPaths(import.meta.url);
 
+async function prebuildDevServer(cfg, root, impl) {
+    const spinner = createSpinner("Prebuilding", { enabled: process.stdout.isTTY });
+    spinner.start();
+
+    cfg.env.DEV = "true";
+    cfg.env.SXO_ESBUILD_CONFIG_FILE = ESBUILD_CONFIG_FILE;
+    const result = await impl.runRuntime(ESBUILD_CONFIG_FILE, {
+        cwd: root,
+        env: cfg.env,
+        stdio: "inherit",
+    });
+
+    if (!result.success) {
+        spinner.fail("Prebuild failed");
+        log.error("Couldn't generate routes with esbuild. Check the error above for details.");
+        log.info(`- PAGES_DIR: ${convertToPosixSlashes(cfg.pagesDir)}`);
+        log.info("- Hint: run with --pages-dir or set PAGES_DIR to your pages root.");
+        process.exitCode = result.code ?? 1;
+        return false;
+    }
+
+    spinner.succeed("Prebuild complete");
+    return true;
+}
+
+function getDevRuntimeOptions(root) {
+    const options = [];
+    if (detectRuntime() === "node" && existsSync(RESOLVE_ALIASES_HOOK)) {
+        const tsconfigPath = path.join(root, "tsconfig.json");
+        if (existsSync(tsconfigPath)) {
+            options.push("--import", RESOLVE_ALIASES_HOOK);
+        }
+    }
+    return options;
+}
+
+async function openDevBrowser(cfg, child, impl) {
+    if (!cfg.open) return;
+
+    const controller = new AbortController();
+    child.once("exit", () => controller.abort());
+    const result = await impl.openWhenReady({
+        port: cfg.port,
+        pathname: "/",
+        timeoutMs: 12000,
+        signal: controller.signal,
+        verbose: Boolean(cfg.verbose),
+    });
+
+    if (result.timedOut) {
+        log.warn(`Timed out waiting for ${getUrl(cfg.port)}`);
+    }
+}
+
+async function startDevServer(cfg, root, impl) {
+    await impl.ensureDir(cfg.outDir);
+    const { child, wait } = impl.spawnRuntime(absoluteScript(root, SERVER_DEV_FILE), {
+        cwd: root,
+        env: cfg.env,
+        stdio: "inherit",
+        runtimeOptions: getDevRuntimeOptions(root),
+    });
+
+    await openDevBrowser(cfg, child, impl);
+    const result = await wait;
+    if (!result.success) process.exitCode = result.code ?? 1;
+}
+
 /**
  * Handle the dev command logic.
  *
@@ -44,68 +112,8 @@ export async function handleDevCommand(flags, inject = {}) {
         const cfg = await impl.resolveConfig({ cwd: root, flags: flagsForConfig, flagsExplicit, command: "dev" });
 
         await impl.validatePagesFolder(cfg.pagesDir);
-
-        // Prebuild (explicit) before launching dev server
-        const prebuildSpinner = createSpinner("Prebuilding", { enabled: process.stdout.isTTY });
-        prebuildSpinner.start();
-
-        cfg.env.DEV = "true";
-        cfg.env.SXO_ESBUILD_CONFIG_FILE = ESBUILD_CONFIG_FILE;
-
-        const prebuildRes = await impl.runRuntime(ESBUILD_CONFIG_FILE, {
-            cwd: root,
-            env: cfg.env,
-            stdio: "inherit",
-        });
-
-        if (!prebuildRes.success) {
-            prebuildSpinner.fail("Prebuild failed");
-            log.error("Couldn't generate routes with esbuild. Check the error above for details.");
-            log.info(`- PAGES_DIR: ${convertToPosixSlashes(cfg.pagesDir)}`);
-            log.info("- Hint: run with --pages-dir or set PAGES_DIR to your pages root.");
-            process.exitCode = prebuildRes.code ?? 1;
-            return;
-        }
-        prebuildSpinner.succeed("Prebuild complete");
-
-        // Ensure dist exists (esbuild config already mkdir -p)
-        await impl.ensureDir(cfg.outDir);
-
-        // Spawn dev server (auto-detects runtime internally)
-        const runtimeOptions = [];
-        // Register tsconfig path alias resolver for Node.js runtime
-        if (detectRuntime() === "node" && existsSync(RESOLVE_ALIASES_HOOK)) {
-            const tsconfigPath = path.join(root, "tsconfig.json");
-            if (existsSync(tsconfigPath)) {
-                runtimeOptions.push("--import", RESOLVE_ALIASES_HOOK);
-            }
-        }
-        const { child, wait } = impl.spawnRuntime(absoluteScript(root, SERVER_DEV_FILE), {
-            cwd: root,
-            env: cfg.env,
-            stdio: "inherit",
-            runtimeOptions,
-        });
-
-        // Auto-open if configured
-        if (cfg.open) {
-            const ctrl = new AbortController();
-            child.once("exit", () => ctrl.abort());
-            const res = await impl.openWhenReady({
-                port: cfg.port,
-                pathname: "/",
-                timeoutMs: 12000,
-                signal: ctrl.signal,
-                verbose: Boolean(cfg.verbose),
-            });
-
-            if (res.timedOut) {
-                log.warn(`Timed out waiting for ${getUrl(cfg.port)}`);
-            }
-        }
-
-        const result = await wait;
-        if (!result.success) process.exitCode = result.code ?? 1;
+        if (!(await prebuildDevServer(cfg, root, impl))) return;
+        await startDevServer(cfg, root, impl);
     } catch (e) {
         log.error(`dev failed: ${getErrorMessage(e)}`);
         process.exitCode = 1;

@@ -60,15 +60,19 @@ describe("cli/commands/dev", () => {
         assert.equal(process.exitCode, undefined, "Should not set exit code on success");
     });
 
-    it("fails when prebuild fails", async () => {
+    it("fails when prebuild fails without launching the dev server", async () => {
+        let serverStarted = false;
         const inject = {
             resolveConfig: createMockResolveConfig(),
             validatePagesFolder: async () => {},
             runRuntime: async () => ({ success: false, code: 1 }),
-            spawnRuntime: () => ({
-                child: { once: () => {} },
-                wait: Promise.resolve({ success: true }),
-            }),
+            spawnRuntime: () => {
+                serverStarted = true;
+                return {
+                    child: { once: () => {} },
+                    wait: Promise.resolve({ success: true }),
+                };
+            },
             ensureDir: async () => {},
             openWhenReady: async () => ({ opened: false, timedOut: false }),
         };
@@ -83,6 +87,7 @@ describe("cli/commands/dev", () => {
             errorMessages.some((msg) => msg.includes("Couldn't generate routes")),
             "Should log prebuild error message",
         );
+        assert.equal(serverStarted, false);
         assert.equal(process.exitCode, 1);
     });
 
