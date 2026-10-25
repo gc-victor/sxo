@@ -54,6 +54,11 @@
  */
 import { define } from "@sxo/client";
 
+function activeTabIndex(triggers) {
+    const activeElement = document.activeElement;
+    return activeElement instanceof HTMLElement && triggers.includes(activeElement) ? triggers.indexOf(activeElement) : -1;
+}
+
 /**
  * @typedef {string} TabName
  */
@@ -149,8 +154,7 @@ define("el-tabs", function Tabs({ $state, $on, $effect, $element }) {
         const triggers = queryTriggers();
 
         if (!triggers.length) return;
-        const activeEl = document.activeElement;
-        const currentIndex = activeEl instanceof HTMLElement && triggers.includes(activeEl) ? triggers.indexOf(activeEl) : -1;
+        const currentIndex = activeTabIndex(triggers);
         if (currentIndex === -1) return;
         /** @type {Record<string, number>} */
         const keyActions = {

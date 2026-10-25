@@ -13,6 +13,23 @@
 
 import { define } from "@sxo/client";
 
+function readInputNumber(input, name, fallback) {
+    return parseFloat(input?.getAttribute(name) ?? fallback);
+}
+
+function readInputValue(input, fallback) {
+    if (!input) return parseFloat(String(fallback));
+    return parseFloat(input.getAttribute("value") ?? input.value ?? String(fallback));
+}
+
+function finiteOr(value, fallback) {
+    return Number.isFinite(value) ? value : fallback;
+}
+
+function positiveFiniteOr(value, fallback) {
+    return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
 define("el-slider", function ElSlider({ $state, $compute, $effect, $element, $on }) {
     /**
      * Find the first range input child.
@@ -23,16 +40,16 @@ define("el-slider", function ElSlider({ $state, $compute, $effect, $element, $on
     const input = queryInput();
 
     // Seed from host attributes first, then input attributes, then defaults
-    const seedMin = parseFloat(input?.getAttribute("min") ?? input?.getAttribute("min") ?? "0");
-    const seedMax = parseFloat(input?.getAttribute("max") ?? input?.getAttribute("max") ?? "100");
-    const seedStep = parseFloat(input?.getAttribute("step") ?? input?.getAttribute("step") ?? "1");
-    const seedValue = parseFloat(input?.getAttribute("value") ?? input?.getAttribute("value") ?? input?.value ?? String(seedMin));
+    const seedMin = readInputNumber(input, "min", "0");
+    const seedMax = readInputNumber(input, "max", "100");
+    const seedStep = readInputNumber(input, "step", "1");
+    const seedValue = readInputValue(input, seedMin);
 
     // Initialize state (let the native input enforce clamping/stepping)
-    $state.min = Number.isFinite(seedMin) ? seedMin : 0;
-    $state.max = Number.isFinite(seedMax) ? seedMax : 100;
-    $state.step = Number.isFinite(seedStep) && seedStep > 0 ? seedStep : 1;
-    $state.value = Number.isFinite(seedValue) ? seedValue : $state.min;
+    $state.min = finiteOr(seedMin, 0);
+    $state.max = finiteOr(seedMax, 100);
+    $state.step = positiveFiniteOr(seedStep, 1);
+    $state.value = finiteOr(seedValue, $state.min);
 
     // Derived percentage (0..100)
     $compute("percent", ["value", "min", "max"], (value, min, max) => {
@@ -58,8 +75,9 @@ define("el-slider", function ElSlider({ $state, $compute, $effect, $element, $on
 
     // Attribute-based event handlers to update state from the input
     const onUpdate = (/** @type {Event} */ e) => {
-        const target = /** @type {HTMLInputElement|null} */ (e.target instanceof HTMLInputElement ? e.target : null);
-        if (!target || target.type !== "range") return;
+        const target = e.target;
+        if (!(target instanceof HTMLInputElement)) return;
+        if (target.type !== "range") return;
         const next = parseFloat(target.value);
         if (Number.isFinite(next)) {
             $state.value = next;

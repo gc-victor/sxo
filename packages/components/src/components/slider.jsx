@@ -29,14 +29,31 @@ import { cn } from "@utils/cn.js";
  * @returns {{ numericMin: number, numericMax: number, hasFiniteMax: boolean, clampedValue: number|null, percent: number }}
  * @private
  */
+function normalizeMinimum(min) {
+    return Number(min) || 0;
+}
+
+function normalizeValue(value) {
+    return value != null ? Number(value) : null;
+}
+
+function clampRangeValue(value, numericMin, numericMax, hasFiniteMax) {
+    if (value == null) return null;
+    const boundedValue = hasFiniteMax ? Math.min(numericMax, value) : value;
+    return Math.max(numericMin, boundedValue);
+}
+
+function getRangePercent(value, numericMin, numericMax, hasFiniteMax) {
+    if (value != null && hasFiniteMax) return ((value - numericMin) / (numericMax - numericMin)) * 100;
+    return value || 0;
+}
+
 function normalizeRangeProps({ min = 0, max = 100, value } = {}) {
-    const numericMin = Number(min) || 0;
+    const numericMin = normalizeMinimum(min);
     const numericMax = Number(max);
     const hasFiniteMax = Number.isFinite(numericMax);
-    const rawValueNum = value != null ? Number(value) : null;
-    const clampedValue = rawValueNum == null ? null : Math.max(numericMin, hasFiniteMax ? Math.min(numericMax, rawValueNum) : rawValueNum);
-    const percent =
-        clampedValue != null && hasFiniteMax ? ((clampedValue - numericMin) / (numericMax - numericMin)) * 100 : clampedValue || 0;
+    const clampedValue = clampRangeValue(normalizeValue(value), numericMin, numericMax, hasFiniteMax);
+    const percent = getRangePercent(clampedValue, numericMin, numericMax, hasFiniteMax);
     return { numericMin, numericMax, hasFiniteMax, clampedValue, percent };
 }
 

@@ -77,6 +77,34 @@ test.describe("Combobox", () => {
         await expect(listbox).not.toHaveClass(/open/);
     });
 
+    test("should navigate options and select with the keyboard", async ({ page }) => {
+        const preview = page.locator("main [data-name='preview']");
+        const input = preview.locator('[role="combobox"]');
+        const listbox = preview.locator('[role="listbox"]');
+
+        await input.focus();
+        await page.keyboard.press("ArrowDown");
+        await expect(preview.locator('[role="option"].active')).toContainText("Apple");
+        await page.keyboard.press("ArrowDown");
+        await expect(preview.locator('[role="option"].active')).toContainText("Banana");
+        await page.keyboard.press("Enter");
+
+        await expect(input).toHaveValue("Banana");
+        await expect(listbox).not.toHaveClass(/open/);
+    });
+
+    test("should close and blur the input on Escape", async ({ page }) => {
+        const preview = page.locator("main [data-name='preview']");
+        const input = preview.locator('[role="combobox"]');
+        const listbox = preview.locator('[role="listbox"]');
+
+        await input.focus();
+        await page.keyboard.press("Escape");
+
+        await expect(listbox).not.toHaveClass(/open/);
+        await expect(input).not.toBeFocused();
+    });
+
     test("should show no-results when nothing matches", async ({ page }) => {
         const section = page.locator("main");
         const preview = section.locator('[data-name="preview"]');

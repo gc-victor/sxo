@@ -88,6 +88,23 @@ test.describe("Drawer", () => {
         await expect(panel).toHaveClass(/drawer-left/);
     });
 
+    test("should trap focus at both ends and restore the trigger on close", async ({ page }) => {
+        const section = page.locator("main");
+        const trigger = section.locator("button").filter({ hasText: "Open Left" });
+        const panel = section.locator(".drawer-panel").filter({ hasText: "Navigation" });
+        const firstButton = panel.getByRole("button", { name: "Close drawer" });
+        const lastButton = panel.getByRole("button", { name: "Help" });
+
+        await trigger.click();
+        await firstButton.focus();
+        await page.keyboard.press("Shift+Tab");
+        await expect(lastButton).toBeFocused();
+        await page.keyboard.press("Tab");
+        await expect(firstButton).toBeFocused();
+        await page.keyboard.press("Escape");
+        await expect(trigger).toBeFocused();
+    });
+
     test("should lock body scroll when open", async ({ page }) => {
         const section = page.locator("main");
 

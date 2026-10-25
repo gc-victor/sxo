@@ -25,6 +25,11 @@
  */
 import { define } from "@sxo/client";
 
+function activeMenuItemIndex(items) {
+    const activeElement = document.activeElement;
+    return activeElement instanceof HTMLElement && items.includes(activeElement) ? items.indexOf(activeElement) : -1;
+}
+
 define("el-dropdown-menu", function DropdownMenu({ $element, $on, $effect }) {
     /**
      * Helper to query the inner <details> element.
@@ -131,8 +136,7 @@ define("el-dropdown-menu", function DropdownMenu({ $element, $on, $effect }) {
         const items = queryMenuItems();
         if (!items.length) return;
 
-        const activeEl = document.activeElement;
-        const currentIndex = activeEl instanceof HTMLElement && items.includes(activeEl) ? items.indexOf(activeEl) : -1;
+        const currentIndex = activeMenuItemIndex(items);
 
         /** @type {Record<string, () => void>} */
         const keyActions = {

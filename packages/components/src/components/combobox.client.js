@@ -72,28 +72,26 @@ define("el-combobox", function Combobox({ $element, $on, $state }) {
         }
     }
 
+    function updateOptionVisibility(option, query) {
+        const text = (option.getAttribute("data-value") || option.textContent || "").toLowerCase();
+        const matches = !query || text.includes(query);
+        option.hidden = !matches;
+        return matches;
+    }
+
     /**
      * Filter options based on input value.
      */
     function filterOptions() {
-        const q = ($state.query || "").toLowerCase().trim();
-        let visibleCount = 0;
+        const query = ($state.query || "").toLowerCase().trim();
+        const visibleCount = Array.from(options).filter((option) => updateOptionVisibility(option, query)).length;
 
-        options.forEach((opt) => {
-            const text = (opt.getAttribute("data-value") || opt.textContent || "").toLowerCase();
-            const match = !q || text.includes(q);
-            opt.hidden = !match;
-            if (match) visibleCount++;
-        });
-
-        if (emptyMsg) {
-            emptyMsg.hidden = visibleCount > 0;
-        }
+        if (emptyMsg) emptyMsg.hidden = visibleCount > 0;
 
         // Reset highlight to first visible
-        const vis = visibleOptions();
-        $state.activeIndex = vis.length > 0 ? 0 : -1;
-        highlightOption(vis[$state.activeIndex]);
+        const visible = visibleOptions();
+        $state.activeIndex = visible.length > 0 ? 0 : -1;
+        highlightOption(visible[$state.activeIndex]);
     }
 
     /**
@@ -124,20 +122,29 @@ define("el-combobox", function Combobox({ $element, $on, $state }) {
         $state.activeIndex = next;
     }
 
+    function findHighlightedOption(visible) {
+        return visible.find((option) => option.classList.contains("active")) || visible[$state.activeIndex] || visible[0];
+    }
+
+    function getOptionValue(option) {
+        return option.getAttribute("data-value") || option.textContent || "";
+    }
+
+    function writeOptionValue(option) {
+        const value = getOptionValue(option);
+        if (!input) return;
+        input.value = value;
+        $state.query = value;
+    }
+
     /**
      * Select the currently highlighted option.
      */
     function selectHighlighted() {
-        const vis = visibleOptions();
-        const target = vis.find((el) => el.classList.contains("active")) || vis[$state.activeIndex] || vis[0];
-        if (target) {
-            const value = target.getAttribute("data-value") || target.textContent || "";
-            if (input) {
-                input.value = value;
-                $state.query = value;
-            }
-            closeDropdown();
-        }
+        const target = findHighlightedOption(visibleOptions());
+        if (!target) return;
+        writeOptionValue(target);
+        closeDropdown();
     }
 
     // --- Event handlers ---
@@ -158,11 +165,7 @@ define("el-combobox", function Combobox({ $element, $on, $state }) {
      * @param {HTMLElement} target
      */
     function selectValue(target) {
-        const value = target.getAttribute("data-value") || target.textContent || "";
-        if (input) {
-            input.value = value;
-            $state.query = value;
-        }
+        writeOptionValue(target);
         closeDropdown();
         input?.blur();
     }
@@ -179,40 +182,43 @@ define("el-combobox", function Combobox({ $element, $on, $state }) {
         }
     }
 
+    function closeOnEscape(e) {
+        if (e.key !== "Escape" || !$state.open) return false;
+        e.preventDefault();
+        closeDropdown();
+        input?.blur();
+        return true;
+    }
+
+    function openOnArrowKey(e) {
+        if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+        e.preventDefault();
+        openDropdown();
+    }
+
+    const openKeyActions = new Map([
+        ["ArrowDown", () => navigate(1)],
+        ["ArrowUp", () => navigate(-1)],
+        ["Enter", selectHighlighted],
+    ]);
+
+    function handleOpenKeydown(e) {
+        const action = openKeyActions.get(e.key);
+        if (!action) return;
+        e.preventDefault();
+        action();
+    }
+
     /** @param {KeyboardEvent} e */
     function onGlobalKeydown(e) {
-        if (e.key === "Escape" && $state.open) {
-            e.preventDefault();
-            closeDropdown();
-            input?.blur();
-            return;
-        }
-
+        if (closeOnEscape(e)) return;
         // Only intercept if the event target is within our element
         if (!$element.contains(/** @type {Node} */ (e.target))) return;
-
         if (!$state.open) {
-            if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-                e.preventDefault();
-                openDropdown();
-            }
+            openOnArrowKey(e);
             return;
         }
-
-        switch (e.key) {
-            case "ArrowDown":
-                e.preventDefault();
-                navigate(1);
-                break;
-            case "ArrowUp":
-                e.preventDefault();
-                navigate(-1);
-                break;
-            case "Enter":
-                e.preventDefault();
-                selectHighlighted();
-                break;
-        }
+        handleOpenKeydown(e);
     }
 
     function onClickOutside(/** @type {MouseEvent} */ e) {

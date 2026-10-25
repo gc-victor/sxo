@@ -43,6 +43,18 @@
 
 import { define } from "@sxo/client";
 
+function focusNextPopoverElement(event, focusableElements) {
+    const activeElement = /** @type {HTMLElement} */ (document.activeElement);
+    let index = focusableElements.indexOf(activeElement);
+    index = event.shiftKey ? (index - 1 + focusableElements.length) % focusableElements.length : (index + 1) % focusableElements.length;
+    focusableElements[index]?.focus();
+}
+
+function handleTabNavigation(event, content, getFocusableElements) {
+    if (!content) return;
+    focusNextPopoverElement(event, getFocusableElements());
+}
+
 define("el-popover", function ReactivePopover({ $state, $on, $ref, $effect, $compute, $element }) {
     // Initialize reactive state
     $state.isOpen = false;
@@ -111,27 +123,13 @@ define("el-popover", function ReactivePopover({ $state, $on, $ref, $effect, $com
         if (event.key === "Escape" && $state.isOpen) {
             event.preventDefault();
             closePopover();
+            return;
         }
 
-        if (event.key === "Tab") {
-            event.preventDefault();
+        if (event.key !== "Tab") return;
+        event.preventDefault();
 
-            const content = $ref.content;
-
-            if (!content) return;
-
-            const focusableElements = focusableContentElements();
-
-            const activeElement = /** @type {HTMLElement} */ (document.activeElement);
-            let idx = focusableElements.indexOf(activeElement);
-            if (event.shiftKey) {
-                idx = (idx - 1 + focusableElements.length) % focusableElements.length;
-            } else {
-                idx = (idx + 1) % focusableElements.length;
-            }
-            const next = /** @type {HTMLElement} */ (focusableElements[idx]);
-            if (next) next.focus();
-        }
+        handleTabNavigation(event, $ref.content, focusableContentElements);
     }
 
     function focusableContentElements() {

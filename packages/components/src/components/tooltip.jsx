@@ -25,6 +25,8 @@
 
 import { cn } from "@utils/cn.js";
 
+const FOCUSABLE_TRIGGER_TAGS = new Set(["span", "div"]);
+
 /**
  * Props accepted by `<Tooltip />`.
  *
@@ -82,7 +84,7 @@ export function TooltipTrigger({ class: klass, className, as = "button", href, c
         );
     }
 
-    if (tag === "span" || tag === "div") {
+    if (FOCUSABLE_TRIGGER_TAGS.has(tag)) {
         const Comp = tag;
         return (
             <Comp class={cls} tabindex="0" {...rest}>

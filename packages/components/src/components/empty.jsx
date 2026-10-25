@@ -44,6 +44,26 @@ import { cn } from "@utils/cn.js";
  * <Empty title="No data" action={<button class="btn">Add</button>} />
  * @public
  */
+function renderEmptyIcon(icon) {
+    if (!icon) return "";
+    return <div class="empty-icon">{icon}</div>;
+}
+
+function renderEmptyTitle(title) {
+    if (!title) return "";
+    return <div class="empty-title">{title}</div>;
+}
+
+function renderEmptyDescription(description) {
+    if (!description) return "";
+    return <p class="empty-desc">{description}</p>;
+}
+
+function renderEmptyAction(action) {
+    if (!action) return "";
+    return <div class="empty-action">{action}</div>;
+}
+
 export default function Empty({ class: klass, className, icon, title, description, action, ...rest }) {
     if (!title && !description) {
         return null;
@@ -51,10 +71,10 @@ export default function Empty({ class: klass, className, icon, title, descriptio
 
     return (
         <div class={cn("empty", klass, className)} {...rest}>
-            {icon ? <div class="empty-icon">{icon}</div> : ""}
-            {title ? <div class="empty-title">{title}</div> : ""}
-            {description ? <p class="empty-desc">{description}</p> : ""}
-            {action ? <div class="empty-action">{action}</div> : ""}
+            {renderEmptyIcon(icon)}
+            {renderEmptyTitle(title)}
+            {renderEmptyDescription(description)}
+            {renderEmptyAction(action)}
         </div>
     );
 }

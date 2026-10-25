@@ -51,29 +51,39 @@ import { cn } from "@utils/cn.js";
  * </Field>
  * @public
  */
+function getFieldId(htmlFor, children) {
+    return htmlFor || children?.props?.id;
+}
+
+function renderFieldLabel(label, fieldId, required) {
+    if (!label) return "";
+    return (
+        <label for={fieldId}>
+            {label}
+            {required ? " *" : ""}
+        </label>
+    );
+}
+
+function renderFieldMessage(error, hint) {
+    if (error)
+        return (
+            <p class="field-error" role="alert">
+                {error}
+            </p>
+        );
+    if (!hint) return "";
+    return <p class="field-hint">{hint}</p>;
+}
+
 export default function Field({ class: klass, className, label, hint, error, required, htmlFor, children, ...rest }) {
-    const fieldId = htmlFor || children?.props?.id;
+    const fieldId = getFieldId(htmlFor, children);
 
     return (
         <div class={cn("field", klass, className)} {...(error ? { "aria-invalid": "true" } : {})} {...rest}>
-            {label ? (
-                <label for={fieldId}>
-                    {label}
-                    {required ? " *" : ""}
-                </label>
-            ) : (
-                ""
-            )}
+            {renderFieldLabel(label, fieldId, required)}
             {children}
-            {error ? (
-                <p class="field-error" role="alert">
-                    {error}
-                </p>
-            ) : hint ? (
-                <p class="field-hint">{hint}</p>
-            ) : (
-                ""
-            )}
+            {renderFieldMessage(error, hint)}
         </div>
     );
 }

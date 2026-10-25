@@ -78,6 +78,14 @@ function countClasses(enabled) {
     return enabled ? "rounded-full font-mono tabular-nums" : "";
 }
 
+function hasBadgeCount(count) {
+    return typeof count !== "undefined" && count !== "";
+}
+
+function badgeContent(children, count, isCount) {
+    return children !== undefined ? children : isCount ? String(count) : "";
+}
+
 /**
  * Props accepted by `<Badge />`.
  *
@@ -122,11 +130,9 @@ export default function Badge(props) {
         ...rest
     } = props || {};
 
-    const isCount = typeof count !== "undefined" && count !== "";
-    const rootClass =
-        cn(variantClasses(variant), shapeClasses({ shape, pill }), countClasses(isCount), klass, className) || variantClasses(variant);
-
-    const content = children !== undefined ? children : isCount ? String(count) : "";
+    const isCount = hasBadgeCount(count);
+    const rootClass = cn(variantClasses(variant), shapeClasses({ shape, pill }), countClasses(isCount), klass, className);
+    const content = badgeContent(children, count, isCount);
 
     return (
         <span class={rootClass} {...rest}>

@@ -64,6 +64,32 @@ import { cn } from "@utils/cn.js";
  * <Avatar initials="AI" grayscale class="ring-2 ring-background" />
  * @public
  */
+function avatarAltText(alt, name, initialsText) {
+    return [alt, name, initialsText].find(Boolean) || "";
+}
+
+function renderAvatarImage({ src, srcset, sizes, alt, name, initialsText, shape, grayscale, loading }) {
+    return (
+        <img
+            class={cn("object-cover", "w-full", "h-full", shapeClass(shape), grayscale ? "grayscale" : "")}
+            src={src}
+            srcset={srcset || src}
+            sizes={sizes}
+            alt={avatarAltText(alt, name, initialsText)}
+            {...(loading ? { loading } : {})}
+        />
+    );
+}
+
+function renderAvatarContent(options) {
+    const { src, initialsText } = options;
+    return src ? (
+        renderAvatarImage(options)
+    ) : (
+        <span class={cn("text-xs", "font-medium", "select-none", "leading-none", "text-foreground")}>{initialsText}</span>
+    );
+}
+
 export default function Avatar(props) {
     const {
         src,
@@ -95,22 +121,10 @@ export default function Avatar(props) {
     );
 
     const initialsText = computeInitials({ initials, name, alt });
-    const hasImage = !!src;
 
     return (
         <span class={rootClasses} {...rest}>
-            {hasImage ? (
-                <img
-                    class={cn("object-cover", "w-full", "h-full", shapeClass(shape), grayscale ? "grayscale" : "")}
-                    src={src}
-                    srcset={srcset || src}
-                    sizes={sizes}
-                    alt={alt || name || initialsText}
-                    {...(loading ? { loading } : {})}
-                />
-            ) : (
-                <span class={cn("text-xs", "font-medium", "select-none", "leading-none", "text-foreground")}>{initialsText}</span>
-            )}
+            {renderAvatarContent({ src, srcset, sizes, alt, name, initialsText, shape, grayscale, loading })}
         </span>
     );
 }
@@ -155,6 +169,23 @@ export default function Avatar(props) {
  * ]}/>
  * @public
  */
+const GROUP_IMAGE_DECORATIONS = {
+    "true:true": "[&_img]:ring-background [&_img]:ring-2 [&_img]:grayscale",
+    "true:false": "[&_img]:ring-background [&_img]:ring-2",
+    "false:true": "[&_img]:grayscale",
+    "false:false": "",
+};
+
+function renderGroupAvatar(avatar, size, shape) {
+    const avatarProps = avatar || {};
+    return <Avatar {...avatarProps} size={avatarProps.size || size} shape={avatarProps.shape || shape} />;
+}
+
+function renderAvatarGroupContent(avatars, size, shape, children) {
+    if (!Array.isArray(avatars) || !avatars.length) return children;
+    return avatars.map((avatar) => renderGroupAvatar(avatar, size, shape));
+}
+
 export function AvatarGroup(props) {
     const {
         avatars,
@@ -172,8 +203,7 @@ export function AvatarGroup(props) {
     const childImgQualifiers = cn(
         "[&_img]:object-cover",
         "[&_img]:shrink-0",
-        ring ? "[&_img]:ring-background [&_img]:ring-2" : "",
-        grayscaleChildren ? "[&_img]:grayscale" : "",
+        GROUP_IMAGE_DECORATIONS[`${Boolean(ring)}:${Boolean(grayscaleChildren)}`],
     );
 
     const wrapperClasses = cn(
@@ -186,17 +216,7 @@ export function AvatarGroup(props) {
         className,
     );
 
-    let content;
-    if (Array.isArray(avatars) && avatars.length) {
-        content = avatars.map((av) => {
-            const aSize = av?.size || size;
-            const aShape = av?.shape || shape;
-            const avProps = av || {};
-            return <Avatar {...avProps} size={aSize} shape={aShape} />;
-        });
-    } else {
-        content = children;
-    }
+    const content = renderAvatarGroupContent(avatars, size, shape, children);
 
     return (
         <div class={wrapperClasses} {...rest}>
@@ -214,6 +234,13 @@ export function AvatarGroup(props) {
  * @returns {string}
  * @private
  */
+function mappedSizeClass(size, map) {
+    if (typeof size === "string" && Object.hasOwn(map, size)) {
+        return /** @type {any} */ (map)[size];
+    }
+    return map.md || "size-10";
+}
+
 function sizeClass(size) {
     const map = {
         xs: "size-6",
@@ -222,17 +249,9 @@ function sizeClass(size) {
         lg: "size-12",
         xl: "size-16",
     };
-    // Allow direct utility strings like "size-14"
+    // Allow direct utility strings like "size-14".
     if (typeof size === "string" && size.startsWith("size-")) return size;
-
-    // Guard against undefined / unexpected keys before indexing the map.
-    if (typeof size === "string" && Object.hasOwn(map, size)) {
-        // Use a local cast to silence index typing concerns while keeping the runtime check.
-        return /** @type {any} */ (map)[size];
-    }
-
-    // Fallback to the medium size token when unknown.
-    return map.md || "size-10";
+    return mappedSizeClass(size, map);
 }
 
 /**
@@ -266,11 +285,19 @@ function shapeClass(shape) {
  * @returns {string}
  * @private
  */
-function computeInitials({ initials, name, alt }) {
-    if (initials && String(initials).trim()) return String(initials).trim().slice(0, 3).toUpperCase();
-    const source = (name || alt || "").trim();
+function nameOrAlt(name, alt) {
+    return name || alt || "";
+}
+
+function initialsFromSource(source) {
     if (!source) return "??";
-    const parts = source.split(/\s+/).filter(Boolean);
+    const parts = source.split(/\s+/);
     if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
     return (parts[0][0] + parts[1][0]).toUpperCase();
+}
+
+function computeInitials({ initials, name, alt }) {
+    const providedInitials = initials && String(initials).trim();
+    if (providedInitials) return providedInitials.slice(0, 3).toUpperCase();
+    return initialsFromSource(nameOrAlt(name, alt).trim());
 }

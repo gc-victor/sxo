@@ -11,6 +11,15 @@ test.describe("Command", () => {
         await page.waitForSelector("#cmd-dialog-demo .command[data-command-initialized]", { state: "attached", timeout: 5000 });
     });
 
+    test("should render grouped menu items, separators, disabled state, and shortcuts", async ({ page }) => {
+        const menu = page.locator("#cmd-dialog-menu");
+
+        await expect(menu.locator('[role="group"]')).toHaveCount(2);
+        await expect(menu.locator('[role="separator"]')).toHaveCount(1);
+        await expect(menu.locator('[role="menuitem"][aria-disabled="true"]')).toContainText("Calculator");
+        await expect(menu.locator('[role="menuitem"]').filter({ hasText: "Profile" }).locator("[data-shortcut]")).toHaveText("⌘P");
+    });
+
     test("should open dialog on trigger click", async ({ page }) => {
         await page.locator("#command button").filter({ hasText: "Open Command Palette" }).click();
         await page.waitForTimeout(200);
@@ -147,5 +156,42 @@ test.describe("Command", () => {
 
         // Standalone menu should still be visible (no dialog to close)
         await expect(page.locator("#cmd-standalone-menu")).toBeVisible();
+    });
+
+    test("should navigate to the first and last visible items with Home and End", async ({ page }) => {
+        const input = page.locator("#cmd-standalone-input");
+        const menu = page.locator("#cmd-standalone-menu");
+
+        await input.focus();
+        await input.press("End");
+        await expect(menu.locator('[role="menuitem"].active')).toContainText("Settings");
+        await expect(input).not.toHaveAttribute("aria-activedescendant");
+
+        await input.press("Home");
+        await expect(menu.locator('[role="menuitem"].active')).toContainText("Calendar");
+    });
+
+    test("should retain forced items and keep the dialog open after refresh", async ({ page }) => {
+        await page.locator("#command button").filter({ hasText: "Open Command Palette" }).click();
+        const dialog = page.locator("#cmd-dialog-demo");
+        const host = dialog.locator("el-command");
+        const menu = page.locator("#cmd-dialog-menu");
+
+        await menu.evaluate((menuElement) => {
+            const item = document.createElement("div");
+            item.setAttribute("role", "menuitem");
+            item.setAttribute("data-filter", "Pinned command");
+            item.setAttribute("data-force", "");
+            item.setAttribute("data-keep-command-open", "");
+            item.textContent = "Pinned command";
+            menuElement.append(item);
+        });
+        await host.evaluate((element) => element.refresh());
+
+        await page.locator("#cmd-dialog-input").fill("no match");
+        const pinned = menu.locator('[role="menuitem"]').filter({ hasText: "Pinned command" });
+        await expect(pinned).toHaveAttribute("aria-hidden", "false");
+        await pinned.click();
+        await expect(dialog).toBeVisible();
     });
 });

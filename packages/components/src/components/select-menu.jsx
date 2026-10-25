@@ -40,6 +40,23 @@
  */
 import { cn } from "@utils/cn.js";
 import { IconChevronsVertical } from "./icon.jsx";
+
+function classAlias(className, klass) {
+    return className || klass;
+}
+
+function triggerText(children, label) {
+    return children != null ? children : label != null ? label : "";
+}
+
+function triggerLabelAttributes(ariaLabel) {
+    return ariaLabel ? { ariaLabel } : {};
+}
+
+function optionValue(value) {
+    return value != null ? String(value) : "";
+}
+
 /* -------------------------------------------------------------------------------------------------
  * <SelectMenu /> (root)
  * -------------------------------------------------------------------------------------------------*/
@@ -128,14 +145,14 @@ export function SelectMenu({ class: klass, className, children, name, value, ...
  */
 export function SelectMenuTrigger(props) {
     const { class: klass, className, children, label, ariaExpanded = "false", ariaLabel, ...rest } = props || {};
-    const displayText = children != null ? children : label != null ? label : "";
+    const displayText = triggerText(children, label);
     return (
         <button
             type="button"
-            class={cn("btn-outline justify-between font-normal w-[180px]", className || klass)}
+            class={cn("btn-outline justify-between font-normal w-[180px]", classAlias(className, klass))}
             aria-haspopup="listbox"
             aria-expanded={ariaExpanded}
-            {...(ariaLabel ? { ariaLabel } : {})}
+            {...triggerLabelAttributes(ariaLabel)}
             $onclick="toggleSelect"
             {...rest}
         >
@@ -322,16 +339,15 @@ export function SelectMenuGroup(props) {
  */
 export function SelectMenuOption(props) {
     const { class: klass, className, children, value, selected, ...rest } = props || {};
-    const val = value != null ? String(value) : "";
-    const effectiveSelected = !!selected;
+    const val = optionValue(value);
     return (
         <button
             role="option"
             type="button"
-            class={cn("select-menu-option", className || klass)}
+            class={cn("select-menu-option", classAlias(className, klass))}
             data-value={val}
             value={val}
-            aria-selected={effectiveSelected ? "true" : "false"}
+            aria-selected={String(Boolean(selected))}
             {...rest}
         >
             {children != null ? children : val}

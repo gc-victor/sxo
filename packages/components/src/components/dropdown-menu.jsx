@@ -135,23 +135,24 @@ export function DropdownMenuContent({ class: klass, className, widthClass = "w-4
  * }} DropdownMenuItemProps
  * @param {DropdownMenuItemProps} props
  */
-export function DropdownMenuItem({ value, disabled = false, href, class: klass, className, children, ...rest }) {
-    const baseClass = cn(
+function dropdownMenuItemClass(disabled, className, klass) {
+    return cn(
         "dropdown-menu-item relative flex w-full cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none",
         "focus-visible:bg-accent",
         "hover:bg-accent",
         disabled && "opacity-50 pointer-events-none",
         className || klass,
     );
-    const common = {
-        role: "menuitem",
-        class: baseClass,
-        $onclick: "itemClick",
+}
+
+function dropdownMenuItemAttributes(disabled, value) {
+    return {
         ...(disabled && { "aria-disabled": "true", tabindex: "-1" }),
         ...(value != null ? { "data-value": value } : {}),
-        ...rest,
     };
+}
 
+function renderDropdownMenuItem(href, disabled, common, children) {
     if (href) {
         return (
             <a href={href} {...common}>
@@ -165,6 +166,18 @@ export function DropdownMenuItem({ value, disabled = false, href, class: klass, 
             {children}
         </button>
     );
+}
+
+export function DropdownMenuItem({ value, disabled = false, href, class: klass, className, children, ...rest }) {
+    const common = {
+        role: "menuitem",
+        class: dropdownMenuItemClass(disabled, className, klass),
+        $onclick: "itemClick",
+        ...dropdownMenuItemAttributes(disabled, value),
+        ...rest,
+    };
+
+    return renderDropdownMenuItem(href, disabled, common, children);
 }
 
 /* -------------------------------------------------------------------------------------------------
@@ -227,22 +240,27 @@ export function DropdownMenuShortcut({ class: klass, className, children, ...res
  * }} DropdownMenuGroupProps
  * @param {DropdownMenuGroupProps} props
  */
+function renderDropdownMenuGroupLabel(label, id) {
+    if (!label) return { attributes: {}, content: "" };
+    const groupId = id || `dropdown-group-${slug(label)}`;
+    return {
+        attributes: { "aria-labelledby": groupId },
+        content: (
+            <legend
+                id={groupId}
+                class="dropdown-menu-group-label px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
+            >
+                {label}
+            </legend>
+        ),
+    };
+}
+
 export function DropdownMenuGroup({ label, id, class: klass, className, children, ...rest }) {
-    const groupId = id || (label ? `dropdown-group-${slug(label)}` : undefined);
+    const groupLabel = renderDropdownMenuGroupLabel(label, id);
     return (
-        <fieldset
-            class={cn("dropdown-menu-group flex flex-col", className || klass)}
-            {...rest}
-            {...(label ? { "aria-labelledby": groupId } : {})}
-        >
-            {label && (
-                <legend
-                    id={groupId}
-                    class="dropdown-menu-group-label px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
-                >
-                    {label}
-                </legend>
-            )}
+        <fieldset class={cn("dropdown-menu-group flex flex-col", className || klass)} {...rest} {...groupLabel.attributes}>
+            {groupLabel.content}
             {children}
         </fieldset>
     );

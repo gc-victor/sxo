@@ -19,6 +19,16 @@ test.describe("Slider", () => {
         await expect(slider).toHaveAttribute("step", "1");
     });
 
+    test("should render standalone ranges with their configured bounds", async ({ page }) => {
+        const range = page.locator("#range-custom");
+
+        await expect(range).toHaveAttribute("type", "range");
+        await expect(range).toHaveAttribute("min", "0");
+        await expect(range).toHaveAttribute("max", "50");
+        await expect(range).toHaveAttribute("step", "5");
+        await expect(range).toHaveValue("25");
+    });
+
     test("should have initial value", async ({ page }) => {
         const slider = page.locator("#slider input[type='range']");
 

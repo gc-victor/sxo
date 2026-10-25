@@ -18,6 +18,18 @@ test.describe("Button", () => {
         await expect(buttonSection.locator("button").filter({ hasText: "Outline" }).first()).toBeVisible();
     });
 
+    test("should apply default and non-default attributes consistently", async ({ page }) => {
+        const buttons = page.locator("main button");
+        const defaultButton = buttons.filter({ hasText: "Primary" }).nth(1);
+        const outlineButton = buttons.filter({ hasText: "Outline" }).nth(1);
+
+        await expect(defaultButton).toHaveAttribute("type", "button");
+        await expect(defaultButton).not.toHaveAttribute("data-variant");
+        await expect(defaultButton).not.toHaveAttribute("data-size");
+        await expect(outlineButton).toHaveAttribute("data-variant", "outline");
+        await expect(outlineButton).not.toHaveAttribute("data-size");
+    });
+
     test("should display button sizes", async ({ page }) => {
         const buttonSection = page.locator("main");
 

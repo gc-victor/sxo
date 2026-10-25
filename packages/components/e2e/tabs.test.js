@@ -2,6 +2,8 @@ import { expect, test } from "@playwright/test";
 
 test.describe("Tabs", () => {
     test.beforeEach(async ({ page }) => {
+        // Hide the fixed documentation sidebar so it cannot cover tab click targets.
+        await page.setViewportSize({ width: 767, height: 720 });
         await page.goto("/components/tabs");
         await page.waitForSelector("main", { state: "visible" });
         // Wait for reactive components to initialize

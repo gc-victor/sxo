@@ -66,6 +66,49 @@ import { cn } from "@utils/cn.js";
  * <Button loading loadingText="Submitting…">Submit</Button>
  * @public
  */
+function getVisualAttributes(variant, size) {
+    return {
+        ...(variant !== "primary" ? { "data-variant": variant } : {}),
+        ...(size !== "md" ? { "data-size": size } : {}),
+    };
+}
+
+function getLoadingAttributes(loading) {
+    return loading ? { ariaBusy: "true" } : {};
+}
+
+function getAnchorAttributes({ href, target, rel, className, isDisabled, loading, visualAttributes, rest }) {
+    return {
+        href,
+        target,
+        rel,
+        class: className,
+        ...visualAttributes,
+        ...getLoadingAttributes(loading),
+        ...(isDisabled ? { ariaDisabled: "true", tabindex: "-1" } : {}),
+        ...rest,
+    };
+}
+
+function isButtonDisabled(disabled, loading) {
+    return Boolean(disabled || loading);
+}
+
+function getButtonContent(loading, loadingText, children) {
+    return loading && loadingText ? loadingText : children;
+}
+
+function getButtonAttributes({ type, className, isDisabled, loading, visualAttributes, rest }) {
+    return {
+        type,
+        class: className,
+        ...visualAttributes,
+        ...(isDisabled ? { disabled: "" } : {}),
+        ...getLoadingAttributes(loading),
+        ...rest,
+    };
+}
+
 export default function Button(props) {
     const {
         variant = "primary",
@@ -83,35 +126,32 @@ export default function Button(props) {
         ...rest
     } = props;
 
-    const isDisabled = !!disabledProp || !!loading;
+    const isDisabled = isButtonDisabled(disabledProp, loading);
     const mergedClass = cn("btn", "inline-flex", "items-center", klass, className);
-
-    const content = loading && loadingText ? loadingText : children;
+    const visualAttributes = getVisualAttributes(variant, size);
+    const content = getButtonContent(loading, loadingText, children);
 
     if (href) {
-        const anchorAttrs = {
+        const anchorAttrs = getAnchorAttributes({
             href,
             target,
             rel,
-            class: mergedClass,
-            ...(variant !== "primary" ? { "data-variant": variant } : {}),
-            ...(size !== "md" ? { "data-size": size } : {}),
-            ...(loading ? { ariaBusy: "true" } : {}),
-            ...(isDisabled ? { ariaDisabled: "true", tabindex: "-1" } : {}),
-            ...rest,
-        };
+            className: mergedClass,
+            isDisabled,
+            loading,
+            visualAttributes,
+            rest,
+        });
         return <a {...anchorAttrs}>{content}</a>;
     }
 
-    const buttonAttrs = {
+    const buttonAttrs = getButtonAttributes({
         type,
-        class: mergedClass,
-        ...(variant !== "primary" ? { "data-variant": variant } : {}),
-        ...(size !== "md" ? { "data-size": size } : {}),
-        ...(isDisabled ? { disabled: "" } : {}),
-        ...(loading ? { ariaBusy: "true" } : {}),
-        ...rest,
-    };
-
+        className: mergedClass,
+        isDisabled,
+        loading,
+        visualAttributes,
+        rest,
+    });
     return <button {...buttonAttrs}>{content}</button>;
 }

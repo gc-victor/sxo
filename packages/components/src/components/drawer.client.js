@@ -34,25 +34,30 @@ define("el-drawer", function Drawer({ $element, $on, $state }) {
         return Array.from(panel.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'));
     }
 
+    function getShiftTabTarget(focusable) {
+        return document.activeElement === focusable[0] ? focusable[focusable.length - 1] : null;
+    }
+
+    function getTabTarget(focusable) {
+        return document.activeElement === focusable[focusable.length - 1] ? focusable[0] : null;
+    }
+
+    function getFocusTrapTarget(e) {
+        if (e.key !== "Tab") return null;
+        const focusable = focusableElements();
+        if (focusable.length === 0) return null;
+        return e.shiftKey ? getShiftTabTarget(focusable) : getTabTarget(focusable);
+    }
+
     /**
      * Trap focus within the drawer panel.
      * @param {KeyboardEvent} e
      */
     function trapFocus(e) {
-        if (e.key !== "Tab") return;
-        const focusable = focusableElements();
-        if (focusable.length === 0) return;
-
-        const first = focusable[0];
-        const last = focusable[focusable.length - 1];
-
-        if (e.shiftKey && document.activeElement === first) {
-            e.preventDefault();
-            last.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-            e.preventDefault();
-            first.focus();
-        }
+        const target = getFocusTrapTarget(e);
+        if (!target) return;
+        e.preventDefault();
+        target.focus();
     }
 
     /**
@@ -79,20 +84,24 @@ define("el-drawer", function Drawer({ $element, $on, $state }) {
         }
     }
 
+    function updateDrawerVisualState(open) {
+        backdrop.classList.toggle("open", open);
+        panel.classList.toggle("open", open);
+    }
+
+    function updateFocusTrap(open) {
+        if (open) panel.addEventListener("keydown", trapFocus);
+        else panel.removeEventListener("keydown", trapFocus);
+    }
+
     /**
      * Sync DOM state with $state.open.
      */
     function updateState() {
         if (!backdrop || !panel) return;
-        backdrop.classList.toggle("open", $state.open);
-        panel.classList.toggle("open", $state.open);
+        updateDrawerVisualState($state.open);
         document.body.style.overflow = $state.open ? "hidden" : "";
-
-        if ($state.open) {
-            panel.addEventListener("keydown", trapFocus);
-        } else {
-            panel.removeEventListener("keydown", trapFocus);
-        }
+        updateFocusTrap($state.open);
     }
 
     // --- Event handlers ---

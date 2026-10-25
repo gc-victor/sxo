@@ -24,6 +24,18 @@
  */
 import { define } from "@sxo/client";
 
+function findAccordionDetails(event) {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return null;
+    return target.closest("summary")?.closest("details") ?? null;
+}
+
+function closeSiblingDetails(element, currentDetails) {
+    for (const details of element.querySelectorAll("details")) {
+        if (details !== currentDetails) details.removeAttribute("open");
+    }
+}
+
 /**
  * @typedef {"single"|"multiple"} AccordionType
  */
@@ -31,22 +43,11 @@ define("el-accordion", function ElAccordion({ $element, $on }) {
     // No-op unless single type
     if ($element.getAttribute("type") !== "single") return {};
 
-    // All descendant <details>
-    const queryDetails = () => Array.from($element.querySelectorAll("details"));
-
     // Handler: $onclick="toggle" on <summary>; close siblings when opening
     $on.toggle = (/** @type {Event} */ e) => {
-        const target = /** @type {HTMLElement|null} */ (e.target instanceof HTMLElement ? e.target : null);
-        const summary = target?.closest?.("summary");
-        if (!summary) return;
-        const details = summary.closest?.("details");
-        if (!details) return;
-
-        // If this item is currently closed, close others before native toggle opens it
-        if (!details.open) {
-            queryDetails().forEach((d) => {
-                if (d !== details) d.removeAttribute("open");
-            });
+        const details = findAccordionDetails(e);
+        if (details && !details.open) {
+            closeSiblingDetails($element, details);
         }
     };
 

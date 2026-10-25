@@ -64,6 +64,57 @@ function clamp(n, min, max) {
  * @param {number} siblingCount
  * @returns {(number|string)[]}
  */
+function appendPages(items, start, end) {
+    for (let page = start; page <= end; page++) items.push(page);
+}
+
+function appendSiblingPages(items, start, end, total) {
+    for (let page = start; page <= end; page++) {
+        if (page >= 1 && page <= total) items.push(page);
+    }
+}
+
+function appendGap(items, gap, ellipsis, adjacentPage) {
+    if (gap > 0) items.push(ellipsis);
+    else if (gap === 0) items.push(adjacentPage);
+}
+
+function appendEndPages(items, start, total) {
+    for (let page = start; page <= total; page++) {
+        if (!items.includes(page)) items.push(page);
+    }
+}
+
+function keepValidPages(items, total) {
+    return items.filter((item) => {
+        if (typeof item === "string") return true;
+        return item >= 1 && item <= total;
+    });
+}
+
+function deduplicatePages(items) {
+    const seen = new Set();
+    const uniqueItems = [];
+    for (const item of items) {
+        const key = String(item);
+        if (!seen.has(key)) {
+            seen.add(key);
+            uniqueItems.push(item);
+        }
+    }
+    return uniqueItems;
+}
+
+/**
+ * Compute the ordered list of pagination items (numbers + ellipsis sentinels).
+ * Sentinel values are the strings: "start-ellipsis" | "end-ellipsis".
+ *
+ * @param {number} total
+ * @param {number} current
+ * @param {number} boundaryCount
+ * @param {number} siblingCount
+ * @returns {(number|string)[]}
+ */
 function computePageItems(total, current, boundaryCount, siblingCount) {
     /** @type {(string | number)[]} */
     const items = [];
@@ -71,50 +122,36 @@ function computePageItems(total, current, boundaryCount, siblingCount) {
 
     const startPagesEnd = Math.min(boundaryCount, total);
     const endPagesStart = Math.max(total - boundaryCount + 1, boundaryCount + 1);
-
-    const startPages = [];
-    for (let i = 1; i <= startPagesEnd; i++) startPages.push(i);
-
-    const endPages = [];
-    for (let i = endPagesStart; i <= total; i++) endPages.push(i);
-
     const leftSiblingStart = Math.max(Math.min(current - siblingCount, total - boundaryCount - siblingCount * 2 - 1), boundaryCount + 2);
     const rightSiblingEnd = Math.min(Math.max(current + siblingCount, boundaryCount + siblingCount * 2 + 2), endPagesStart - 2);
 
-    items.push(...startPages);
+    appendPages(items, 1, startPagesEnd);
+    appendGap(items, leftSiblingStart - boundaryCount - 2, "start-ellipsis", boundaryCount + 1);
+    appendSiblingPages(items, leftSiblingStart, rightSiblingEnd, total);
+    appendGap(items, endPagesStart - 2 - rightSiblingEnd, "end-ellipsis", endPagesStart - 1);
+    appendEndPages(items, endPagesStart, total);
 
-    if (leftSiblingStart > boundaryCount + 2) {
-        items.push("start-ellipsis");
-    } else if (leftSiblingStart === boundaryCount + 2) {
-        items.push(boundaryCount + 1);
-    }
-
-    for (let i = leftSiblingStart; i <= rightSiblingEnd; i++) {
-        if (i >= 1 && i <= total) items.push(i);
-    }
-
-    if (rightSiblingEnd < endPagesStart - 2) {
-        items.push("end-ellipsis");
-    } else if (rightSiblingEnd === endPagesStart - 2) {
-        items.push(endPagesStart - 1);
-    }
-
-    endPages.forEach((p) => {
-        if (!items.includes(p)) items.push(p);
-    });
-
-    // Deduplicate preserving order
-    const seen = new Set();
-    const finalItems = [];
-    for (const it of items) {
-        const key = String(it);
-        if (!seen.has(key)) {
-            seen.add(key);
-            finalItems.push(it);
-        }
-    }
-    return finalItems.filter((it) => typeof it === "string" || (it >= 1 && it <= total));
+    return keepValidPages(deduplicatePages(items), total);
 }
+
+function numericOrDefault(value, fallback) {
+    return Number(value) || fallback;
+}
+
+const PAGE_ITEM_STATES = {
+    true: { className: "btn-outline size-9 is-current", ariaCurrent: "page", labelSuffix: ", current page" },
+    false: { className: "btn-ghost size-9", ariaCurrent: undefined, labelSuffix: "" },
+};
+
+const CONTROL_STATES = {
+    true: { className: "is-disabled", attributes: { disabled: "", ariaDisabled: "true" } },
+    false: { className: "", attributes: {} },
+};
+
+const CONTROL_ICONS = new Map([
+    ["left", () => <IconChevronLeft class="mr-1 size-4" aria-hidden="true" />],
+    ["right", () => <IconChevronRight class="ml-1 size-4" aria-hidden="true" />],
+]);
 
 /**
  * Props for the public Pagination component.
@@ -163,14 +200,14 @@ function PaginationContainer({ ariaLabel = "Pagination", class: klass, className
  * @param {PageItemProps} props
  */
 function PageItem({ page, current, class: klass, className, ...rest }) {
-    const isCurrent = page === current;
+    const state = PAGE_ITEM_STATES[page === current];
     return (
         <li>
             <button
                 type="button"
-                class={cn(isCurrent ? "btn-outline size-9 is-current" : "btn-ghost size-9", className || klass)}
-                {...(isCurrent ? { ariaCurrent: "page" } : {})}
-                aria-label={`Page ${page}${isCurrent ? ", current page" : ""}`}
+                class={cn(state.className, className || klass)}
+                aria-current={state.ariaCurrent}
+                aria-label={`Page ${page}${state.labelSuffix}`}
                 {...rest}
             >
                 {String(page)}
@@ -204,21 +241,40 @@ function EllipsisItem() {
  * @param {ControlButtonProps} props
  */
 function ControlButton({ targetPage, disabled = false, variant, label, icon, class: klass, className, ...rest }) {
+    const state = CONTROL_STATES[Boolean(disabled)];
+    const iconContent = CONTROL_ICONS.get(icon)?.();
+    const content = icon === "left" ? [iconContent, label] : [label, iconContent];
     return (
         <li>
             <button
                 type="button"
-                class={cn("btn-ghost", disabled ? "is-disabled" : "", className || klass)}
-                {...(disabled ? { disabled: "", ariaDisabled: "true" } : {})}
+                class={cn("btn-ghost", state.className, className || klass)}
+                {...state.attributes}
                 aria-label={label}
                 {...rest}
             >
-                {icon === "left" ? <IconChevronLeft class="mr-1 size-4" aria-hidden="true" /> : ""}
-                {label}
-                {icon === "right" ? <IconChevronRight class="ml-1 size-4" aria-hidden="true" /> : ""}
+                {content}
             </button>
         </li>
     );
+}
+
+function renderLeadingControls(showFirst, showPrev, disabled, current, firstLabel, prevLabel) {
+    return [
+        showFirst ? <ControlButton variant="first" targetPage={1} disabled={disabled} label={firstLabel} icon={null} /> : "",
+        showPrev ? <ControlButton variant="prev" targetPage={current - 1} disabled={disabled} label={prevLabel} icon="left" /> : "",
+    ];
+}
+
+function renderPageItems(items, current) {
+    return items.map((item) => (typeof item === "string" ? <EllipsisItem /> : <PageItem page={item} current={current} />));
+}
+
+function renderTrailingControls(showNext, showLast, disabled, current, total, nextLabel, lastLabel) {
+    return [
+        showNext ? <ControlButton variant="next" targetPage={current + 1} disabled={disabled} label={nextLabel} icon="right" /> : "",
+        showLast ? <ControlButton variant="last" targetPage={total} disabled={disabled} label={lastLabel} icon={null} /> : "",
+    ];
 }
 
 /* ---------- Public Component ---------- */
@@ -256,10 +312,10 @@ export default function Pagination(props = {}) {
         ...rest
     } = props;
 
-    const total = Math.max(1, Number(totalPages) || 1);
-    const current = clamp(Number(currentPage) || 1, 1, total);
-    const bCount = Math.max(0, Number(boundaryCount) || 0);
-    const sCount = Math.max(0, Number(siblingCount) || 0);
+    const total = Math.max(1, numericOrDefault(totalPages, 1));
+    const current = clamp(numericOrDefault(currentPage, 1), 1, total);
+    const bCount = Math.max(0, numericOrDefault(boundaryCount, 0));
+    const sCount = Math.max(0, numericOrDefault(siblingCount, 0));
 
     const items = computePageItems(total, current, bCount, sCount);
 
@@ -268,19 +324,9 @@ export default function Pagination(props = {}) {
 
     return (
         <PaginationContainer aria-label={ariaLabel} className={cn(klass, className)} {...rest}>
-            {showFirst ? <ControlButton variant="first" targetPage={1} disabled={prevDisabled} label={firstLabel} icon={null} /> : ""}
-            {showPrev ? (
-                <ControlButton variant="prev" targetPage={current - 1} disabled={prevDisabled} label={prevLabel} icon="left" />
-            ) : (
-                ""
-            )}
-            {items.map((it) => (typeof it === "string" ? <EllipsisItem /> : <PageItem page={it} current={current} />))}
-            {showNext ? (
-                <ControlButton variant="next" targetPage={current + 1} disabled={nextDisabled} label={nextLabel} icon="right" />
-            ) : (
-                ""
-            )}
-            {showLast ? <ControlButton variant="last" targetPage={total} disabled={nextDisabled} label={lastLabel} icon={null} /> : ""}
+            {renderLeadingControls(showFirst, showPrev, prevDisabled, current, firstLabel, prevLabel)}
+            {renderPageItems(items, current)}
+            {renderTrailingControls(showNext, showLast, nextDisabled, current, total, nextLabel, lastLabel)}
         </PaginationContainer>
     );
 }

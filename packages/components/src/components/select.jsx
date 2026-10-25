@@ -33,6 +33,21 @@
 
 import { cn } from "@utils/cn.js";
 
+function optionValue(value, children) {
+    return value != null ? String(value) : typeof children === "string" ? children : "";
+}
+
+function optionAttributes(disabled, selected) {
+    return {
+        ...(disabled ? { disabled: "" } : {}),
+        ...(selected ? { selected: "" } : {}),
+    };
+}
+
+function classAlias(className, klass, fallback = "") {
+    return className || klass || fallback;
+}
+
 /* -------------------------------------------------------------------------------------------------
  * <SelectOption />
  * -------------------------------------------------------------------------------------------------*/
@@ -53,18 +68,11 @@ import { cn } from "@utils/cn.js";
  */
 export function SelectOption(props) {
     const { children, class: klass, className, value, disabled, selected, ...rest } = props || {};
-
-    const labelSource = value != null ? value : typeof children === "string" ? children : "";
-    const val = value != null ? String(value) : String(labelSource ?? "");
+    const val = optionValue(value, children);
+    const attributes = optionAttributes(disabled, selected);
 
     return (
-        <option
-            {...rest}
-            value={val}
-            {...(disabled ? { disabled: "" } : {})}
-            {...(selected ? { selected: "" } : {})}
-            class={className || klass || ""}
-        >
+        <option {...rest} value={val} {...attributes} class={classAlias(className, klass)}>
             {children != null ? children : val}
         </option>
     );
@@ -135,8 +143,9 @@ export function SelectGroup({ children, class: klass, className, label, ...rest 
  */
 export function SelectPlaceholder({ children, class: klass, className, selected }) {
     const label = children != null ? children : "Select…";
+    const attributes = optionAttributes(false, selected);
     return (
-        <option value="" disabled="" hidden="" {...(selected ? { selected: "" } : {})} class={className || klass || "select-placeholder"}>
+        <option value="" disabled="" hidden="" {...attributes} class={classAlias(className, klass, "select-placeholder")}>
             {label}
         </option>
     );

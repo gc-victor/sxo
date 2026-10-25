@@ -27,6 +27,10 @@
  */
 import { cn } from "@utils/cn.js";
 
+function tabTriggerLabel(children) {
+    return typeof children === "string" ? children : undefined;
+}
+
 /**
  * @typedef {HTMLDivAttributes & ComponentProps & {
  *   children?: string,
@@ -86,7 +90,7 @@ export function TabsTrigger({ class: klass, className, children, name, active = 
             tabindex={active ? "0" : "-1"}
             $onclick="tabChange"
             class={cn("tabs-trigger", klass, className)}
-            aria-label={typeof children === "string" ? children : undefined}
+            aria-label={tabTriggerLabel(children)}
             {...rest}
         >
             {children ?? ""}

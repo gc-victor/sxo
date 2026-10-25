@@ -30,6 +30,19 @@
 
 import { cn } from "@utils/cn.js";
 
+function tableContainerClass(wrapperClass, responsive, klass, className) {
+    return cn(wrapperClass || "table-wrapper", responsive ? "relative w-full overflow-x-auto" : null, klass, className);
+}
+
+function tableVariantClasses(density, striped, bordered) {
+    return cn(
+        "w-full caption-bottom text-sm",
+        density === "compact" ? "table-compact" : null,
+        striped && "table-striped",
+        bordered && "table-bordered",
+    );
+}
+
 /**
  * Props accepted by `<Table />`.
  *
@@ -70,18 +83,12 @@ export function Table({
     children,
     ...rest
 }) {
-    const containerClass = cn(wrapperClass || "table-wrapper", responsive ? "relative w-full overflow-x-auto" : null, klass, className);
-
-    const tClass = cn(
-        tableClass || "table",
-        "w-full caption-bottom text-sm",
-        density === "compact" ? "table-compact" : null,
-        striped ? "table-striped" : null,
-        bordered ? "table-bordered" : null,
-    );
+    const containerClassName = tableContainerClass(wrapperClass, responsive, klass, className);
+    const baseTableClass = tableClass || "table";
+    const tClass = cn(baseTableClass, tableVariantClasses(density, striped, bordered));
 
     return (
-        <div class={containerClass} data-table-root="" {...rest}>
+        <div class={containerClassName} data-table-root="" {...rest}>
             <table class={tClass}>{children}</table>
         </div>
     );

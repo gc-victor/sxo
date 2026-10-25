@@ -81,19 +81,23 @@ define("el-select-menu", function SelectMenu({ $element, $state, $on, $effect })
      */
     const queryVisibleOptions = () => queryOptions().filter((opt) => opt.getAttribute("aria-hidden") !== "true");
 
+    function findInitialOption(options, selectedValue) {
+        return options.find((option) => option.dataset.value === selectedValue) || options[0];
+    }
+
+    function setInitialLabel(initialOption, label) {
+        if (initialOption && label) {
+            label.innerHTML = initialOption.dataset.label || initialOption.innerHTML;
+        }
+    }
+
     // Initialize state
     $state.isOpen = false;
     $state.activeIndex = -1;
     $state.selectedValue = queryInput()?.value || "";
 
     // Set initial label from first option or selected value
-    const initialOption = queryOptions().find((opt) => opt.dataset.value === $state.selectedValue) || queryOptions()[0];
-    if (initialOption) {
-        const label = queryLabel();
-        if (label) {
-            label.innerHTML = initialOption.dataset.label || initialOption.innerHTML;
-        }
-    }
+    setInitialLabel(findInitialOption(queryOptions(), $state.selectedValue), queryLabel());
 
     // Effect: sync ARIA attributes, active/selected states, and focus when state changes
     $effect(() => {
@@ -121,20 +125,22 @@ define("el-select-menu", function SelectMenu({ $element, $state, $on, $effect })
             opt.classList.toggle("active", isActive);
         });
 
-        if (open && filter) {
-            requestAnimationFrame(() => {
-                filter.focus();
-            });
-        }
-
-        // Scroll active option into view
-        if (open && $state.activeIndex !== -1) {
-            const activeOption = visibleOptions[$state.activeIndex];
-            if (activeOption) {
-                activeOption.scrollIntoView({ block: "nearest", behavior: "smooth" });
-            }
-        }
+        focusFilterWhenOpen(open, filter);
+        scrollActiveOptionIntoView(open, $state.activeIndex, visibleOptions);
     });
+
+    function focusFilterWhenOpen(open, filter) {
+        if (open && filter) {
+            requestAnimationFrame(() => filter.focus());
+        }
+    }
+
+    function scrollActiveOptionIntoView(open, activeIndex, visibleOptions) {
+        const activeOption = open ? visibleOptions[activeIndex] : undefined;
+        if (activeOption) {
+            activeOption.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        }
+    }
 
     /**
      * Close popover and reset filter
@@ -184,22 +190,20 @@ define("el-select-menu", function SelectMenu({ $element, $state, $on, $effect })
      * Update selected value and label
      * @param {HTMLElement} option
      */
+    function updateSelectedOption(option, newValue) {
+        const label = queryLabel();
+        const input = queryInput();
+        if (label) label.innerHTML = option.dataset.label || option.innerHTML;
+        if (input) input.value = newValue;
+    }
+
     const selectOption = (option) => {
         const oldValue = $state.selectedValue;
         const newValue = option.dataset.value || "";
 
         if (newValue !== oldValue) {
             $state.selectedValue = newValue;
-
-            const label = queryLabel();
-            const input = queryInput();
-
-            if (label) {
-                label.innerHTML = option.dataset.label || option.innerHTML;
-            }
-            if (input) {
-                input.value = newValue;
-            }
+            updateSelectedOption(option, newValue);
 
             // Emit change event
             const event = new CustomEvent("change", {
@@ -241,61 +245,55 @@ define("el-select-menu", function SelectMenu({ $element, $state, $on, $effect })
         });
     };
 
-    /**
-     * Handle keyboard navigation
-     * @param {KeyboardEvent} e
-     */
-    const onKeyDown = (e) => {
-        const open = /** @type {boolean} */ ($state.isOpen);
+    const selectActiveOption = () => {
+        const activeOption = queryVisibleOptions()[$state.activeIndex];
+        if (activeOption) selectOption(activeOption);
+    };
 
-        if (!["ArrowDown", "ArrowUp", "Enter", "Home", "End", "Escape"].includes(e.key)) {
-            return;
-        }
+    const openKeyActions = {
+        Escape: closePopover,
+        Enter: selectActiveOption,
+    };
 
-        if (!open) {
-            if (e.key !== "Enter" && e.key !== "Escape") {
-                e.preventDefault();
-                openPopover();
-            }
-            return;
-        }
+    const navigationIndex = {
+        ArrowDown: (index, length) => Math.min(index + 1, length - 1),
+        ArrowUp: (index) => Math.max(index - 1, 0),
+        Home: () => 0,
+        End: (_index, length) => length - 1,
+    };
 
+    const handleClosedKeyDown = (e) => {
+        if (e.key === "Enter" || e.key === "Escape") return;
+        e.preventDefault();
+        openPopover();
+    };
+
+    const handleOpenKeyDown = (e) => {
         e.preventDefault();
 
-        if (e.key === "Escape") {
-            closePopover();
+        const action = openKeyActions[e.key];
+        if (action) {
+            action();
             return;
         }
 
         const visibleOptions = queryVisibleOptions();
-        if (visibleOptions.length === 0) return;
+        if (!visibleOptions.length) return;
+        $state.activeIndex = navigationIndex[e.key]($state.activeIndex, visibleOptions.length);
+    };
 
-        if (e.key === "Enter") {
-            const activeOption = visibleOptions[$state.activeIndex];
-            if (activeOption) {
-                selectOption(activeOption);
-            }
+    /**
+     * Handle keyboard navigation
+     * @param {KeyboardEvent} e
+     */
+    const keyboardKeys = new Set(["ArrowDown", "ArrowUp", "Enter", "Home", "End", "Escape"]);
+    const onKeyDown = (e) => {
+        if (!keyboardKeys.has(e.key)) return;
+        if (!$state.isOpen) {
+            handleClosedKeyDown(e);
             return;
         }
-
-        let nextIndex = $state.activeIndex;
-
-        switch (e.key) {
-            case "ArrowDown":
-                nextIndex = $state.activeIndex < visibleOptions.length - 1 ? $state.activeIndex + 1 : $state.activeIndex;
-                break;
-            case "ArrowUp":
-                nextIndex = $state.activeIndex > 0 ? $state.activeIndex - 1 : 0;
-                break;
-            case "Home":
-                nextIndex = 0;
-                break;
-            case "End":
-                nextIndex = visibleOptions.length - 1;
-                break;
-        }
-
-        $state.activeIndex = nextIndex;
+        handleOpenKeyDown(e);
     };
 
     /**

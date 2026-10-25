@@ -32,6 +32,15 @@ test.describe("Empty", () => {
         await expect(withIcon.locator(".empty-title")).toHaveText("No messages");
     });
 
+    test("should omit optional slots that are not provided", async ({ page }) => {
+        const preview = page.locator("main [data-name='preview']");
+        const withText = preview.locator(".empty").first();
+
+        await expect(preview.locator(".empty")).toHaveCount(3);
+        await expect(withText.locator(".empty-icon, .empty-action")).toHaveCount(0);
+        await expect(preview.locator(".empty").nth(1).locator(".empty-action")).toHaveCount(0);
+    });
+
     test("should display empty state with action button", async ({ page }) => {
         const section = page.locator("main");
         const preview = section.locator('[data-name="preview"]');

@@ -29,6 +29,37 @@
  */
 import { define } from "@sxo/client";
 
+function setToastText(clone, selector, text) {
+    const element = clone.querySelector(selector);
+    if (element && text) element.textContent = text;
+}
+
+function populateToastContent(clone, detail) {
+    setToastText(clone, ".toast-title", detail?.title);
+    setToastText(clone, ".toast-description", detail?.description);
+}
+
+function createToastElement(template, category, detail) {
+    const clone = /** @type {DocumentFragment} */ (template.content.cloneNode(true));
+    const toastDiv = clone.querySelector(".toast");
+    if (!toastDiv) return null;
+
+    const accessibility = category === "bottom-left" ? ["alert", "assertive"] : ["status", "polite"];
+    toastDiv.setAttribute("role", accessibility[0]);
+    toastDiv.setAttribute("aria-live", accessibility[1]);
+    toastDiv.setAttribute("aria-atomic", "true");
+    toastDiv.setAttribute("aria-hidden", "false");
+    populateToastContent(clone, detail);
+    return toastDiv;
+}
+
+function scheduleToastDismiss(toastDiv, duration) {
+    if (duration === -1) return;
+    setTimeout(() => {
+        if (toastDiv.parentNode) toastDiv.remove();
+    }, duration);
+}
+
 /**
  * el-toast: Template-based toast notification component
  */
@@ -46,39 +77,11 @@ define("el-toast", function Toast({ $element, $on }) {
         const template = $element.querySelector("template");
         if (!template) return;
 
-        const clone = /** @type {DocumentFragment} */ (template.content.cloneNode(true));
-        const toastDiv = clone.querySelector(".toast");
+        const toastDiv = createToastElement(template, category, event.detail);
         if (!toastDiv) return;
 
-        // Set ARIA attributes based on category (error for bottom-left)
-        const role = category === "bottom-left" ? "alert" : "status";
-        const ariaLive = category === "bottom-left" ? "assertive" : "polite";
-        toastDiv.setAttribute("role", role);
-        toastDiv.setAttribute("aria-live", ariaLive);
-        toastDiv.setAttribute("aria-atomic", "true");
-        toastDiv.setAttribute("aria-hidden", "false");
-
-        // Populate placeholders with event data
-        const titleEl = clone.querySelector(".toast-title");
-        if (titleEl && event.detail?.title) {
-            titleEl.textContent = event.detail.title;
-        }
-        const descEl = clone.querySelector(".toast-description");
-        if (descEl && event.detail?.description) {
-            descEl.textContent = event.detail.description;
-        }
-
-        // Append the toast div
         $element.appendChild(toastDiv);
-
-        // Start auto-dismiss timer
-        if (duration !== -1) {
-            setTimeout(() => {
-                if (toastDiv.parentNode) {
-                    toastDiv.remove();
-                }
-            }, duration);
-        }
+        scheduleToastDismiss(toastDiv, duration);
     };
     document.addEventListener(eventName, showToast);
 

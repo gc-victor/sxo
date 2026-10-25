@@ -147,6 +147,18 @@ const [
  * <Icon name="spinner" class="animate-spin" stroke-width="1.5" />
  * @public
  */
+function resolveSymbolId(name) {
+    return ICON_SYMBOL_MAP[name] || (name.startsWith("icon-") ? name : `icon-${name}`);
+}
+
+function iconAccessibilityAttributes(title) {
+    return title ? {} : { "aria-hidden": "true" };
+}
+
+function iconTitle(title) {
+    return title ? <title>{title}</title> : "";
+}
+
 export function Icon(props = {}) {
     const { name, title, class: klass, className, viewBox = "0 0 24 24", ...rest } = props;
 
@@ -159,7 +171,7 @@ export function Icon(props = {}) {
     }
 
     // Resolve symbol id.
-    const symbolId = ICON_SYMBOL_MAP[name] || (name.startsWith("icon-") ? name : `icon-${name}`);
+    const symbolId = resolveSymbolId(name);
 
     return (
         // biome-ignore lint/a11y/noSvgWithoutTitle: May be decorative when no title is supplied.
@@ -170,11 +182,11 @@ export function Icon(props = {}) {
             stroke-width="2"
             stroke-linecap="round"
             stroke-linejoin="round"
-            {...(title ? {} : { "aria-hidden": "true" })}
+            {...iconAccessibilityAttributes(title)}
             class={mergedClass}
             {...rest}
         >
-            {title ? <title>{title}</title> : ""}
+            {iconTitle(title)}
             <use href={`#${symbolId}`} />
         </svg>
     );

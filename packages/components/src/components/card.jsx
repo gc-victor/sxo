@@ -33,6 +33,11 @@
 
 import { cn } from "@utils/cn.js";
 
+function cardHeadingLevel(level) {
+    const numericLevel = Number(level);
+    return numericLevel >= 1 && numericLevel <= 6 ? numericLevel : 2;
+}
+
 /* -------------------------------------------------------------------------------------------------
  * Card (root)
  * ------------------------------------------------------------------------------------------------- */
@@ -118,9 +123,7 @@ export function CardHeader({ children, class: klass, className, ...rest }) {
  */
 export function CardHeaderTitle({ level, children, class: klass, className, ...rest }) {
     if (children == null || children === "") return "";
-    const numericLevel = Number(level);
-    const lvl = numericLevel >= 1 && numericLevel <= 6 ? numericLevel : 2;
-    const Tag = `h${lvl}`;
+    const Tag = `h${cardHeadingLevel(level)}`;
     return (
         <Tag class={cn(klass, className)} {...rest}>
             {children}
