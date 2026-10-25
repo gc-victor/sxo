@@ -68,118 +68,138 @@ function computeUncoveredLines(lines) {
     return ranges.join(" ");
 }
 
+function addCoverageFile(fileTree, relativePath, data) {
+    const parts = relativePath.split("/");
+    let currentPath = "";
+
+    for (let i = 0; i < parts.length - 1; i++) {
+        const parent = currentPath;
+        currentPath = currentPath ? `${currentPath}/${parts[i]}` : parts[i];
+
+        if (!fileTree.has(currentPath)) {
+            fileTree.set(currentPath, {
+                isDir: true,
+                name: parts[i],
+                path: currentPath,
+                parent,
+                indent: i,
+            });
+        }
+    }
+
+    fileTree.set(relativePath, {
+        isDir: false,
+        name: parts[parts.length - 1],
+        path: relativePath,
+        parent: currentPath,
+        indent: parts.length - 1,
+        data,
+    });
+}
+
+function buildCoverageEntries(files, workingDir, testFilters) {
+    const fileTree = new Map();
+
+    for (const file of files) {
+        const relativePath = workingDir && file.path.startsWith(workingDir)
+            ? file.path.slice(workingDir.length + 1)
+            : file.path;
+        if (!relativePath.startsWith("packages/")) continue;
+        if (testFilters.length > 0 && !testFilters.some((filter) => relativePath.startsWith(filter))) continue;
+        addCoverageFile(fileTree, relativePath, file);
+    }
+
+    return Array.from(fileTree.values()).sort((a, b) => a.path.localeCompare(b.path));
+}
+
+function formatCoverageEntry(entry) {
+    const indent = "  ".repeat(entry.indent);
+    if (entry.isDir) return `ℹ ${indent}${entry.name}`;
+
+    const fileData = entry.data;
+    const fileCol = `${indent}${entry.name}`.padEnd(38);
+    const lineCol = fileData.coveredLinePercent.toFixed(2).padStart(6);
+    const branchCol = fileData.coveredBranchPercent.toFixed(2).padStart(8);
+    const funcCol = fileData.coveredFunctionPercent.toFixed(2).padStart(7);
+    const uncoveredStr = computeUncoveredLines(fileData.lines || []);
+    return `ℹ ${fileCol} | ${lineCol} | ${branchCol} | ${funcCol} | ${uncoveredStr}`;
+}
+
 /**
  * Format coverage data as native table with ℹ prefix
  * @param {Object} coverageData - Coverage data from test:coverage event
  * @returns {string}
  */
 function formatCoverageTable(coverageData) {
-    const output = [];
     const { summary } = coverageData;
+    const output = [
+        "ℹ start of coverage report",
+        "ℹ ------------------------------------------------------------------------------------------------------------------------------------------",
+        "ℹ file                                | line %  | branch % | funcs % | uncovered lines",
+        "ℹ ------------------------------------------------------------------------------------------------------------------------------------------",
+    ];
     const files = summary.files || [];
-
-    output.push("ℹ start of coverage report");
-    output.push(
-        "ℹ ------------------------------------------------------------------------------------------------------------------------------------------",
-    );
-    output.push("ℹ file                                | line %  | branch % | funcs % | uncovered lines");
-    output.push(
-        "ℹ ------------------------------------------------------------------------------------------------------------------------------------------",
+    const entries = buildCoverageEntries(
+        files,
+        summary.workingDirectory || "",
+        parseTestFilters(),
     );
 
-    // Extract base path (working directory)
-    const workingDir = summary.workingDirectory || "";
+    for (const entry of entries) output.push(formatCoverageEntry(entry));
 
-    // Parse filters
-    const testFilters = parseTestFilters();
-
-    // Group files by directory structure
-    const fileTree = new Map();
-
-    for (const file of files) {
-        // Remove working directory prefix
-        let relativePath = file.path;
-        if (workingDir && file.path.startsWith(workingDir)) {
-            relativePath = file.path.slice(workingDir.length + 1);
-        }
-
-        // Filter to only package source files
-        if (!relativePath.startsWith("packages/")) continue;
-
-        // Apply user filters
-        if (testFilters.length > 0) {
-            const matched = testFilters.some((f) => relativePath.startsWith(f));
-            if (!matched) continue;
-        }
-
-        const parts = relativePath.split("/");
-        let currentPath = "";
-
-        // Add directory entries
-        for (let i = 0; i < parts.length - 1; i++) {
-            const parent = currentPath;
-            currentPath = currentPath ? `${currentPath}/${parts[i]}` : parts[i];
-
-            if (!fileTree.has(currentPath)) {
-                fileTree.set(currentPath, {
-                    isDir: true,
-                    name: parts[i],
-                    path: currentPath,
-                    parent,
-                    indent: i,
-                });
-            }
-        }
-
-        // Add file entry
-        fileTree.set(relativePath, {
-            isDir: false,
-            name: parts[parts.length - 1],
-            path: relativePath,
-            parent: currentPath,
-            indent: parts.length - 1,
-            data: file,
-        });
-    }
-
-    // Sort entries by path
-    const sortedEntries = Array.from(fileTree.values()).sort((a, b) => a.path.localeCompare(b.path));
-
-    // Format and output
-    for (const entry of sortedEntries) {
-        const indent = "  ".repeat(entry.indent);
-
-        if (entry.isDir) {
-            output.push(`ℹ ${indent}${entry.name}`);
-        } else {
-            const fileData = entry.data;
-            const fileCol = `${indent}${entry.name}`.padEnd(38);
-            const lineCol = fileData.coveredLinePercent.toFixed(2).padStart(6);
-            const branchCol = fileData.coveredBranchPercent.toFixed(2).padStart(8);
-            const funcCol = fileData.coveredFunctionPercent.toFixed(2).padStart(7);
-
-            const uncoveredStr = computeUncoveredLines(fileData.lines || []);
-
-            output.push(`ℹ ${fileCol} | ${lineCol} | ${branchCol} | ${funcCol} | ${uncoveredStr}`);
-        }
-    }
-
-    output.push(
-        "ℹ ------------------------------------------------------------------------------------------------------------------------------------------",
-    );
-
+    output.push("ℹ ------------------------------------------------------------------------------------------------------------------------------------------");
     const totals = summary.totals;
     const totalLine = totals.coveredLinePercent.toFixed(2).padStart(6);
     const totalBranch = totals.coveredBranchPercent.toFixed(2).padStart(8);
     const totalFunc = totals.coveredFunctionPercent.toFixed(2).padStart(7);
-
     output.push(`ℹ all files${" ".repeat(27)} | ${totalLine} | ${totalBranch} | ${totalFunc} |`);
-    output.push(
-        "ℹ ------------------------------------------------------------------------------------------------------------------------------------------",
-    );
+    output.push("ℹ ------------------------------------------------------------------------------------------------------------------------------------------");
     output.push("ℹ end of coverage report");
-
     return output.join("\n");
+}
+
+const redundantStatPrefixes = [
+    "tests ",
+    "suites ",
+    "pass ",
+    "fail ",
+    "cancelled ",
+    "skipped ",
+    "todo ",
+    "duration_ms",
+];
+
+function* formatDiagnostic(message) {
+    if (!message) return;
+    const isRedundantStat = redundantStatPrefixes.some((prefix) => message.startsWith(prefix));
+    if (!isRedundantStat) yield `ℹ ${message}\n`;
+}
+
+async function* formatFailureEvent(event, summary) {
+    const counters = { totalTests: summary.totalTests, failedTests: summary.failedTests };
+    yield* handleTestFail(event, counters);
+    summary.totalTests = counters.totalTests;
+    summary.failedTests = counters.failedTests;
+}
+
+async function* formatTestSummary(summary, startTime) {
+    yield "\n";
+    yield `${"━".repeat(60)}\n`;
+    yield "Test Summary\n";
+    yield `${"━".repeat(60)}\n`;
+    yield `Total:   ${summary.totalTests}\n`;
+    yield `Passed:  ${summary.passedTests}\n`;
+    yield `Failed:  ${summary.failedTests}\n`;
+    yield `Skipped: ${summary.skippedTests}\n`;
+    yield `Duration: ${Date.now() - startTime}ms\n`;
+    yield `${"━".repeat(60)}\n`;
+
+    if (summary.failedTests > 0) {
+        yield `\n❌ ${summary.failedTests} test(s) failed\n`;
+    } else if (summary.totalTests > 0) {
+        yield `\n✅ All ${summary.passedTests} test(s) passed\n`;
+    }
+    yield "\n";
 }
 
 /**
@@ -187,81 +207,32 @@ function formatCoverageTable(coverageData) {
  * @param {AsyncIterable<Object>} source - Test event stream
  */
 export default async function* customReporter(source) {
-    let totalTests = 0;
-    let passedTests = 0;
-    let failedTests = 0;
-    let skippedTests = 0;
+    const summary = { totalTests: 0, passedTests: 0, failedTests: 0, skippedTests: 0 };
     const startTime = Date.now();
 
     for await (const event of source) {
         switch (event.type) {
-            case "test:diagnostic": {
-                if (event.data.message) {
-                    const msg = event.data.message;
-                    const isRedundantStat = ["tests ", "suites ", "pass ", "fail ", "cancelled ", "skipped ", "todo ", "duration_ms"].some(
-                        (prefix) => msg.startsWith(prefix),
-                    );
-
-                    if (!isRedundantStat) {
-                        yield `ℹ ${msg}\n`;
-                    }
-                }
+            case "test:diagnostic":
+                yield* formatDiagnostic(event.data.message);
                 break;
-            }
-
-            case "test:coverage": {
-                // Output test summary first
-                yield "\n";
-                yield `${"━".repeat(60)}\n`;
-                yield "Test Summary\n";
-                yield `${"━".repeat(60)}\n`;
-                yield `Total:   ${totalTests}\n`;
-                yield `Passed:  ${passedTests}\n`;
-                yield `Failed:  ${failedTests}\n`;
-                yield `Skipped: ${skippedTests}\n`;
-                const duration = Date.now() - startTime;
-                yield `Duration: ${duration}ms\n`;
-                yield `${"━".repeat(60)}\n`;
-
-                if (failedTests > 0) {
-                    yield `\n❌ ${failedTests} test(s) failed\n`;
-                } else if (totalTests > 0) {
-                    yield `\n✅ All ${passedTests} test(s) passed\n`;
-                }
-                yield "\n";
-
-                // Format and output coverage table
+            case "test:coverage":
+                yield* formatTestSummary(summary, startTime);
                 yield `${formatCoverageTable(event.data)}\n`;
                 break;
-            }
-
-            case "test:fail": {
-                const counters = { totalTests, failedTests };
-                for await (const output of handleTestFail(event, counters)) {
-                    yield output;
-                }
-                totalTests = counters.totalTests;
-                failedTests = counters.failedTests;
+            case "test:fail":
+                yield* formatFailureEvent(event, summary);
                 break;
-            }
-
             case "test:pass":
-                totalTests++;
-                passedTests++;
+                summary.totalTests++;
+                summary.passedTests++;
                 break;
-
             case "test:skip":
-                totalTests++;
-                skippedTests++;
+                summary.totalTests++;
+                summary.skippedTests++;
                 break;
-
             case "test:stderr":
             case "test:stdout":
-                // Suppress other output
-                break;
-
             default:
-                // Ignore other events
                 break;
         }
     }

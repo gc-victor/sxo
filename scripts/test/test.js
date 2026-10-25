@@ -45,6 +45,26 @@ function findTestFiles(dir, files = []) {
     return files;
 }
 
+function findDirectoryTestFiles(fullPath) {
+    return existsSync(fullPath) && statSync(fullPath).isDirectory()
+        ? findTestFiles(fullPath)
+        : null;
+}
+
+function findSiblingTestFile(fullPath) {
+    if (!fullPath.endsWith(".js") || fullPath.endsWith(".test.js")) return null;
+
+    const testFile = fullPath.replace(/\.js$/, ".test.js");
+    return existsSync(testFile) ? testFile : null;
+}
+
+function expandArgumentToTestFiles(arg) {
+    const fullPath = resolve(arg);
+    const directoryFiles = findDirectoryTestFiles(fullPath);
+    if (directoryFiles !== null) return directoryFiles;
+    return [findSiblingTestFile(fullPath) ?? fullPath];
+}
+
 /**
  * Expand directories in arguments to test files.
  * Automaps source files (.js) to test files (.test.js) if they exist.
@@ -52,26 +72,7 @@ function findTestFiles(dir, files = []) {
  * @returns {string[]} List of test files
  */
 function expandArgsToTestFiles(args) {
-    const files = [];
-
-    for (const arg of args) {
-        const fullPath = resolve(arg);
-        const isDir = existsSync(fullPath) && statSync(fullPath).isDirectory();
-
-        if (isDir) {
-            findTestFiles(fullPath, files);
-            continue;
-        }
-
-        // For .js files, prefer the corresponding .test.js if it exists
-        if (fullPath.endsWith(".js") && !fullPath.endsWith(".test.js")) {
-            const testFile = fullPath.replace(/\.js$/, ".test.js");
-            files.push(existsSync(testFile) ? testFile : fullPath);
-        } else {
-            files.push(fullPath);
-        }
-    }
-
+    const files = args.flatMap(expandArgumentToTestFiles);
     return [...new Set(files)];
 }
 

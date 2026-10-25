@@ -113,80 +113,69 @@ function parseArgs(args) {
     return { top, threshold, paths };
 }
 
+const eventCounters = new Map([
+    ["test:pass", "passedTests"],
+    ["test:skip", "skippedTests"],
+    ["test:fail", "failedTests"],
+]);
+
 /**
- * Benchmark reporter generator function
- * @param {AsyncIterable<Object>} source - Test event stream
+ * Add one test event to the benchmark summary.
+ * @param {Object} event - Test event from the Node.js runner
+ * @param {{ totalTests: number, passedTests: number, failedTests: number, skippedTests: number, testDurations: Object[] }} summary
  */
-async function* benchmarkReporter(source) {
-    // Read options from environment variables
-    const top = process.env.BENCH_TOP ? Number.parseInt(process.env.BENCH_TOP, 10) : 10;
-    const threshold = process.env.BENCH_THRESHOLD ? Number.parseInt(process.env.BENCH_THRESHOLD, 10) : null;
+function recordBenchmarkEvent(event, summary) {
+    const counter = eventCounters.get(event.type);
+    if (!counter) return;
 
-    const testDurations = [];
-    let totalTests = 0;
-    let passedTests = 0;
-    let failedTests = 0;
-    let skippedTests = 0;
-    const startTime = Date.now();
+    summary.totalTests++;
+    summary[counter]++;
+    if (event.type === "test:skip") return;
 
-    for await (const event of source) {
-        switch (event.type) {
-            case "test:pass": {
-                totalTests++;
-                passedTests++;
-                const duration = event.data.details?.duration_ms ?? 0;
-                testDurations.push({
-                    name: event.data.name,
-                    file: event.data.file ?? "<unknown>",
-                    duration,
-                });
-                break;
-            }
+    summary.testDurations.push({
+        name: event.data.name,
+        file: event.data.file ?? "<unknown>",
+        duration: event.data.details?.duration_ms ?? 0,
+        failed: event.type === "test:fail",
+    });
+}
 
-            case "test:skip":
-                totalTests++;
-                skippedTests++;
-                break;
+/**
+ * Format one benchmark entry.
+ * @param {Object} test - Test name, file, duration, and optional failure marker
+ * @param {number} durationWidth - Width reserved for the duration column
+ */
+function* formatBenchmarkTest(test, durationWidth) {
+    const relativePath = relative(projectRoot, test.file);
+    const durationStr = `${test.duration.toFixed(2).padStart(durationWidth + 3)}ms`;
+    const failedMarker = test.failed ? " ❌" : "";
+    yield `${durationStr} | ${relativePath}\n`;
+    yield `${"".padStart(durationWidth + 7)}${test.name}${failedMarker}\n`;
+    yield "\n";
+}
 
-            case "test:fail": {
-                totalTests++;
-                failedTests++;
-                const duration = event.data.details?.duration_ms ?? 0;
-                testDurations.push({
-                    name: event.data.name,
-                    file: event.data.file ?? "<unknown>",
-                    duration,
-                    failed: true,
-                });
-                break;
-            }
-
-            default:
-                // Suppress all other events
-                break;
-        }
-    }
-
-    const totalDuration = Date.now() - startTime;
-
-    // Filter by threshold if specified
-    let filtered = testDurations;
-    if (threshold !== null) {
-        filtered = testDurations.filter((t) => t.duration >= threshold);
-    }
-
-    // Sort by duration (slowest first) and take top N
+/**
+ * Format the accumulated benchmark summary.
+ * @param {Object} summary - Test counters and duration entries
+ * @param {number} totalDuration - Time spent reading the test event stream
+ * @param {number} top - Maximum number of slow tests to display
+ * @param {number | null} threshold - Minimum duration to include
+ */
+async function* formatBenchmarkReport(summary, totalDuration, top, threshold) {
+    const filtered = threshold === null
+        ? summary.testDurations
+        : summary.testDurations.filter((test) => test.duration >= threshold);
     const slowest = filtered.sort((a, b) => b.duration - a.duration).slice(0, top);
 
     yield "\n";
     yield `${"━".repeat(80)}\n`;
     yield "Test Benchmark Report\n";
     yield `${"━".repeat(80)}\n`;
-    yield `Total Tests: ${totalTests} (Passed: ${passedTests}, Failed: ${failedTests}, Skipped: ${skippedTests})\n`;
+    yield `Total Tests: ${summary.totalTests} (Passed: ${summary.passedTests}, Failed: ${summary.failedTests}, Skipped: ${summary.skippedTests})\n`;
     yield `Total Duration: ${totalDuration}ms\n`;
 
     if (threshold !== null) {
-        yield `Threshold: ${threshold}ms (showing ${filtered.length}/${testDurations.length} tests)\n`;
+        yield `Threshold: ${threshold}ms (showing ${filtered.length}/${summary.testDurations.length} tests)\n`;
     }
 
     yield `Showing top ${slowest.length} slowest tests:\n`;
@@ -195,27 +184,38 @@ async function* benchmarkReporter(source) {
     if (slowest.length === 0) {
         yield "No tests matched the criteria.\n";
     } else {
-        // Calculate column widths
-        const maxDuration = Math.max(...slowest.map((t) => t.duration));
+        const maxDuration = Math.max(...slowest.map((test) => test.duration));
         const durationWidth = Math.max(maxDuration.toString().length, 4);
-
-        for (const test of slowest) {
-            const relativePath = relative(projectRoot, test.file);
-            const durationStr = `${test.duration.toFixed(2).padStart(durationWidth + 3)}ms`;
-            const failedMarker = test.failed ? " ❌" : "";
-            yield `${durationStr} | ${relativePath}\n`;
-            yield `${"".padStart(durationWidth + 7)}${test.name}${failedMarker}\n`;
-            yield "\n";
-        }
+        for (const test of slowest) yield* formatBenchmarkTest(test, durationWidth);
     }
 
     yield `${"━".repeat(80)}\n`;
-
-    if (failedTests > 0) {
-        yield `\n❌ ${failedTests} test(s) failed\n`;
-    } else if (totalTests > 0) {
-        yield `\n✅ All ${passedTests} test(s) passed\n`;
+    if (summary.failedTests > 0) {
+        yield `\n❌ ${summary.failedTests} test(s) failed\n`;
+    } else if (summary.totalTests > 0) {
+        yield `\n✅ All ${summary.passedTests} test(s) passed\n`;
     }
+}
+
+/**
+ * Benchmark reporter generator function
+ * @param {AsyncIterable<Object>} source - Test event stream
+ */
+async function* benchmarkReporter(source) {
+    const top = process.env.BENCH_TOP ? Number.parseInt(process.env.BENCH_TOP, 10) : 10;
+    const threshold = process.env.BENCH_THRESHOLD ? Number.parseInt(process.env.BENCH_THRESHOLD, 10) : null;
+    const summary = {
+        totalTests: 0,
+        passedTests: 0,
+        failedTests: 0,
+        skippedTests: 0,
+        testDurations: [],
+    };
+    const startTime = Date.now();
+
+    for await (const event of source) recordBenchmarkEvent(event, summary);
+
+    yield* formatBenchmarkReport(summary, Date.now() - startTime, top, threshold);
 }
 
 /**
