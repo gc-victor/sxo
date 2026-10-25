@@ -25,14 +25,15 @@ after(() => {
     }
 });
 
-function createPluginAndRun({ clientDir, serverDir, routesFile, metafile, publicPath }) {
-    // Configure env for public path normalization
+function configurePublicPath(publicPath) {
     if (publicPath === undefined) {
         delete process.env.PUBLIC_PATH;
     } else {
         process.env.PUBLIC_PATH = publicPath;
     }
+}
 
+function createPluginEndHandler({ clientDir, serverDir, routesFile }) {
     const plugin = esbuildMetafilePlugin({
         outputDirClient: clientDir,
         outputDirServer: serverDir,
@@ -40,15 +41,18 @@ function createPluginAndRun({ clientDir, serverDir, routesFile, metafile, public
     });
 
     let onEndCb;
-    const build = {
+    plugin.setup({
         onEnd(cb) {
             onEndCb = cb;
         },
-    };
+    });
+    return onEndCb;
+}
 
-    plugin.setup(build);
-
-    return onEndCb({ metafile });
+function runMetafilePlugin({ clientDir, serverDir, routesFile, metafile, publicPath }) {
+    configurePublicPath(publicPath);
+    const onEnd = createPluginEndHandler({ clientDir, serverDir, routesFile });
+    return onEnd({ metafile });
 }
 
 function makeCaseDirs(caseName) {
@@ -116,7 +120,7 @@ test("metafile plugin augments routes.json with per-route assets (no HTML genera
         cssEntry,
     });
 
-    await createPluginAndRun({
+    await runMetafilePlugin({
         clientDir,
         serverDir,
         routesFile,
@@ -165,7 +169,7 @@ test("metafile plugin writes client-relative assets in routes.json", async () =>
         cssEntry,
     });
 
-    await createPluginAndRun({
+    await runMetafilePlugin({
         clientDir,
         serverDir,
         routesFile,
@@ -217,7 +221,7 @@ test("metafile plugin normalizes PUBLIC_PATH by ensuring trailing slash", async 
             cssEntry,
         });
 
-        await createPluginAndRun({
+        await runMetafilePlugin({
             clientDir,
             serverDir,
             routesFile,
@@ -396,7 +400,7 @@ test("metafile plugin deduplicates mapped assets and ignores unsupported entries
         cssEntry,
     });
 
-    await createPluginAndRun({ clientDir, routesFile, metafile });
+    await runMetafilePlugin({ clientDir, routesFile, metafile });
 
     const [route] = readJson(routesFile);
     assert.deepEqual(route.assets, {

@@ -116,21 +116,26 @@ function readDirectoryEntries(dir) {
     }
 }
 
-function findPageIndexAndQueueDirectories(dir, dirents, clientDir, stack) {
-    let pageIndex = null;
+function findPageIndex(dir, dirents) {
     for (const entry of dirents) {
-        if (entry.isFile()) {
-            const ext = path.extname(/** @type {string} */ (entry.name));
-            if (!pageIndex && PAGE_EXTENSIONS.includes(ext) && isIndexFile(/** @type {string} */ (entry.name))) {
-                pageIndex = path.join(dir, /** @type {string} */ (entry.name));
-            }
-        } else if (entry.isDirectory()) {
-            if (/** @type {string} */ (entry.name) !== clientDir && !entry.isSymbolicLink()) {
-                stack.push(path.join(dir, /** @type {string} */ (entry.name)));
-            }
+        if (!entry.isFile()) continue;
+        const name = /** @type {string} */ (entry.name);
+        const ext = path.extname(name);
+        if (PAGE_EXTENSIONS.includes(ext) && isIndexFile(name)) {
+            return path.join(dir, name);
         }
     }
-    return pageIndex;
+    return null;
+}
+
+function queuePageDirectories(dir, dirents, clientDir, stack) {
+    for (const entry of dirents) {
+        if (!entry.isDirectory()) continue;
+        const name = /** @type {string} */ (entry.name);
+        if (name !== clientDir && !entry.isSymbolicLink()) {
+            stack.push(path.join(dir, name));
+        }
+    }
 }
 
 /**
@@ -150,7 +155,8 @@ function scanPagesTree(pagesDir, clientDir) {
         if (!dirents) continue;
         if (path.basename(dir) === clientDir) continue;
 
-        const pageIndex = findPageIndexAndQueueDirectories(dir, dirents, clientDir, stack);
+        const pageIndex = findPageIndex(dir, dirents);
+        queuePageDirectories(dir, dirents, clientDir, stack);
         if (pageIndex) {
             const clientEntries = findClientEntries(dir, clientDir);
             metaMap.set(dir, { pageIndex, clientEntries });

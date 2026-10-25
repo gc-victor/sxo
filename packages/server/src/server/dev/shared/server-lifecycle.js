@@ -83,10 +83,17 @@ function createModuleLoaderOptions(importer, cache) {
  * @returns {Promise<void>}
  * @public
  */
-export async function loadRoutesAndModules({ config, state, reloadRoutesManifest, loadAllModules, readFile, importer }) {
+async function loadRoutes({ config, state, reloadRoutesManifest, readFile }) {
     state.routes = await reloadRoutesManifest(config.routesPath, createRoutesLoaderOptions(readFile));
+}
 
+async function loadModules({ state, loadAllModules, importer }) {
     await loadAllModules(state.routes, createModuleLoaderOptions(importer, state.jsxModules));
+}
+
+export async function loadRoutesAndModules(options) {
+    await loadRoutes(options);
+    await loadModules(options);
 }
 
 /**

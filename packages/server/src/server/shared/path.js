@@ -111,42 +111,42 @@ export function getBasename(pathname) {
  * // null (traversal attempt)
  * ```
  */
-export function validateAndNormalizePath(pathname) {
-    // Check length
-    if (pathname.length > MAX_PATH_LEN) return null;
+function isValidRawPathname(pathname) {
+    return pathname.length <= MAX_PATH_LEN && !/[\r\n]/.test(pathname);
+}
 
-    // Check for newlines, carriage returns (before decoding)
-    if (/[\r\n]/.test(pathname)) return null;
-
-    // Decode URI
+function decodePathname(pathname) {
     let decodedPath;
     try {
         decodedPath = decodeURIComponent(pathname);
     } catch {
         return null;
     }
+    return decodedPath.includes("\0") ? null : decodedPath;
+}
 
-    // Check for null bytes (after decoding to catch encoded null bytes)
-    if (decodedPath.includes("\0")) return null;
+function hasTraversalSegment(segments) {
+    return segments.some((segment) => segment === ".." || segment === "." || /^%2[eE]%2[eE]$/.test(segment));
+}
 
-    // Split and filter path segments
+function validatePathname(pathname) {
+    if (!isValidRawPathname(pathname)) return null;
+
+    const decodedPath = decodePathname(pathname);
+    if (decodedPath === null) return null;
+
     const segments = decodedPath.split("/").filter(Boolean);
+    if (hasTraversalSegment(segments)) return null;
+    return { decodedPath, segments };
+}
 
-    // Check for path traversal (literal and encoded)
-    for (const seg of segments) {
-        // Check for literal "." or ".." segments
-        if (seg === ".." || seg === ".") {
-            return null;
-        }
-        // Check for encoded ".." patterns (e.g., %2e%2e, %2E%2e, etc.)
-        // This catches double-encoded traversal attempts like %252e%252e
-        if (/^%2[eE]%2[eE]$/.test(seg)) {
-            return null;
-        }
-    }
+function normalizePathname({ decodedPath, segments }) {
+    return { normalized: decodedPath, rel: segments.join("/") };
+}
 
-    const rel = segments.join("/");
-    return { normalized: decodedPath, rel };
+export function validateAndNormalizePath(pathname) {
+    const validated = validatePathname(pathname);
+    return validated ? normalizePathname(validated) : null;
 }
 
 /**
