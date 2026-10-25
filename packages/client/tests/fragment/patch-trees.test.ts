@@ -50,6 +50,20 @@ describe("fragment reconciliation", () => {
         expect(root.textContent).toBe("CBA");
     });
 
+    it("replaces children when their duplicate keys cannot identify a unique match", async () => {
+        const root = list('<li data-key="same">old one</li><li data-key="same">old two</li>');
+        const previousChildren = Array.from(root.children);
+        vi.stubGlobal(
+            "fetch",
+            vi.fn().mockResolvedValue(response('<ul id="list"><li data-key="same">new one</li><li data-key="same">new two</li></ul>')),
+        );
+
+        await expect(swapFragment("/fragment", "#list")).resolves.toBe(true);
+        expect(root.textContent).toBe("new onenew two");
+        expect(root.children[0]).not.toBe(previousChildren[0]);
+        expect(root.children[1]).not.toBe(previousChildren[1]);
+    });
+
     it("does not use stale parent references during a move plus insertion", async () => {
         const root = list('<li data-key="a">A</li><li data-key="b">B</li><li data-key="c">C</li>');
         const markup = '<ul id="list"><li data-key="b">B</li><li data-key="d">D</li><li data-key="a">A</li><li data-key="c">C</li></ul>';

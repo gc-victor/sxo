@@ -168,27 +168,40 @@ function findByIdentity(root: Element, snapshot: FocusSnapshot): Element | null 
     return null;
 }
 
+function resolveFocusTarget(oldRoot: Element, liveRoot: Element, snapshot: FocusSnapshot): { element: Element | null; complete: boolean } {
+    if (oldRoot.tagName === liveRoot.tagName) return resolveFocus(liveRoot, snapshot);
+    return { element: findByIdentity(liveRoot, snapshot), complete: true };
+}
+
+function restoreSelection(candidate: Element, snapshot: FocusSnapshot): void {
+    if (snapshot.selectionStart === null) return;
+    const selection = candidate as HTMLInputElement | HTMLTextAreaElement;
+    if (typeof selection.setSelectionRange !== "function") return;
+
+    try {
+        selection.setSelectionRange(snapshot.selectionStart, snapshot.selectionEnd ?? snapshot.selectionStart);
+    } catch {
+        // Some input types do not support text selection.
+    }
+}
+
+function focusCandidate(root: Element, snapshot: FocusSnapshot, resolved: { element: Element | null; complete: boolean }): Element | null {
+    if (!resolved.complete && !snapshot.detached) return null;
+    const candidate = resolved.element ?? (snapshot.detached ? root : null);
+    if (!candidate || typeof (candidate as HTMLElement).focus !== "function") return null;
+    return candidate;
+}
+
 function restoreFocus(snapshot: FocusSnapshot | undefined, oldRoot: Element, replacementRoot: Element): void {
     const liveRoot = oldRoot.isConnected ? oldRoot : replacementRoot;
     if (!snapshot || !liveRoot.isConnected) return;
 
-    const sameTag = oldRoot.tagName === liveRoot.tagName;
-    const resolved = sameTag ? resolveFocus(liveRoot, snapshot) : { element: findByIdentity(liveRoot, snapshot), complete: true };
-    if (!resolved.complete && !snapshot.detached) return;
-    const candidate = resolved.element ?? (snapshot.detached ? liveRoot : null);
-    if (!candidate || typeof (candidate as HTMLElement).focus !== "function") return;
+    const resolved = resolveFocusTarget(oldRoot, liveRoot, snapshot);
+    const candidate = focusCandidate(liveRoot, snapshot, resolved);
+    if (!candidate) return;
 
     (candidate as HTMLElement).focus();
-    if (resolved.complete && snapshot.selectionStart !== null) {
-        const selection = candidate as HTMLInputElement | HTMLTextAreaElement;
-        if (typeof selection.setSelectionRange === "function") {
-            try {
-                selection.setSelectionRange(snapshot.selectionStart, snapshot.selectionEnd ?? snapshot.selectionStart);
-            } catch {
-                // Some input types do not support text selection.
-            }
-        }
-    }
+    if (resolved.complete) restoreSelection(candidate, snapshot);
 }
 
 function copyAttributes(from: Element, to: Element): void {
@@ -252,6 +265,18 @@ function syncNode(oldNode: Node, newNode: Node): void {
     }
 }
 
+function matchChild(newChild: Node, index: number, oldChildren: Node[], oldByKey: Map<string, Element>, used: Set<Node>): Node | undefined {
+    const key = nodeKey(newChild);
+    if (key !== null) {
+        const keyed = oldByKey.get(key);
+        return keyed && !used.has(keyed) && sameNodeKind(keyed, newChild) ? keyed : undefined;
+    }
+
+    const positional = oldChildren[index];
+    if (!positional || used.has(positional) || nodeKey(positional) !== null || !sameNodeKind(positional, newChild)) return undefined;
+    return positional;
+}
+
 function syncChildren(oldParent: Element, newParent: Element): void {
     const oldChildren = Array.from(oldParent.childNodes);
     const newChildren = Array.from(newParent.childNodes);
@@ -261,25 +286,14 @@ function syncChildren(oldParent: Element, newParent: Element): void {
 
     for (let index = 0; index < newChildren.length; index++) {
         const newChild = newChildren[index];
-        const key = nodeKey(newChild);
-        let match: Node | undefined;
-        if (key !== null) {
-            const keyed = oldByKey.get(key);
-            if (keyed && !used.has(keyed) && sameNodeKind(keyed, newChild)) match = keyed;
-        } else {
-            const positional = oldChildren[index];
-            if (positional && !used.has(positional) && nodeKey(positional) === null && sameNodeKind(positional, newChild)) {
-                match = positional;
-            }
-        }
-
-        if (match) {
-            used.add(match);
-            syncNode(match, newChild);
-            desired.push(match);
-        } else {
+        const match = matchChild(newChild, index, oldChildren, oldByKey, used);
+        if (!match) {
             desired.push(newChild.cloneNode(true));
+            continue;
         }
+        used.add(match);
+        syncNode(match, newChild);
+        desired.push(match);
     }
 
     let reference = oldParent.firstChild;
@@ -319,6 +333,41 @@ function findTwin(container: Element, target: string | Element, oldRoot: Element
     return first?.tagName === oldRoot.tagName ? first : null;
 }
 
+async function fetchFragmentRoot(url: string, target: string | Element, oldRoot: Element, signal?: AbortSignal): Promise<Element | null> {
+    if (signal?.aborted) return null;
+    const request = Symbol();
+    latestRequests.set(oldRoot, request);
+    const response = await fetch(url, { signal });
+    if (!response.ok) return null;
+    const html = await response.text();
+    if (!html.trim()) return null;
+
+    const container = document.createElement("div");
+    container.innerHTML = html;
+    const newRoot = findTwin(container, target, oldRoot);
+    if (!newRoot || !oldRoot.isConnected || latestRequests.get(oldRoot) !== request) return null;
+    return newRoot;
+}
+
+function replaceFragmentRoot(oldRoot: Element, newRoot: Element): boolean {
+    const parent = oldRoot.parentNode;
+    if (!parent) return false;
+    const nextSibling = oldRoot.nextSibling;
+    oldRoot.remove();
+    parent.insertBefore(newRoot, nextSibling?.parentNode === parent ? nextSibling : null);
+    return true;
+}
+
+function updateFragmentRoot(oldRoot: Element, newRoot: Element, snapshot: FocusSnapshot | undefined, patch: boolean): boolean {
+    if (patch && oldRoot.tagName === newRoot.tagName) {
+        patchInPlace(oldRoot, newRoot);
+    } else if (!replaceFragmentRoot(oldRoot, newRoot)) {
+        return false;
+    }
+    restoreFocus(snapshot, oldRoot, newRoot);
+    return true;
+}
+
 /**
  * Fetch trusted server-rendered HTML and patch its root into the live target, preserving node identity and DOM state.
  *
@@ -345,31 +394,10 @@ export async function swapFragment(url: string, target: string | Element, opts: 
             return false;
         }
 
-        if (opts.signal?.aborted) return false;
-        const request = Symbol();
-        latestRequests.set(oldRoot, request);
-        const response = await fetch(url, { signal: opts.signal });
-        if (!response.ok) return false;
-        const html = await response.text();
-        if (!html.trim()) return false;
-
-        const container = document.createElement("div");
-        container.innerHTML = html;
-        const newRoot = findTwin(container, target, oldRoot);
-        if (!newRoot || !oldRoot.isConnected || latestRequests.get(oldRoot) !== request) return false;
-
+        const newRoot = await fetchFragmentRoot(url, target, oldRoot, opts.signal);
+        if (!newRoot) return false;
         const snapshot = captureFocus(oldRoot);
-        if (opts.patch !== false && oldRoot.tagName === newRoot.tagName) {
-            patchInPlace(oldRoot, newRoot);
-        } else {
-            const parent = oldRoot.parentNode;
-            const nextSibling = oldRoot.nextSibling;
-            if (!parent) return false;
-            oldRoot.remove();
-            parent.insertBefore(newRoot, nextSibling?.parentNode === parent ? nextSibling : null);
-        }
-        restoreFocus(snapshot, oldRoot, newRoot);
-        return true;
+        return updateFragmentRoot(oldRoot, newRoot, snapshot, opts.patch !== false);
     } catch {
         return false;
     }
