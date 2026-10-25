@@ -2,6 +2,18 @@ import { createComponent, TestReactiveComponent } from "@tests/utils/test-helper
 import { describe, expect, it } from "vitest";
 import type { StateValue } from "@/index";
 
+type ConfigurableStyleProperty = "fontSize" | "color" | "fontWeight" | "padding";
+
+function setCustomStyle(
+    element: HTMLElement,
+    property: ConfigurableStyleProperty,
+    value: unknown,
+    isValid: (value: unknown) => boolean,
+    format: (value: unknown) => string,
+): void {
+    element.style[property] = isValid(value) ? format(value) : "";
+}
+
 describe("ReactiveComponent Custom Binding Handlers", () => {
     class CustomBindingComponent extends TestReactiveComponent {
         progress!: number;
@@ -87,43 +99,48 @@ describe("ReactiveComponent Custom Binding Handlers", () => {
                     }
                 },
                 "custom-style-config": () => {
-                    if (element instanceof HTMLElement && typeof rawValue === "object" && rawValue !== null) {
-                        // Fix: Assert rawValue to a type that includes the expected properties
-                        const config = rawValue as {
-                            size?: number | string;
-                            color?: string;
-                            isBold?: boolean;
-                            padding?: number | string;
-                        };
-
-                        // Fix: Safely access properties and check types before applying styles
-                        if (config.size !== undefined && (typeof config.size === "number" || typeof config.size === "string")) {
-                            element.style.fontSize = `${config.size}px`;
-                        } else {
-                            element.style.fontSize = "";
-                        }
-                        if (config.color !== undefined && typeof config.color === "string") {
-                            element.style.color = config.color;
-                        } else {
-                            element.style.color = "";
-                        }
-                        if (config.isBold !== undefined && typeof config.isBold === "boolean") {
-                            element.style.fontWeight = config.isBold ? "bold" : "normal";
-                        } else {
-                            element.style.fontWeight = ""; // Reset if not boolean or undefined
-                        }
-                        if (config.padding !== undefined && (typeof config.padding === "number" || typeof config.padding === "string")) {
-                            element.style.padding = `${config.padding}px`;
-                        } else {
-                            element.style.padding = "";
-                        }
-                    } else {
-                        // Handle non-object rawValue by resetting styles
+                    if (!(element instanceof HTMLElement) || typeof rawValue !== "object" || rawValue === null) {
                         element.style.fontSize = "";
                         element.style.color = "";
                         element.style.fontWeight = "";
                         element.style.padding = "";
+                        return;
                     }
+
+                    const config = rawValue as {
+                        size?: number | string;
+                        color?: string;
+                        isBold?: boolean;
+                        padding?: number | string;
+                    };
+                    setCustomStyle(
+                        element,
+                        "fontSize",
+                        config.size,
+                        (value) => typeof value === "number" || typeof value === "string",
+                        (value) => `${value}px`,
+                    );
+                    setCustomStyle(
+                        element,
+                        "color",
+                        config.color,
+                        (value) => typeof value === "string",
+                        (value) => String(value),
+                    );
+                    setCustomStyle(
+                        element,
+                        "fontWeight",
+                        config.isBold,
+                        (value) => typeof value === "boolean",
+                        (value) => (value ? "bold" : "normal"),
+                    );
+                    setCustomStyle(
+                        element,
+                        "padding",
+                        config.padding,
+                        (value) => typeof value === "number" || typeof value === "string",
+                        (value) => `${value}px`,
+                    );
                 },
             };
         }
@@ -238,6 +255,23 @@ describe("ReactiveComponent Custom Binding Handlers", () => {
         expect(element.style.fontWeight).toBe("bold");
         expect(element.style.padding).toBe("10px");
 
+        cleanup();
+    });
+
+    it("clears style properties when configuration values have unsupported types", () => {
+        const { component, cleanup } = createComponent<CustomBindingComponent>(
+            "test-custom-class-style-binding",
+            {},
+            '<div $bind-custom-style-config="configuration">Text</div>',
+        );
+        const element = component.querySelector("div") as HTMLElement;
+
+        component.testSetState("configuration", { size: {}, color: 12, isBold: "yes", padding: null });
+
+        expect(element.style.fontSize).toBe("");
+        expect(element.style.color).toBe("");
+        expect(element.style.fontWeight).toBe("");
+        expect(element.style.padding).toBe("");
         cleanup();
     });
 });

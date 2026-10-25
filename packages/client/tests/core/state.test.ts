@@ -109,6 +109,20 @@ describe("ReactiveComponent State Management (Core)", () => {
 
                 cleanup();
             });
+
+            it.each([
+                ["empty strings", "", ""],
+                ["JSON null", "null", null],
+                ["JSON arrays", '["a", "b"]', ["a", "b"]],
+                ["unparseable strings", "hello", "hello"],
+            ])("should coerce %s without changing its value", (_name, input, expected) => {
+                const { component, cleanup } = createComponent<StateInitBooleanComponent>("state-init-boolean-component");
+
+                component.testSetState("coerced", input);
+
+                expect(component.testGetState("coerced")).toEqual(expected);
+                cleanup();
+            });
         });
 
         afterEach(() => {

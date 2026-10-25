@@ -610,80 +610,66 @@ export class ReactiveComponent extends HTMLElement {
     private processElement(element: HTMLElement): void {
         for (const attr of Array.from(element.attributes)) {
             const { name, value } = attr;
-
-            // Validate value matches alphanumeric pattern
             const alphanumericPattern = /^[a-zA-Z0-9]+$/;
             if (!alphanumericPattern.test(value) && name.startsWith("$")) {
                 console.error(ERROR_INVALID_BINDING_VALUE(name, value));
                 continue;
             }
 
-            // REF ATTRIBUTE: Creates references to DOM elements for direct access
-            // Example: <button $ref="submitButton">Submit</button>
-            // Usage: this.refs.submitButton.disabled = true;
             if (name === REF_ATTRIBUTE) {
                 this.refs[value] = element;
                 element.removeAttribute(name);
-            } else if (name === STATE_ATTRIBUTE) {
-                // STATE ATTRIBUTE: Declares reactive state with initial value from element content
-                // Examples:
-                // - <span $state="count">0</span> - creates state 'count' with initial value 0
-                // - <p $state="message">Hello</p> - creates state 'message' with initial value "Hello"
-                // - <div $state="content" $bind-html="content"><strong>Initial</strong></div> - HTML content as initial state
-                const stateKey = value;
-                this.stateElements.set(stateKey, element);
-                const hasBindHtml = element.hasAttribute(BIND_ATTRIBUTE_PREFIX + BINDING_TYPE_HTML);
-                const initialValue = this.coerceValue(hasBindHtml ? element.innerHTML : element.textContent);
-                this.setState(stateKey, initialValue);
-                this.addBinding(stateKey, element, BINDING_TYPE_STATE);
-                element.removeAttribute(name);
-            } else if (name.startsWith(BIND_ATTRIBUTE_PREFIX)) {
-                // BIND ATTRIBUTES: Creates reactive bindings between state and DOM properties
-                // Examples:
-                // - $bind-value="text" - two-way binding with input value
-                // - $bind-text="username" - one-way binding to textContent
-                // - $bind-checked="isEnabled" - binding to checkbox checked state
-                // - $bind-disabled="isDisabled" - binding to form element disabled state
-                // - $bind-class="validationClasses" - dynamic class manipulation
-                // - $bind-html="content" - binding to innerHTML (security: escape user input)
-                // - $bind-progress="progressValue" - custom binding (requires customBindingHandlers)
-                const type = name.replace(BIND_ATTRIBUTE_PREFIX, "") as PropertyType;
-                // Validate type format
-                const validBindingTypePattern = /^[a-zA-Z0-9-]+$/;
-                if (!validBindingTypePattern.test(type)) {
-                    console.error(ERROR_INVALID_BINDING_TYPE(type, name));
-                    continue;
-                }
-                const bindKey = value;
-
-                this.addBinding(bindKey, element, type);
-                element.removeAttribute(name);
-            } else if (name.startsWith(EVENT_ATTRIBUTE_PREFIX)) {
-                // EVENT ATTRIBUTES: Binds DOM events to component methods
-                // Examples:
-                // - $onclick="handleClick" - binds click event to this.handleClick method
-                // - $oninput="updateText" - binds input event to this.updateText method
-                // - $onsubmit="submitForm" - binds submit event to this.submitForm method
-                // - $onmouseover="showTooltip" - binds mouseover event to this.showTooltip method
-                // Note: Method must exist on the component class and be accessible
-                const eventName = name.slice(EVENT_ATTRIBUTE_PREFIX.length);
-                if (!eventName || !value) {
-                    console.error(ERROR_EVENT_HANDLER_MISSING);
-                    continue;
-                }
-                const handler = value;
-                const boundHandler = (e: Event) => {
-                    const handlerFn = (this as Record<string, unknown>)[handler];
-                    if (typeof handlerFn !== "function") {
-                        console.error(ERROR_HANDLER_NOT_FUNCTION(handler));
-                        return;
-                    }
-                    handlerFn.call(this, e);
-                };
-                element.addEventListener(eventName.toLowerCase(), boundHandler);
-                element.removeAttribute(name);
+                continue;
             }
+            if (name === STATE_ATTRIBUTE) {
+                this.processStateAttribute(element, name, value);
+                continue;
+            }
+            if (name.startsWith(BIND_ATTRIBUTE_PREFIX)) {
+                this.processBindingAttribute(element, name, value);
+                continue;
+            }
+            if (name.startsWith(EVENT_ATTRIBUTE_PREFIX)) this.processEventAttribute(element, name, value);
         }
+    }
+
+    private processStateAttribute(element: HTMLElement, name: string, stateKey: string): void {
+        this.stateElements.set(stateKey, element);
+        const hasBindHtml = element.hasAttribute(BIND_ATTRIBUTE_PREFIX + BINDING_TYPE_HTML);
+        const initialValue = this.coerceValue(hasBindHtml ? element.innerHTML : element.textContent);
+        this.setState(stateKey, initialValue);
+        this.addBinding(stateKey, element, BINDING_TYPE_STATE);
+        element.removeAttribute(name);
+    }
+
+    private processBindingAttribute(element: HTMLElement, name: string, value: string): void {
+        const type = name.replace(BIND_ATTRIBUTE_PREFIX, "") as PropertyType;
+        const validBindingTypePattern = /^[a-zA-Z0-9-]+$/;
+        if (!validBindingTypePattern.test(type)) {
+            console.error(ERROR_INVALID_BINDING_TYPE(type, name));
+            return;
+        }
+        this.addBinding(value, element, type);
+        element.removeAttribute(name);
+    }
+
+    private processEventAttribute(element: HTMLElement, name: string, value: string): void {
+        const eventName = name.slice(EVENT_ATTRIBUTE_PREFIX.length);
+        if (!eventName || !value) {
+            console.error(ERROR_EVENT_HANDLER_MISSING);
+            return;
+        }
+
+        const boundHandler = (event: Event) => {
+            const handler = (this as Record<string, unknown>)[value];
+            if (typeof handler !== "function") {
+                console.error(ERROR_HANDLER_NOT_FUNCTION(value));
+                return;
+            }
+            handler.call(this, event);
+        };
+        element.addEventListener(eventName.toLowerCase(), boundHandler);
+        element.removeAttribute(name);
     }
 
     /**
@@ -694,35 +680,22 @@ export class ReactiveComponent extends HTMLElement {
      */
     private coerceValue(value: unknown): StateValue {
         if (value === undefined || value === null) return;
+        if (typeof value !== "string" || value === "") return value as StateValue;
+        if (value === "false" || value === "true") return value === "true";
 
-        if (value === "") {
+        const numberValue = Number(value);
+        if (!Number.isNaN(numberValue)) return numberValue;
+        return this.parseJsonValue(value);
+    }
+
+    private parseJsonValue(value: string): StateValue {
+        try {
+            const parsed = JSON.parse(value);
+            if (Array.isArray(parsed) || typeof parsed === "object") return parsed;
+        } catch {
             return value;
         }
-
-        if (value === "false" || value === "true") {
-            return value === "true";
-        }
-
-        if (typeof value === "string") {
-            // Try parsing as number first
-            const numberValue = Number(value);
-            if (!Number.isNaN(numberValue)) {
-                return numberValue;
-            }
-
-            // Try parsing as JSON for objects/arrays
-            try {
-                const parsed = JSON.parse(value);
-                if (Array.isArray(parsed) || typeof parsed === "object") {
-                    return parsed;
-                }
-            } catch (_e) {
-                // If parsing fails, return original string
-                return value;
-            }
-        }
-
-        return value as StateValue;
+        return value;
     }
 
     /**
@@ -733,72 +706,65 @@ export class ReactiveComponent extends HTMLElement {
      * @private
      */
     private addBinding(stateKey: string, element: HTMLElement, type: PropertyType): void {
-        if (!this.bindings.has(stateKey)) {
-            this.bindings.set(stateKey, new Set());
-        }
-        // Non-null assertion is safe because we just set the key above
+        if (!this.bindings.has(stateKey)) this.bindings.set(stateKey, new Set());
         this.bindings.get(stateKey)?.add({ element, type });
-
-        if (
-            (element instanceof HTMLInputElement || element instanceof HTMLSelectElement || element instanceof HTMLTextAreaElement) &&
-            (type === BINDING_TYPE_VALUE || type === BINDING_TYPE_CHECKED)
-        ) {
-            const inputHandler = () => {
-                let value: StateValue = element.value;
-
-                // Special handling for different input types
-                if (element instanceof HTMLInputElement) {
-                    const elementType = element.type;
-
-                    /* v8 ignore start - happy-dom limitation, warning branch tested in e2e */
-                    if (elementType === INPUT_TYPE_CHECKBOX) {
-                        if (type === BINDING_TYPE_CHECKED) {
-                            value = element.checked;
-                        } else if (type === BINDING_TYPE_VALUE) {
-                            console.warn(WARN_CHECKBOX_BIND_VALUE(element));
-                        }
-                        /* v8 ignore stop */
-                    } else if (elementType === INPUT_TYPE_RADIO) {
-                        if (type === BINDING_TYPE_CHECKED) {
-                            console.warn(WARN_RADIO_BIND_CHECKED(element));
-                        } else if (type === BINDING_TYPE_VALUE && element.checked) {
-                            this.setState(stateKey, element.value);
-                            return;
-                        }
-                        return;
-                    } else if (elementType === INPUT_TYPE_NUMBER || elementType === INPUT_TYPE_RANGE) {
-                        value = Number(element.valueAsNumber);
-                    } else {
-                        value = element.value;
-                    }
-                } else if (element instanceof HTMLSelectElement) {
-                    if (element.multiple) {
-                        value = Array.from(element.selectedOptions).map((option) => option.value);
-                    } else {
-                        value = element.value;
-                    }
-                    /* v8 ignore start - happy-dom limitation, textarea branch tested in e2e */
-                } else if (element instanceof HTMLTextAreaElement) {
-                    value = element.value;
-                    /* v8 ignore stop */
-                }
-
-                this.setState(stateKey, value);
-            };
-
-            // Handle change event for elements that need it
-            if (
-                element instanceof HTMLSelectElement ||
-                (element instanceof HTMLInputElement && [INPUT_TYPE_CHECKBOX, INPUT_TYPE_RADIO].includes(element.type))
-            ) {
-                element.addEventListener(EVENT_CHANGE, inputHandler);
-            }
-
-            element.addEventListener(EVENT_INPUT, inputHandler);
-        }
-
-        // Initial update
+        this.bindInputEvents(stateKey, element, type);
         this.updateBinding(stateKey, element, type, this.getState(stateKey) as StateValue);
+    }
+
+    private bindInputEvents(stateKey: string, element: HTMLElement, type: PropertyType): void {
+        if (
+            !(element instanceof HTMLInputElement || element instanceof HTMLSelectElement || element instanceof HTMLTextAreaElement) ||
+            (type !== BINDING_TYPE_VALUE && type !== BINDING_TYPE_CHECKED)
+        ) {
+            return;
+        }
+        const inputHandler = () => this.updateBoundInput(stateKey, element, type);
+        if (
+            element instanceof HTMLSelectElement ||
+            (element instanceof HTMLInputElement && [INPUT_TYPE_CHECKBOX, INPUT_TYPE_RADIO].includes(element.type))
+        ) {
+            element.addEventListener(EVENT_CHANGE, inputHandler);
+        }
+        element.addEventListener(EVENT_INPUT, inputHandler);
+    }
+
+    private updateBoundInput(
+        stateKey: string,
+        element: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement,
+        type: PropertyType,
+    ): void {
+        if (element instanceof HTMLInputElement) {
+            if (element.type === INPUT_TYPE_RADIO) {
+                this.updateRadioInput(stateKey, element, type);
+                return;
+            }
+            this.setState(stateKey, this.readInputValue(element, type));
+            return;
+        }
+        if (element instanceof HTMLSelectElement) {
+            const value = element.multiple ? Array.from(element.selectedOptions).map((option) => option.value) : element.value;
+            this.setState(stateKey, value);
+            return;
+        }
+        this.setState(stateKey, element.value);
+    }
+
+    private readInputValue(element: HTMLInputElement, type: PropertyType): StateValue {
+        if (element.type === INPUT_TYPE_CHECKBOX) {
+            if (type === BINDING_TYPE_CHECKED) return element.checked;
+            if (type === BINDING_TYPE_VALUE) console.warn(WARN_CHECKBOX_BIND_VALUE(element));
+        }
+        if (element.type === INPUT_TYPE_NUMBER || element.type === INPUT_TYPE_RANGE) return Number(element.valueAsNumber);
+        return element.value;
+    }
+
+    private updateRadioInput(stateKey: string, element: HTMLInputElement, type: PropertyType): void {
+        if (type === BINDING_TYPE_CHECKED) {
+            console.warn(WARN_RADIO_BIND_CHECKED(element));
+        } else if (type === BINDING_TYPE_VALUE && element.checked) {
+            this.setState(stateKey, element.value);
+        }
     }
 
     /**
@@ -843,24 +809,7 @@ export class ReactiveComponent extends HTMLElement {
             // - <select $bind-value="selectedOption" /> - dropdown selection binding
             // - <input type="range" $bind-value="celsius" /> - slider value binding
             // - Radio inputs get special handling to update entire radio group
-            [BINDING_TYPE_VALUE]: () => {
-                if ("value" in element) {
-                    // Special handling for radio inputs - update entire radio group
-                    if (element instanceof HTMLInputElement && element.type === INPUT_TYPE_RADIO) {
-                        if (formattedValue) {
-                            const radioGroup = this.querySelectorAll(`input[type="${INPUT_TYPE_RADIO}"][name="${element.name}"]`);
-                            for (const radio of Array.from(radioGroup)) {
-                                if (radio instanceof HTMLInputElement) {
-                                    radio.checked = radio.value === formattedValue;
-                                }
-                            }
-                        }
-                        return; // Skip the default value setting
-                    }
-
-                    element.value = formattedValue;
-                }
-            },
+            [BINDING_TYPE_VALUE]: () => this.updateValueBinding(element, formattedValue),
             // TEXT BINDING: Updates textContent property (safe, no HTML parsing)
             // Examples from demo:
             // - <span $bind-text="uppercase" /> - displays computed uppercase text
@@ -901,27 +850,7 @@ export class ReactiveComponent extends HTMLElement {
             // - { toggle: "visible" } - toggles 'visible' class
             // - { toggle: { key: "selected", value: true } } - conditional toggle
             // Demo uses: $bind-class="isInputValid" and $bind-class="isStatusValid" for validation styling
-            [BINDING_TYPE_CLASS]: () => {
-                if (!value || typeof value !== "object") return;
-
-                for (const [method, val] of Object.entries(value)) {
-                    if (method === CLASS_LIST_ADD || method === CLASS_LIST_REMOVE) {
-                        Array.isArray(val) ? element.classList[method](...val) : element.classList[method](val);
-                    } else if (method === CLASS_LIST_REPLACE && Array.isArray(val) && val.length === 2) {
-                        element.classList.replace(val[0], val[1]);
-                    } else if (method === CLASS_LIST_TOGGLE) {
-                        if (typeof val === "string") {
-                            element.classList.toggle(val);
-                        } else if (typeof val === "object") {
-                            element.classList.toggle(val.key, val.value);
-                        }
-                    }
-                }
-
-                if (element.classList.length === 0) {
-                    element.removeAttribute(ATTRIBUTE_CLASS);
-                }
-            },
+            [BINDING_TYPE_CLASS]: () => this.updateClassBinding(element, value),
             // ATTRIBUTE BINDING: Sets/removes HTML attributes dynamically
             // Examples:
             // - String value: removes the named attribute
@@ -930,19 +859,7 @@ export class ReactiveComponent extends HTMLElement {
             // - Boolean true sets attribute with empty value (for flags like 'hidden')
             // Common use cases: accessibility attributes, data attributes, conditional attributes
             // Demo used: $bind-attr="attrs"
-            [BINDING_TYPE_ATTR]: () => {
-                if (typeof value === "string") {
-                    element.removeAttribute(value);
-                } else if (typeof value === "object" && value !== null) {
-                    for (const [attr, val] of Object.entries(value)) {
-                        if (val === null || val === false || val === undefined || val === "") {
-                            element.removeAttribute(attr);
-                        } else {
-                            element.setAttribute(attr, val === true ? "" : String(val));
-                        }
-                    }
-                }
-            },
+            [BINDING_TYPE_ATTR]: () => this.updateAttributeBinding(element, value),
         };
 
         // CUSTOM BINDING HANDLERS: Allows extending with custom binding types
@@ -961,6 +878,76 @@ export class ReactiveComponent extends HTMLElement {
         const handlers = { ...defaultHandlers, ...customHandlers };
 
         handlers[type]?.();
+    }
+
+    private updateValueBinding(element: HTMLElement, formattedValue: string): void {
+        if (!("value" in element)) return;
+        if (element instanceof HTMLInputElement && element.type === INPUT_TYPE_RADIO) {
+            this.updateRadioGroup(element, formattedValue);
+            return;
+        }
+        element.value = formattedValue;
+    }
+
+    private updateRadioGroup(element: HTMLInputElement, formattedValue: string): void {
+        if (!formattedValue) return;
+        const radios = this.querySelectorAll(`input[type="${INPUT_TYPE_RADIO}"][name="${element.name}"]`);
+        for (const radio of Array.from(radios)) {
+            if (radio instanceof HTMLInputElement) radio.checked = radio.value === formattedValue;
+        }
+    }
+
+    private updateClassBinding(element: HTMLElement, value: StateValue): void {
+        if (!value || typeof value !== "object") return;
+        for (const [method, classValue] of Object.entries(value)) {
+            this.applyClassOperation(element, method, classValue);
+        }
+        if (element.classList.length === 0) element.removeAttribute(ATTRIBUTE_CLASS);
+    }
+
+    private applyClassOperation(element: HTMLElement, method: string, value: unknown): void {
+        if (method === CLASS_LIST_ADD || method === CLASS_LIST_REMOVE) {
+            if (Array.isArray(value)) element.classList[method](...value);
+            else element.classList[method](value as string);
+            return;
+        }
+        if (method === CLASS_LIST_REPLACE) {
+            this.replaceClass(element, value);
+            return;
+        }
+        if (method !== CLASS_LIST_TOGGLE) return;
+        if (typeof value === "string") {
+            element.classList.toggle(value);
+            return;
+        }
+        if (typeof value === "object") {
+            const toggle = value as { key: string; value: boolean };
+            element.classList.toggle(toggle.key, toggle.value);
+        }
+    }
+
+    private replaceClass(element: HTMLElement, value: unknown): void {
+        if (!Array.isArray(value) || value.length !== 2) return;
+        element.classList.replace(value[0], value[1]);
+    }
+
+    private updateAttributeBinding(element: HTMLElement, value: StateValue): void {
+        if (typeof value === "string") {
+            element.removeAttribute(value);
+            return;
+        }
+        if (typeof value !== "object" || value === null) return;
+        for (const [attribute, attributeValue] of Object.entries(value)) {
+            this.setBoundAttribute(element, attribute, attributeValue);
+        }
+    }
+
+    private setBoundAttribute(element: HTMLElement, attribute: string, value: unknown): void {
+        if (value === null || value === false || value === undefined || value === "") {
+            element.removeAttribute(attribute);
+            return;
+        }
+        element.setAttribute(attribute, value === true ? "" : String(value));
     }
 
     /**
