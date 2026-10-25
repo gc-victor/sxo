@@ -7,22 +7,6 @@ settings:
 importers:
 
   .:
-    dependencies:
-      '@sxo/client':
-        specifier: ^0.10.1
-        version: link:packages/client
-      '@sxo/server':
-        specifier: ^0.10.1
-        version: link:packages/server
-      alien-signals:
-        specifier: ^3.2.1
-        version: 3.2.1
-      cac:
-        specifier: ^7.0.0
-        version: 7.0.0
-      esbuild:
-        specifier: ^0.28.0
-        version: 0.28.1
     devDependencies:
       '@biomejs/biome':
         specifier: ^2.4.15
