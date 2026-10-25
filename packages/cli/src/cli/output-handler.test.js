@@ -92,6 +92,23 @@ test("wireOutput: tees output with prefix handling newlines", async () => {
     assert.ok(tee.chunks[0].toString().includes("[P] test"));
 });
 
+test("wireOutput: prefixes multiple lines in one chunk and passes that raw chunk to each callback", async () => {
+    const received = [];
+    const tee = createMockWritable();
+    const chunk = Buffer.from("first\nsecond\n");
+    const readable = createMockReadable([chunk]);
+
+    wireOutput(readable, (line, raw) => received.push({ line, raw }), tee, "[P] ");
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    assert.deepEqual(
+        received.map(({ line }) => line),
+        ["[P] first", "[P] second"],
+    );
+    assert.ok(received.every(({ raw }) => raw === chunk));
+    assert.equal(Buffer.concat(tee.chunks).toString(), "[P] first\n[P] second\n");
+});
+
 test("wireOutput: accumulates partial lines", async () => {
     const lines = [];
     const readable = createMockReadable([Buffer.from("part1"), Buffer.from("-part2\n")]);
