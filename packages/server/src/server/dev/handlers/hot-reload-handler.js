@@ -240,12 +240,12 @@ export function createHotReloadHandler(config) {
      * @returns {Promise<void>}
      */
     async function broadcastReload(reloadFiles) {
-        if (reloadFiles) {
+        const esbuildError = getEsbuildError();
+        if (reloadFiles && !esbuildError) {
             await reloadFiles();
         }
 
         sseClients = sseClients.filter((c) => !c.closed);
-        const esbuildError = getEsbuildError();
 
         for (const client of sseClients) {
             const payload = await buildPayload(client, esbuildError);

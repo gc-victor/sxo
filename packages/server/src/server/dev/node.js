@@ -118,8 +118,10 @@ const debouncedEsbuild = debounce(async (/** @type {string} */ filename) => {
         colors: { yellow: YELLOW, reset: RESET },
         filename,
     });
-    // Only reload routes if no build errors (preserve last-known-good routes)
-    if (!esbuildError) {
+    // Keep last-known-good routes on failure, but notify connected clients.
+    if (esbuildError) {
+        await handler.broadcastReload();
+    } else {
         await handler.broadcastReload(reloadFilesJson);
     }
 }, 250);

@@ -272,6 +272,43 @@ describe("SSE with esbuild error", () => {
         strictEqual(response.status, 200);
         strictEqual(response.headers.get("Content-Type"), "text/event-stream");
     });
+
+    test("broadcasts build errors even when reloading routes fails", async () => {
+        let esbuildError = "";
+        const config = createMinimalConfig({
+            getRoutes: () => [createMockRoute()],
+            getEsbuildError: () => esbuildError,
+        });
+        const { handler, broadcastReload } = createHotReloadHandler(config);
+        const response = await handler(createRequest("http://localhost:3000/hot-replace?href=/"));
+        const reader = response.body.getReader();
+        let reloadCalled = false;
+
+        try {
+            esbuildError = "Build failed: Syntax error in index.jsx";
+            let broadcastError;
+            try {
+                await broadcastReload(async () => {
+                    reloadCalled = true;
+                    throw new Error("Previous route bundle is unavailable");
+                });
+            } catch (err) {
+                broadcastError = err;
+            }
+
+            strictEqual(broadcastError, undefined);
+            strictEqual(reloadCalled, false);
+
+            const { value } = await reader.read();
+            const event = new TextDecoder().decode(value);
+            const encodedPayload = event.match(/^data: (.+)$/m)?.[1];
+            strictEqual(Boolean(encodedPayload), true);
+            const payload = JSON.parse(Buffer.from(encodedPayload, "base64").toString("utf8"));
+            strictEqual(payload.body.includes("Build failed: Syntax error in index.jsx"), true);
+        } finally {
+            await reader.cancel();
+        }
+    });
 });
 
 describe("CORS headers", () => {
