@@ -19,6 +19,18 @@
 
 const loadedTags = new Set();
 
+function loadComponentForElement(element, componentMap) {
+    const tag = element.tagName.toLowerCase();
+    const importer = componentMap[tag];
+    if (!importer || loadedTags.has(tag)) return;
+
+    loadedTags.add(tag);
+    importer().catch((err) => {
+        console.warn(`Failed to load component <${tag}>:`, err);
+        loadedTags.delete(tag);
+    });
+}
+
 /**
  * Initialize lazy loading with user intent detection.
  * Attaches listeners to pointerover, focusin, and touchstart events.
@@ -33,18 +45,12 @@ export function lazyComponents(componentMap) {
      * @param {Event} event
      */
     const handle = (event) => {
-        let el = event.target instanceof Element ? event.target : null;
+        let element = event.target;
+        if (!(element instanceof Element)) return;
 
-        while (el && el !== document.body) {
-            const tag = el.tagName?.toLowerCase();
-            if (tag && componentMap[tag] && !loadedTags.has(tag)) {
-                loadedTags.add(tag);
-                componentMap[tag]().catch((err) => {
-                    console.warn(`Failed to load component <${tag}>:`, err);
-                    loadedTags.delete(tag);
-                });
-            }
-            el = el.parentElement;
+        while (element && element !== document.body) {
+            loadComponentForElement(element, componentMap);
+            element = element.parentElement;
         }
     };
 
