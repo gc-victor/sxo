@@ -25,11 +25,21 @@ function createReader(results, onRelease = () => {}) {
     };
 }
 
+function createDeferred() {
+    let resolve;
+    const promise = new Promise((resolvePromise) => {
+        resolve = resolvePromise;
+    });
+    return { promise, resolve };
+}
+
 const encoder = new TextEncoder();
 
 describe("createEsbuildSpawner", () => {
     test("Bun spawner captures stderr chunks and waits for the process", async (t) => {
-        let exited = false;
+        const exited = createDeferred();
+        const streamsSettled = createDeferred();
+        let completed = false;
         let released = false;
         const options = { PATH: "/bin" };
         setRuntimeMock(t, "Bun", {
@@ -51,18 +61,25 @@ describe("createEsbuildSpawner", () => {
                         ],
                         () => {
                             released = true;
+                            streamsSettled.resolve();
                         },
                     ),
-                    exited: Promise.resolve().then(() => {
-                        exited = true;
-                    }),
+                    exited: exited.promise,
                 };
             },
         });
 
         const spawn = createEsbuildSpawner("bun", "bun", "/config.js", "/pages", options, "/project");
-        assert.equal(await spawn(), "warning details");
-        assert.equal(exited, true);
+        const result = spawn().finally(() => {
+            completed = true;
+        });
+        await streamsSettled.promise;
+        await new Promise((resolve) => setImmediate(resolve));
+        assert.equal(completed, false);
+
+        exited.resolve(0);
+        assert.equal(await result, "warning details");
+        assert.equal(completed, true);
         assert.equal(released, true);
     });
 
@@ -99,7 +116,9 @@ describe("createEsbuildSpawner", () => {
     });
 
     test("Deno spawner captures stderr chunks and waits for the command", async (t) => {
-        let exited = false;
+        const status = createDeferred();
+        const streamsSettled = createDeferred();
+        let completed = false;
         let released = false;
         setRuntimeMock(t, "Deno", {
             Command: class {
@@ -125,19 +144,26 @@ describe("createEsbuildSpawner", () => {
                             ],
                             () => {
                                 released = true;
+                                streamsSettled.resolve();
                             },
                         ),
-                        status: Promise.resolve().then(() => {
-                            exited = true;
-                        }),
+                        status: status.promise,
                     };
                 }
             },
         });
 
         const spawn = createEsbuildSpawner("deno", "deno", "/config.js", "/pages", {}, "/project");
-        assert.equal(await spawn(), "error details");
-        assert.equal(exited, true);
+        const result = spawn().finally(() => {
+            completed = true;
+        });
+        await streamsSettled.promise;
+        await new Promise((resolve) => setImmediate(resolve));
+        assert.equal(completed, false);
+
+        status.resolve({ success: true });
+        assert.equal(await result, "error details");
+        assert.equal(completed, true);
         assert.equal(released, true);
     });
 

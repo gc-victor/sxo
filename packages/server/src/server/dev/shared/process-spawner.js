@@ -42,6 +42,32 @@ async function spawnNodeEsbuild(execPath, configPath, pagesDir, env, cwd) {
     });
 }
 
+async function readStderr(stream) {
+    if (!stream) return "";
+
+    const reader = stream.getReader();
+    /** @type {Uint8Array[]} */
+    const chunks = [];
+    try {
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            if (value) chunks.push(value);
+        }
+    } catch {
+        // Ignore read errors
+    } finally {
+        reader.releaseLock();
+    }
+
+    const decoder = new TextDecoder();
+    let stderr = "";
+    for (const chunk of chunks) {
+        stderr += decoder.decode(chunk);
+    }
+    return stderr;
+}
+
 /**
  * Spawn esbuild for Bun runtime.
  *
@@ -63,36 +89,9 @@ async function spawnBunEsbuild(execPath, configPath, pagesDir, env, cwd) {
         stderr: "pipe",
     });
 
-    /** @type {Uint8Array[]} */
-    const stderrChunks = [];
-
-    if (proc.stderr) {
-        const reader = proc.stderr.getReader();
-        try {
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                if (value) stderrChunks.push(value);
-            }
-        } catch {
-            // Ignore read errors
-        } finally {
-            reader.releaseLock();
-        }
-    }
-
+    const stderr = await readStderr(proc.stderr);
     await proc.exited;
-
-    if (stderrChunks.length > 0) {
-        const decoder = new TextDecoder();
-        let errorStr = "";
-        for (const chunk of stderrChunks) {
-            errorStr += decoder.decode(chunk);
-        }
-        return errorStr;
-    }
-
-    return "";
+    return stderr;
 }
 
 /**
@@ -118,36 +117,9 @@ async function spawnDenoEsbuild(execPath, configPath, pagesDir, env, cwd) {
     });
 
     const child = command.spawn();
-    /** @type {Uint8Array[]} */
-    const stderrChunks = [];
-
-    if (child.stderr) {
-        const reader = child.stderr.getReader();
-        try {
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                if (value) stderrChunks.push(value);
-            }
-        } catch {
-            // Ignore read errors
-        } finally {
-            reader.releaseLock();
-        }
-    }
-
+    const stderr = await readStderr(child.stderr);
     await child.status;
-
-    if (stderrChunks.length > 0) {
-        const decoder = new TextDecoder();
-        let stderr = "";
-        for (const chunk of stderrChunks) {
-            stderr += decoder.decode(chunk);
-        }
-        return stderr;
-    }
-
-    return "";
+    return stderr;
 }
 
 /**
