@@ -70,13 +70,13 @@ test("handleTestFail formats assertion details and increments counters", async (
     assert.match(output, /Expected: "expected"\n    Actual:   "actual"/);
 });
 
-test("handleTestFail formats multiline errors and omits the generic test failure code", async () => {
+test("handleTestFail omits the generic test failure code while formatting multiline details", async () => {
     const output = await collect(handleTestFail({
         data: {
             details: {
                 error: {
                     message: "first line\n  detail\n   \nsecond detail",
-                    code: "ERR_CUSTOM",
+                    code: "ERR_TEST_FAILURE",
                 },
             },
         },
@@ -84,6 +84,21 @@ test("handleTestFail formats multiline errors and omits the generic test failure
 
     assert.match(output, /× Unknown test/);
     assert.match(output, /Error: first line\n    detail\n    second detail/);
-    assert.match(output, /Code: ERR_CUSTOM/);
     assert.doesNotMatch(output, /ERR_TEST_FAILURE/);
+});
+
+test("handleTestFail retains custom error codes and useful details", async () => {
+    const output = await collect(handleTestFail({
+        data: {
+            details: {
+                error: {
+                    message: "custom failure\n  additional detail",
+                    code: "ERR_CUSTOM",
+                },
+            },
+        },
+    }, { totalTests: 0, failedTests: 0 }));
+
+    assert.match(output, /Error: custom failure\n    additional detail/);
+    assert.match(output, /Code: ERR_CUSTOM/);
 });

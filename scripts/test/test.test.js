@@ -31,8 +31,8 @@ test("test mode runs a selected test file through the silent reporter", () => {
 
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /Test Summary/);
-    assert.match(result.stdout, /Passed:  4/);
-    assert.match(result.stdout, /✅ All 4 test\(s\) passed/);
+    assert.match(result.stdout, /Passed:  5/);
+    assert.match(result.stdout, /✅ All 5 test\(s\) passed/);
 });
 
 test("runner maps source files to sibling tests and skips hidden directories", () => {
