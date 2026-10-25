@@ -50,6 +50,7 @@ class MockNode {
         const idx = parent.childNodes.indexOf(this);
         if (idx === -1) return;
         parent.childNodes.splice(idx, 1, ...nodes);
+        this.parentNode = null;
         for (const n of nodes) n.parentNode = parent;
         parent._updateEdgeChildren();
     }
@@ -60,7 +61,7 @@ class MockElement extends MockNode {
         super();
         this.tagName = tagName.toUpperCase();
         this._attrs = {};
-        this.innerHTML = "";
+        this._innerHTML = "";
         this.dataset = {};
         this.scrollLeft = 0;
         this.scrollTop = 0;
@@ -68,6 +69,16 @@ class MockElement extends MockNode {
         this._eventListeners = {};
         this._type = "";
         this._src = "";
+        this._href = "";
+    }
+
+    set innerHTML(value) {
+        clearChildren(this);
+        this._innerHTML = value;
+    }
+
+    get innerHTML() {
+        return this._innerHTML;
     }
 
     set src(val) {
@@ -76,6 +87,14 @@ class MockElement extends MockNode {
     }
     get src() {
         return this._src;
+    }
+
+    set href(val) {
+        this._href = val;
+        this._attrs.href = val;
+    }
+    get href() {
+        return this._href;
     }
 
     set type(val) {
@@ -98,6 +117,15 @@ class MockElement extends MockNode {
         delete this._attrs[name];
     }
 
+    remove() {
+        if (!this.parentNode) return;
+        const parent = /** @type {MockNode} */ (this.parentNode);
+        const index = parent.childNodes.indexOf(this);
+        if (index !== -1) parent.childNodes.splice(index, 1);
+        this.parentNode = null;
+        parent._updateEdgeChildren();
+    }
+
     get attributes() {
         return Object.entries(this._attrs).map(([n, v]) => ({ name: n, value: v }));
     }
@@ -115,12 +143,19 @@ class MockElement extends MockNode {
         return true;
     }
 
-    querySelectorAll(_selector) {
+    querySelectorAll(selector) {
         const results = [];
+        const matches = (element) => {
+            if (selector === "*") return true;
+            if (selector === "[data-hrc]") return Boolean(element.dataset.hrc);
+            const stylesheet = selector.match(/^link\[rel="([^"]+)"\]$/);
+            if (stylesheet) return element.tagName === "LINK" && element.rel === stylesheet[1];
+            return element.tagName.toLowerCase() === selector.toLowerCase();
+        };
         function walk(node) {
             for (const child of node.childNodes) {
                 if (child instanceof MockElement) {
-                    results.push(child);
+                    if (matches(child)) results.push(child);
                     walk(child);
                 }
             }
@@ -216,47 +251,27 @@ function setupDomStubs() {
         customElements: stubs.customElements,
         MutationObserver: stubs.MutationObserver,
         EventSource: stubs.EventSource,
+        Element: MockElement,
         window: globalThis,
     });
 }
 
-function scripts(data, onFirstLoaded) {
-    const paths = data.assets?.js;
-    if (!paths?.length) {
-        onFirstLoaded?.();
-        return;
-    }
-    const publicPath = data.publicPath || "";
-    let remaining = paths.length;
-    let resolved = false;
-    function resolve() {
-        if (resolved) return;
-        resolved = true;
-        clearTimeout(fallbackTimer);
-        onFirstLoaded?.();
-    }
-    const fallbackTimer = setTimeout(() => {
-        resolve();
-    }, 30000);
-    paths.forEach((path) => {
-        const src = publicPath + path;
-        const script = document.createElement("script");
-        script.type = "module";
-        script.src = `${src}?hmr=${Date.now()}`;
-        function loaded() {
-            if (--remaining > 0) return;
-            resolve();
-        }
-        script.addEventListener("load", loaded, { once: true });
-        script.addEventListener(
-            "error",
-            (_err) => {
-                loaded();
-            },
-            { once: true },
-        );
-        document.body.appendChild(script);
-    });
+function encodePayload(payload) {
+    const bytes = new TextEncoder().encode(JSON.stringify(payload));
+    return btoa(String.fromCodePoint(...bytes));
+}
+
+function sendHotMessage(payload, afterMessage) {
+    const source = stubs.EventSource._lastInstance;
+    source.onmessage({ data: encodePayload(payload) });
+    mock.timers.tick(500);
+    afterMessage?.();
+}
+
+function clearChildren(element) {
+    for (const child of element.childNodes) child.parentNode = null;
+    element.childNodes = [];
+    element._updateEdgeChildren();
 }
 
 let mod;
@@ -271,6 +286,7 @@ before(() => {
 afterEach(() => {
     delete globalThis.___hrcStates;
     delete globalThis.__customElementVersions;
+    delete globalThis.ReactiveComponent;
     globalThis.__customElementVersions = {};
     for (const key of Object.keys(registry)) delete registry[key];
     if (stubs.EventSource._lastInstance) {
@@ -391,80 +407,162 @@ describe("installCustomElementRedefinition (override simulated)", () => {
 });
 
 describe("module observer attachment (via hotReplace)", () => {
-    test("installCustomElementRedefinition attaches MutationObserver", () => {
+    test("observer callback upgrades matching custom elements in added subtrees", () => {
         mod.hotReplace("/test");
         ok(stubs.MutationObserver._lastTarget !== null, "observer was created");
         strictEqual(stubs.MutationObserver._lastTarget, globalThis.document.documentElement, "observer watches documentElement");
         deepStrictEqual(stubs.MutationObserver._lastOptions, { childList: true, subtree: true });
+
+        const Ctr = class extends MockElement {};
+        customElements.define("x-observed", Ctr);
+        const container = new MockElement("div");
+        const runtimeElement = new MockElement("x-observed");
+        container.appendChild(runtimeElement);
+        stubs.MutationObserver._lastInstance._callback([{ addedNodes: [new MockNode(), container] }]);
+        strictEqual(container.querySelectorAll("x-observed-2").length, 1);
     });
 });
 
-describe("scripts()", () => {
+describe("hot-replace message handling", () => {
     beforeEach(() => {
         mock.timers.enable({ apis: ["setTimeout"] });
-        if (globalThis.document?.body) {
-            globalThis.document.body.childNodes = [];
-            globalThis.document.body.firstChild = null;
-            globalThis.document.body.lastChild = null;
-        }
+        clearChildren(globalThis.document.body);
+        clearChildren(globalThis.document.head);
+        mod.hotReplace("/message-test");
     });
 
     afterEach(() => {
         mock.timers.reset();
     });
 
-    test("calls onFirstLoaded immediately when no scripts to load", () => {
-        let callCount = 0;
-        scripts({ assets: { js: [], css: [] }, publicPath: "/" }, () => {
-            callCount++;
-        });
-        strictEqual(callCount, 1, "callback called");
+    test("ignores invalid encoded messages and uses the empty fallback for invalid payloads", () => {
+        const source = stubs.EventSource._lastInstance;
+        source.onmessage({ data: "%%%" });
+        mock.timers.tick(500);
+        strictEqual(globalThis.document.body.innerHTML, "");
+
+        sendHotMessage({ notBody: true });
+        strictEqual(globalThis.document.body.innerHTML, "");
     });
 
-    test("creates script elements with correct src", () => {
-        scripts({ assets: { js: ["entry.js"], css: [] }, publicPath: "/" }, () => {});
-        const scriptEls = globalThis.document.body.querySelectorAll("script");
-        ok(scriptEls.length > 0, "script element was created");
-        const src = /** @type {any} */ (scriptEls[0]).src || "";
-        ok(src.includes("entry.js"), `src contains entry.js: ${src}`);
-        ok(src.includes("?hmr="), "src has hmr cache-busting");
+    test("updates body and finishes immediately when no scripts are present", () => {
+        sendHotMessage({ body: "<main>updated</main>", assets: { js: [], css: [] }, publicPath: "/" });
+        strictEqual(globalThis.document.body.innerHTML, "<main>updated</main>");
+    });
+
+    test("waits for all scripts to load before upgrading runtime elements", () => {
+        const Ctr = class extends MockElement {};
+        customElements.define("x-script-ready", Ctr);
+        const el = new MockElement("x-script-ready");
+        globalThis.document.body.appendChild(el);
+
+        sendHotMessage({ body: "loaded", assets: { js: ["a.js", "b.js"], css: [] }, publicPath: "/assets/" });
+        strictEqual(el.parentNode, null, "body replacement detaches the old element");
+        globalThis.document.body.appendChild(el);
+        const scripts = globalThis.document.body.querySelectorAll("script");
+        strictEqual(scripts.length, 2);
+        ok(scripts[0].src.startsWith("/assets/a.js?hmr="));
+        strictEqual(globalThis.document.body.querySelectorAll("x-script-ready-2").length, 0);
+
+        scripts[0].dispatchEvent(new MockEvent("load"));
+        strictEqual(el.parentNode, globalThis.document.body, "waits for the second script");
+        scripts[1].dispatchEvent(new MockEvent("load"));
+        strictEqual(globalThis.document.body.querySelectorAll("x-script-ready-2").length, 1);
+    });
+
+    test("continues after a script error and uses the fallback when no load event arrives", () => {
+        const Ctr = class extends MockElement {};
+        customElements.define("x-script-failure", Ctr);
+        const el = new MockElement("x-script-failure");
+        globalThis.document.body.appendChild(el);
+
+        sendHotMessage({ body: "failure", assets: { js: ["broken.js"], css: [] }, publicPath: "" });
+        globalThis.document.body.appendChild(el);
+        globalThis.document.body.querySelectorAll("script")[0].dispatchEvent(new MockEvent("error"));
+        strictEqual(globalThis.document.body.querySelectorAll("x-script-failure-2").length, 1);
+
+        sendHotMessage({ body: "fallback", assets: { js: ["stalled.js"], css: [] }, publicPath: "" });
+        const stalled = globalThis.document.body.querySelectorAll("script").find((item) => item.src.includes("stalled.js"));
+        ok(stalled);
+        const pending = new MockElement("x-script-failure");
+        globalThis.document.body.appendChild(pending);
         mock.timers.tick(30000);
+        strictEqual(globalThis.document.body.innerHTML, "fallback");
+        strictEqual(pending.parentNode, null);
+        strictEqual(globalThis.document.body.querySelectorAll("x-script-failure-3").length, 1);
     });
 
-    test("calls onFirstLoaded after single script loads", () => {
-        let callCount = 0;
-        scripts({ assets: { js: ["entry.js"], css: [] }, publicPath: "/" }, () => callCount++);
-        strictEqual(callCount, 0, "not called before script load");
+    test("replaces matching stylesheets after load and removes a failed stylesheet", () => {
+        const addLink = (href, hmrId) => {
+            const link = globalThis.document.createElement("link");
+            link.rel = "stylesheet";
+            link.href = href;
+            if (hmrId) link.dataset.hmrId = hmrId;
+            globalThis.document.head.appendChild(link);
+            return link;
+        };
+        const matchingId = addLink("/assets/theme-old.css", "/assets/theme.css");
+        const matchingHref = addLink("/assets/theme.css");
+        const matchingQuery = addLink("/assets/theme.css?old=1");
+        const unrelated = addLink("/assets/other.css");
 
-        const scriptEls = globalThis.document.body.querySelectorAll("script");
-        ok(scriptEls.length > 0, "script element was created");
-        scriptEls[0].dispatchEvent(new MockEvent("load"));
-        strictEqual(callCount, 1, "callback called after script load");
-        mock.timers.tick(100);
+        sendHotMessage({ body: "styles", assets: { js: [], css: ["theme.css"] }, publicPath: "/assets/" });
+        const replacement = globalThis.document.head.querySelectorAll('link[rel="stylesheet"]').find((link) => link.dataset.hmr === "true");
+        ok(replacement);
+        replacement.dispatchEvent(new MockEvent("load"));
+        strictEqual(replacement.parentNode, globalThis.document.head);
+        strictEqual(matchingId.parentNode, null);
+        strictEqual(matchingHref.parentNode, null);
+        strictEqual(matchingQuery.parentNode, null);
+        ok(unrelated.parentNode, "unrelated stylesheet remains");
+
+        sendHotMessage({ body: "style-error", assets: { js: [], css: ["broken.css"] }, publicPath: "/assets/" });
+        const failed = globalThis.document.head
+            .querySelectorAll('link[rel="stylesheet"]')
+            .find((link) => link.dataset.hmrId === "/assets/broken.css");
+        ok(failed);
+        failed.dispatchEvent(new MockEvent("error"));
+        strictEqual(failed.parentNode, null);
     });
 
-    test("calls onFirstLoaded even when scripts fail", () => {
-        let callCount = 0;
-        scripts({ assets: { js: ["broken.js"], css: [] }, publicPath: "/" }, () => callCount++);
-        const scriptEls = globalThis.document.body.querySelectorAll("script");
-        scriptEls[0].dispatchEvent(new MockEvent("error"));
-        strictEqual(callCount, 1, "callback called after script error");
-        mock.timers.tick(100);
-    });
+    test("preserves and restores reactive state, including failed signal reads and writes", () => {
+        const component = new MockElement("x-stateful");
+        component.dataset.hrc = "state-1";
+        component.state = new Map([
+            ["count", () => 7],
+            [
+                "readFailure",
+                () => {
+                    throw new Error("signal failed");
+                },
+            ],
+            ["writeFailure", () => 9],
+            ["ignored", 1],
+        ]);
+        const replacement = new MockElement("x-stateful");
+        replacement.dataset.hrc = "state-1";
+        replacement.restored = [];
+        replacement.setState = (key, value) => {
+            if (key === "writeFailure") throw new Error("setter failed");
+            replacement.restored.push([key, value]);
+        };
+        const withoutState = new MockElement("x-stateful");
+        withoutState.dataset.hrc = "no-state";
+        const emptyState = new MockElement("x-stateful");
+        emptyState.dataset.hrc = "empty-state";
+        emptyState.state = new Map([["ignored", 1]]);
+        globalThis.document.body.appendChild(component);
 
-    test("onFirstLoaded is called exactly once with multiple scripts", () => {
-        let callCount = 0;
-        scripts({ assets: { js: ["a.js", "b.js"], css: [] }, publicPath: "/" }, () => callCount++);
-
-        const scriptEls = globalThis.document.body.querySelectorAll("script");
-        strictEqual(scriptEls.length, 2, "two script elements created");
-
-        scriptEls[0].dispatchEvent(new MockEvent("load"));
-        strictEqual(callCount, 0, "not called after first script (one remaining)");
-
-        scriptEls[1].dispatchEvent(new MockEvent("load"));
-        strictEqual(callCount, 1, "called after both scripts loaded");
-        mock.timers.tick(100);
+        sendHotMessage({ body: "state", assets: { js: ["state.js"], css: [] }, publicPath: "" }, () => {
+            strictEqual(component.parentNode, null);
+            globalThis.document.body.appendChild(replacement);
+            globalThis.document.body.appendChild(withoutState);
+            globalThis.document.body.appendChild(emptyState);
+            globalThis.document.body.querySelectorAll("script")[0].dispatchEvent(new MockEvent("load"));
+            mock.timers.tick(500);
+        });
+        deepStrictEqual(replacement.restored, [["count", 7]]);
+        strictEqual(globalThis.___hrcStates.has("state-1"), false, "restored snapshot is removed");
     });
 });
 
@@ -597,6 +695,31 @@ describe("getDataset", () => {
 
     test("returns null for null", () => {
         strictEqual(getDataset(null), null);
+    });
+});
+
+describe("reactive component identity during redefinition", () => {
+    beforeEach(() => {
+        clearChildren(globalThis.document.body);
+        mod.hotReplace("/hrc-test");
+    });
+
+    test("copies an existing HRC and hashes components without one", () => {
+        globalThis.ReactiveComponent = class extends MockElement {};
+        const existing = new MockElement("x-reactive");
+        existing.dataset.hrc = "stable-id";
+        existing.innerHTML = "preserve this content";
+        const generated = new MockElement("x-reactive");
+        generated.innerHTML = "hash this content";
+        globalThis.document.body.appendChild(existing);
+        globalThis.document.body.appendChild(generated);
+
+        customElements.define("x-reactive", class extends globalThis.ReactiveComponent {});
+
+        const replacements = globalThis.document.body.querySelectorAll("x-reactive-1");
+        strictEqual(replacements.length, 2);
+        strictEqual(replacements[0].dataset.hrc, "stable-id");
+        ok(/^\d+-1$/.test(replacements[1].dataset.hrc), "missing identity is generated");
     });
 });
 
