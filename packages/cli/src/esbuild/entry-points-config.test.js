@@ -91,6 +91,37 @@ test("entryPointsConfig basic routing", async (t) => {
     });
 });
 
+test("entryPointsConfig adds shared client entries once to each route", () => {
+    const sharedPagesDir = path.join(tempRoot, "shared-client-pages");
+    const rootClient = path.join(sharedPagesDir, "client", "index.js");
+    const pageClient = path.join(sharedPagesDir, "about", "client", "index.js");
+    const globalCss = path.relative(process.cwd(), path.join(sharedPagesDir, "global.css")).replace(/\\/g, "/");
+    writeFileRecursive(path.join(sharedPagesDir, "index.tsx"), "// root");
+    writeFileRecursive(rootClient, "// shared client");
+    writeFileRecursive(path.join(sharedPagesDir, "about", "index.tsx"), "// about");
+    writeFileRecursive(pageClient, "// page client");
+    writeFileRecursive(path.join(sharedPagesDir, "global.css"), "body{}");
+
+    const routes = entryPointsConfig({
+        pagesDir: sharedPagesDir,
+        pagesRelativeDir: path.relative(process.cwd(), sharedPagesDir),
+        clientDir: "client",
+        cwd: process.cwd(),
+    });
+    const sharedClientPath = path.relative(process.cwd(), rootClient).replace(/\\/g, "/");
+    const pageClientPath = path.relative(process.cwd(), pageClient).replace(/\\/g, "/");
+    const rootRoute = routes.find((route) => route.filename === "index.html");
+    const aboutRoute = routes.find((route) => route.filename === "about/index.html");
+
+    assert.ok(rootRoute);
+    assert.ok(aboutRoute);
+    assert.equal(rootRoute.entryPoints.filter((entry) => entry === sharedClientPath).length, 1);
+    assert.ok(aboutRoute.entryPoints.includes(sharedClientPath));
+    assert.ok(aboutRoute.entryPoints.includes(pageClientPath));
+    assert.ok(aboutRoute.entryPoints.includes(globalCss));
+    assert.equal(aboutRoute.entryPoints.filter((entry) => entry === sharedClientPath).length, 1);
+});
+
 test("entryPointsConfig error handling and edge cases", async (t) => {
     await t.test("throws on duplicate parameter names", () => {
         const invalidDir = path.join(fixturesRoot, "invalid-dup", "[id]", "[id]");

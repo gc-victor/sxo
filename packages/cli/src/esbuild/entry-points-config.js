@@ -108,6 +108,31 @@ function isIndexFile(name) {
     return /^index\.(tsx|ts|jsx|js)$/.test(name);
 }
 
+function readDirectoryEntries(dir) {
+    try {
+        return fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+        return null;
+    }
+}
+
+function findPageIndexAndQueueDirectories(dir, dirents, clientDir, stack) {
+    let pageIndex = null;
+    for (const entry of dirents) {
+        if (entry.isFile()) {
+            const ext = path.extname(/** @type {string} */ (entry.name));
+            if (!pageIndex && PAGE_EXTENSIONS.includes(ext) && isIndexFile(/** @type {string} */ (entry.name))) {
+                pageIndex = path.join(dir, /** @type {string} */ (entry.name));
+            }
+        } else if (entry.isDirectory()) {
+            if (/** @type {string} */ (entry.name) !== clientDir && !entry.isSymbolicLink()) {
+                stack.push(path.join(dir, /** @type {string} */ (entry.name)));
+            }
+        }
+    }
+    return pageIndex;
+}
+
 /**
  * Scan PAGES_DIR for page directories with index.* and their client entries.
  * Uses iterative traversal to avoid the configured client subdirectory (which never produces routes).
@@ -121,34 +146,11 @@ function scanPagesTree(pagesDir, clientDir) {
 
     while (stack.length) {
         const dir = /** @type {string} */ (stack.pop());
-        let dirents;
-        try {
-            dirents = fs.readdirSync(dir, { withFileTypes: true });
-        } catch {
-            continue;
-        }
+        const dirents = readDirectoryEntries(dir);
+        if (!dirents) continue;
+        if (path.basename(dir) === clientDir) continue;
 
-        // Skip if the directory itself is a client subdir
-        if (path.basename(dir) === clientDir) {
-            continue;
-        }
-
-        let pageIndex = null;
-
-        // Single pass: find page index and queue subdirectories
-        for (const d of dirents) {
-            if (d.isFile()) {
-                const ext = path.extname(/** @type {string} */ (d.name));
-                if (!pageIndex && PAGE_EXTENSIONS.includes(ext) && isIndexFile(/** @type {string} */ (d.name))) {
-                    pageIndex = path.join(dir, /** @type {string} */ (d.name));
-                }
-            } else if (d.isDirectory()) {
-                if (/** @type {string} */ (d.name) !== clientDir && !d.isSymbolicLink()) {
-                    stack.push(path.join(dir, /** @type {string} */ (d.name)));
-                }
-            }
-        }
-
+        const pageIndex = findPageIndexAndQueueDirectories(dir, dirents, clientDir, stack);
         if (pageIndex) {
             const clientEntries = findClientEntries(dir, clientDir);
             metaMap.set(dir, { pageIndex, clientEntries });
@@ -228,69 +230,60 @@ function sortRoutesBySpecificity(routes) {
 }
 
 /**
- * Convert metadata into final route objects for esbuild.
- * Each route's entryPoints includes route-specific client code and global.css (if present).
- * Also includes root-level client entries (from pages/client/) for all routes,
- * so that shared interactive components (tabs, dialogs, etc.) work on every page.
- * Note: esbuild deduplicates identical entries during bundling.
+ * Create one route, including shared and route-specific client entries.
+ * Route patterns are validated before the route is returned.
  *
- * Validates route patterns to ensure parameter names are:
- * - Alphanumeric (plus underscore)
- * - Start with a letter
- * - Unique within each route
- *
- * Routes are sorted by specificity so static routes outrank dynamic siblings.
- *
- * @param {Map<string, {pageIndex: string, clientEntries: string[]}>} metaMap
+ * @param {string} absDir
+ * @param {{pageIndex: string, clientEntries: string[]}} page
  * @param {{globalCss: string | null, cwd: string, pagesDir: string, clientDir: string}} options
- * @returns {{filename: string, entryPoints: string[], jsx: string, scriptLoading: string, hash: boolean, path?: string, isErrorPage?: boolean}[]}
+ * @param {string[]} rootClientEntries
+ * @returns {{filename: string, entryPoints: string[], jsx: string, scriptLoading: string, hash: boolean, path?: string, isErrorPage?: boolean}}
  */
-function assembleRoutes(metaMap, { globalCss, cwd, pagesDir, clientDir }) {
-    // Include root-level client entries (e.g. pages/client/index.js) for all routes
-    // so shared interactive code is available on every page
-    const rootClientEntries = findClientEntries(pagesDir, clientDir);
-    const routes = [];
-    for (const [absDir, { pageIndex, clientEntries }] of metaMap.entries()) {
-        const relDir = convertToPosixSlashes(path.relative(pagesDir, absDir));
-        const isRoot = relDir === "" || relDir === ".";
-        const pageBase = `${path.basename(pageIndex).replace(/\.(tsx|ts|jsx|js)$/, "")}.html`;
-        const filename = convertToPosixSlashes(isRoot ? pageBase : path.join(relDir, pageBase));
+function createRoute(absDir, page, options, rootClientEntries) {
+    const { globalCss, cwd, pagesDir } = options;
+    const relDir = convertToPosixSlashes(path.relative(pagesDir, absDir));
+    const isRoot = relDir === "" || relDir === ".";
+    const pageBase = `${path.basename(page.pageIndex).replace(/\.(tsx|ts|jsx|js)$/, "")}.html`;
+    const filename = convertToPosixSlashes(isRoot ? pageBase : path.join(relDir, pageBase));
 
-        // Validate route pattern before building (fail fast)
-        if (!isRoot) {
-            const validation = validateRoutePattern(relDir);
-            if (!validation.valid) {
-                throw new Error(`Invalid route pattern "${relDir}": ${validation.error}`);
-            }
+    if (!isRoot) {
+        const validation = validateRoutePattern(relDir);
+        if (!validation.valid) {
+            throw new Error(`Invalid route pattern "${relDir}": ${validation.error}`);
         }
-
-        // Detect special error page directories (404, 500)
-        const isErrorPage = !isRoot && (relDir === "404" || relDir === "500");
-
-        // Deduplicate: root route already gets root entries via its own clientEntries.
-        // Use a Set to avoid duplicates in the manifest.
-        const entryPathSet = new Set([
-            ...rootClientEntries.map((/** @type {string} */ entry) => convertToPosixSlashes(path.relative(cwd, entry))),
-            ...clientEntries.map((/** @type {string} */ entry) => convertToPosixSlashes(path.relative(cwd, entry))),
-        ]);
-        const entryPoints = [...entryPathSet, ...(globalCss ? [globalCss] : [])];
-
-        /** @type {{filename: string, entryPoints: string[], jsx: string, scriptLoading: string, hash: boolean, path?: string, isErrorPage?: boolean}} */
-        const route = {
-            filename,
-            entryPoints,
-            jsx: convertToPosixSlashes(path.relative(cwd, pageIndex)),
-            scriptLoading: "module",
-            hash: process.env.DEV === "true", // boolean flag (true in dev) enabling htmlPlugin cache-busting hash
-        };
-        if (isErrorPage) {
-            route.isErrorPage = true;
-        } else if (!isRoot) {
-            route.path = relDir;
-        }
-        routes.push(route);
     }
 
-    // Sort routes by specificity: static routes outrank dynamic siblings
+    const isErrorPage = relDir === "404" || relDir === "500";
+    const entryPathSet = new Set([
+        ...rootClientEntries.map((/** @type {string} */ entry) => convertToPosixSlashes(path.relative(cwd, entry))),
+        ...page.clientEntries.map((/** @type {string} */ entry) => convertToPosixSlashes(path.relative(cwd, entry))),
+    ]);
+    const route = {
+        filename,
+        entryPoints: [...entryPathSet, ...(globalCss ? [globalCss] : [])],
+        jsx: convertToPosixSlashes(path.relative(cwd, page.pageIndex)),
+        scriptLoading: "module",
+        hash: process.env.DEV === "true",
+    };
+
+    if (isErrorPage) {
+        route.isErrorPage = true;
+    } else if (!isRoot) {
+        route.path = relDir;
+    }
+    return route;
+}
+
+/**
+ * Convert page metadata into routes and sort them by specificity.
+ * @param {Map<string, {pageIndex: string, clientEntries: string[]}>} metaMap
+ * @param {{globalCss: string | null, cwd: string, pagesDir: string, clientDir: string}} options
+ */
+function assembleRoutes(metaMap, options) {
+    const rootClientEntries = findClientEntries(options.pagesDir, options.clientDir);
+    const routes = [];
+    for (const [absDir, page] of metaMap.entries()) {
+        routes.push(createRoute(absDir, page, options, rootClientEntries));
+    }
     return sortRoutesBySpecificity(routes);
 }

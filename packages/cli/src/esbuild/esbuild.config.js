@@ -18,7 +18,7 @@ import { esbuildMetafilePlugin } from "./esbuild-metafile.plugin.js";
  * @param {string} pagesDir - Absolute path to the pages directory
  * @returns {string[]} Array of relative paths to existing error page files
  */
-export function discoverSpecialServerEntries(pagesDir) {
+function discoverSpecialServerEntries(pagesDir) {
     const candidates = ["404.tsx", "404.jsx", "404.ts", "404.js", "500.tsx", "500.jsx", "500.ts", "500.js"];
     const entries = [];
 
@@ -128,7 +128,7 @@ const ALLOWED_BUILD_KEYS = [
  * @param {object} config - Raw config from BUILD env variable
  * @returns {object} Filtered config with only allowed keys
  */
-export function filterBuildConfig(config) {
+function filterBuildConfig(config) {
     /** @type {Record<string, unknown>} */
     const filtered = {};
     for (const key of ALLOWED_BUILD_KEYS) {

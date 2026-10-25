@@ -375,3 +375,32 @@ test("metafile plugin skips assets outside client dir", async () => {
     const routes = JSON.parse(fs.readFileSync(routesFile, "utf8"));
     assert.deepEqual(routes[0].assets, { css: [], js: [] });
 });
+
+test("metafile plugin deduplicates mapped assets and ignores unsupported entries", async () => {
+    const { clientDir, routesFile } = makeCaseDirs("edge-duplicate-assets");
+    const jsEntry = "src/pages/foo/client/index.js";
+    const cssEntry = "src/pages/global.css";
+
+    writeRoutes(routesFile, [
+        {
+            filename: "foo/index.html",
+            entryPoints: [jsEntry, jsEntry, cssEntry, cssEntry, "src/pages/image.svg", "../outside.js"],
+        },
+    ]);
+
+    const metafile = makeMetafileFor(clientDir, {
+        jsOutName: "foo/index.js",
+        jsCssBundleName: "foo/index.css",
+        cssOutName: "global.css",
+        jsEntry,
+        cssEntry,
+    });
+
+    await createPluginAndRun({ clientDir, routesFile, metafile });
+
+    const [route] = readJson(routesFile);
+    assert.deepEqual(route.assets, {
+        css: ["foo/index.css", "global.css"],
+        js: ["foo/index.js"],
+    });
+});

@@ -31,52 +31,34 @@ function __jsxFragment({ children }) {
  * @param {any} children - Child nodes or content
  * @returns {string} Rendered JSX or HTML string
  */
-function __jsxComponent(Component, props, children) {
-    // Accept both array-of-prop-objects (current transformer output) or a single object.
+const VOID_TAGS = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"]);
+
+function mergeComponentProps(props, children) {
     /** @type {Record<string, unknown>} */
-    let finalProps;
-    if (Array.isArray(props)) {
-        finalProps = {};
-        for (const prop of props) {
-            if (prop && typeof prop === "object") {
-                for (const [key, value] of Object.entries(prop)) {
-                    finalProps[key] = value;
-                }
-            }
+    const merged = {};
+    const sources = Array.isArray(props) ? props : [props];
+
+    for (const source of sources) {
+        if (source && typeof source === "object") {
+            Object.assign(merged, source);
         }
-    } else {
-        finalProps = /** @type {Record<string, unknown>} */ (props) || {};
     }
-    // Attach children last so explicit "children" in prop objects can override if desired
-    finalProps = { ...finalProps, children };
+
+    return { ...merged, children };
+}
+
+function renderIntrinsicElement(tag, props, children) {
+    const { children: _ignoredChildren, ...attributes } = props;
+    const spread = __jsxSpread(attributes);
+    return VOID_TAGS.has(tag) ? `<${tag}${spread}/>` : `<${tag}${spread}>${__jsxRender(children)}</${tag}>`;
+}
+
+function __jsxComponent(Component, props, children) {
+    const finalProps = mergeComponentProps(props, children);
 
     // Intrinsic element support: if Component is a string (e.g. "div", "section"), render as an HTML element.
     if (typeof Component === "string") {
-        const tag = Component;
-        // Handle void elements (no closing tag, children ignored)
-        const voidTags = new Set([
-            "area",
-            "base",
-            "br",
-            "col",
-            "embed",
-            "hr",
-            "img",
-            "input",
-            "link",
-            "meta",
-            "param",
-            "source",
-            "track",
-            "wbr",
-        ]);
-        // Separate children from attributes
-        const { children: _ignoredChildren, ...rest } = finalProps;
-        const spread = __jsxSpread(rest);
-        if (voidTags.has(tag)) {
-            return `<${tag}${spread}/>`;
-        }
-        return `<${tag}${spread}>${__jsxRender(children)}</${tag}>`;
+        return renderIntrinsicElement(Component, finalProps, children);
     }
 
     if (typeof Component !== "function") {

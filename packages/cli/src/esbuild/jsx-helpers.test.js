@@ -251,6 +251,23 @@ test("should throw when component is not function or string", () => {
     assert.throws(() => __jsxComponent(42, []), /expected a function or intrinsic tag string/i);
 });
 
+test("should merge component props in order and use the supplied children", () => {
+    let receivedProps;
+    const Component = (props) => {
+        receivedProps = props;
+        return `${props.value}:${props.children}`;
+    };
+
+    const result = __jsxComponent(
+        Component,
+        [{ value: "first", retained: true, children: "prop child" }, null, "ignored", { value: "last" }],
+        "argument child",
+    );
+
+    assert.strictEqual(result, "last:argument child");
+    assert.deepStrictEqual(receivedProps, { value: "last", retained: true, children: "argument child" });
+});
+
 test("component rendering variations", async (t) => {
     const cases = [
         { name: "no props", component: () => "<div>Basic Component</div>", props: [], expected: "<div>Basic Component</div>" },

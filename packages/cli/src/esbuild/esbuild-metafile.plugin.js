@@ -67,6 +67,65 @@ async function writeJson(filePath, data) {
     await writeFile(filePath, JSON.stringify(data, null, 2), "utf8");
 }
 
+async function readRoutesManifest(routesFile) {
+    try {
+        const text = await fileReader.readText(routesFile);
+        return text ? JSON.parse(text) : [];
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn("Metafile unable to read routes manifest:", routesFile, message);
+        return [];
+    }
+}
+
+function addEntryAssets(entryPoint, maps, assets) {
+    const normalizedEntry = convertToPosixSlashes(String(entryPoint));
+    const mappedOutput = maps.entryToOutput.get(normalizedEntry);
+    if (!mappedOutput || mappedOutput.startsWith("..")) return;
+
+    if (/\.(css)$/.test(normalizedEntry)) {
+        if (!assets.css.includes(mappedOutput)) assets.css.push(mappedOutput);
+        return;
+    }
+    if (!/\.(m?jsx?|tsx?)$/.test(normalizedEntry)) return;
+
+    if (!assets.js.includes(mappedOutput)) assets.js.push(mappedOutput);
+    const cssBundle = maps.entryToCssBundle.get(normalizedEntry);
+    if (cssBundle && !assets.css.includes(cssBundle)) assets.css.push(cssBundle);
+}
+
+function collectRouteAssets(entryPoints, maps) {
+    const assets = { css: [], js: [] };
+    for (const entryPoint of Array.isArray(entryPoints) ? entryPoints : []) {
+        addEntryAssets(entryPoint, maps, assets);
+    }
+    return assets;
+}
+
+function updateRouteAssets(routes, maps) {
+    for (const route of Array.isArray(routes) ? routes : []) {
+        if (!route || typeof route !== "object" || typeof route.filename !== "string") continue;
+        route.assets = collectRouteAssets(route.entryPoints, maps);
+    }
+}
+
+async function handleMetafileEnd(result, outputDirClient, routesFile) {
+    if (!result?.metafile) return;
+
+    try {
+        const routes = await readRoutesManifest(routesFile);
+        const maps = buildAssetMaps(result.metafile, path.resolve(outputDirClient));
+        updateRouteAssets(routes, maps);
+        await writeJson(routesFile, routes);
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error("Metafile onEnd failure:", error);
+        return {
+            errors: [{ text: `Metafile plugin failed to persist manifest: ${message}` }],
+        };
+    }
+}
+
 /**
  * Create esbuild metafile plugin.
  *
@@ -84,74 +143,7 @@ export function esbuildMetafilePlugin(options = {}) {
         name: "sxo-metafile",
         /** @param {{ onEnd: (callback: (result: { metafile?: unknown }) => Promise<void | { errors: { text: string }[] }>) => void }} build */
         setup(build) {
-            build.onEnd(async (/** @type {{ metafile?: unknown }} */ result) => {
-                try {
-                    if (!result?.metafile) {
-                        // No metafile -> nothing to do. Caller must ensure metafile: true.
-                        return;
-                    }
-
-                    // Routing manifest written before builds (see esbuild.config.js)
-                    let routes = [];
-                    try {
-                        const txt = await fileReader.readText(routesFile);
-                        if (txt) {
-                            routes = JSON.parse(txt);
-                        }
-                    } catch (e) {
-                        const message = e instanceof Error ? e.message : String(e);
-                        console.warn("Metafile unable to read routes manifest:", routesFile, message);
-                        routes = [];
-                    }
-
-                    const outputDirClientAbs = path.resolve(outputDirClient);
-
-                    const { entryToOutput, entryToCssBundle } = buildAssetMaps(result.metafile, outputDirClientAbs);
-
-                    // Compute per-route assets and persist into routes.json (no HTML generation here)
-                    for (const route of Array.isArray(routes) ? routes : []) {
-                        if (!route || typeof route !== "object") continue;
-                        if (typeof route.filename !== "string") continue;
-
-                        const entryPoints = Array.isArray(route.entryPoints) ? route.entryPoints : [];
-                        /** @type {string[]} */
-                        const cssRel = [];
-                        /** @type {string[]} */
-                        const jsRel = [];
-
-                        for (const ep of entryPoints) {
-                            const epNorm = convertToPosixSlashes(String(ep));
-                            const mapped = entryToOutput.get(epNorm);
-                            if (!mapped || mapped.startsWith("..")) continue; // skip anything outside client dir
-
-                            if (/\.(css)$/.test(epNorm)) {
-                                // Explicit CSS entry (e.g., global.css)
-                                if (!cssRel.includes(mapped)) cssRel.push(mapped);
-                            } else if (/\.(m?jsx?|tsx?)$/.test(epNorm)) {
-                                // Client JS entry
-                                if (!jsRel.includes(mapped)) jsRel.push(mapped);
-
-                                // If JS emitted a CSS bundle, add it
-                                const cssBundleRel = entryToCssBundle.get(epNorm);
-                                if (cssBundleRel && !cssRel.includes(cssBundleRel)) cssRel.push(cssBundleRel);
-                            }
-                        }
-
-                        // Persist per-route assets (client-relative paths)
-                        route.assets = { css: cssRel, js: jsRel };
-                    }
-
-                    // Write routes manifest once with updated assets
-                    await writeJson(routesFile, routes);
-                } catch (err) {
-                    const message = err instanceof Error ? err.message : String(err);
-                    console.error("Metafile onEnd failure:", err);
-                    // Propagate error to fail the build
-                    return {
-                        errors: [{ text: `Metafile plugin failed to persist manifest: ${message}` }],
-                    };
-                }
-            });
+            build.onEnd((/** @type {{ metafile?: unknown }} */ result) => handleMetafileEnd(result, outputDirClient, routesFile));
         },
     };
 }
