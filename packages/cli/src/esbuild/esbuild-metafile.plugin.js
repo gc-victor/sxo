@@ -15,8 +15,8 @@
 
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { OUTPUT_DIR_CLIENT, ROUTES_FILE } from "@sxo/server/constants";
-import { createFileReader } from "@sxo/server/shared/file-readers";
+import { OUTPUT_DIR_CLIENT, ROUTES_FILE } from "sxo/server/constants";
+import { createFileReader } from "sxo/server/shared/file-readers";
 import { convertToPosixSlashes } from "../shared/path-utils.js";
 
 // Create file reader

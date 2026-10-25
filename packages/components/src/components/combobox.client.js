@@ -12,7 +12,7 @@
  * @license MIT
  */
 
-import { define } from "@sxo/client";
+import { define } from "sxo/client";
 
 define("el-combobox", function Combobox({ $element, $on, $state }) {
     /** @type {HTMLInputElement|null} */

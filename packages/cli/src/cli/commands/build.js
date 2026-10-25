@@ -1,7 +1,7 @@
 import path from "node:path";
 import process from "node:process";
 
-import { resolveConfig } from "@sxo/server/config";
+import { resolveConfig } from "sxo/server/config";
 import { pathExists, prepareFlags, printBuildSummary, validatePagesFolder } from "../cli-helpers.js";
 import { runRuntime } from "../spawn.js";
 import { createSpinner, log } from "../ui.js";

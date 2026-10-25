@@ -10,8 +10,8 @@
         ".": "./bin/sxo.js"
     },
     "dependencies": {
-        "@sxo/server": "^0.10.1",
         "cac": "^7.0.0",
-        "esbuild": "^0.28.0"
+        "esbuild": "^0.28.0",
+        "sxo": "workspace:^"
     }
 }

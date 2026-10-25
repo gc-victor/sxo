@@ -1,6 +1,6 @@
 /**
  * @fileoverview Client-side reactive interactivity for theme toggle component, including theme utility functions.
- * Handles theme switching, persistence, and icon updates using @sxo/client.
+ * Handles theme switching, persistence, and icon updates using sxo/client.
  *
  * @module ui/theme-toggle-client
  * @author Victor García
@@ -8,7 +8,7 @@
  * @version 1.0.0
  */
 
-import { define } from "@sxo/client";
+import { define } from "sxo/client";
 
 define("el-theme-toggle", ({ $state, $on, $compute }) => {
     // Initialize theme state: check stored preference, fallback to system preference

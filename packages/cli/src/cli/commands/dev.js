@@ -1,7 +1,7 @@
 import path from "node:path";
 import process from "node:process";
 
-import { resolveConfig } from "@sxo/server/config";
+import { resolveConfig } from "sxo/server/config";
 import { convertToPosixSlashes } from "../../shared/path-utils.js";
 import { absoluteScript, ensureDir, getUrl, prepareFlags, validatePagesFolder } from "../cli-helpers.js";
 import { openWhenReady } from "../open.js";

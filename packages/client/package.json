@@ -1,6 +1,7 @@
 {
     "name": "@sxo/client",
     "version": "0.10.1",
+    "private": true,
     "description": "SXO client reactivity — tiny framework-free library for web-component islands (define(), ReactiveComponent, createContext), powered by alien-signals.",
     "keywords": [
         "sxo",

@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
-import { CLIENT_DIR, PAGES_DIR, PAGES_RELATIVE_DIR } from "@sxo/server/constants";
-import { validateRoutePattern } from "@sxo/server/utils/route-match";
+import { CLIENT_DIR, PAGES_DIR, PAGES_RELATIVE_DIR } from "sxo/server/constants";
+import { validateRoutePattern } from "sxo/server/utils/route-match";
 import { convertToPosixSlashes } from "../shared/path-utils.js";
 
 /**

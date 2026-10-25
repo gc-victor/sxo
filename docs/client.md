@@ -1,6 +1,6 @@
 # Client
 
-SXO ships a tiny, framework-free reactivity library, exposed as the `sxo/client` export (also published standalone as `@sxo/client`). It powers the **islands pattern**: pages are server-rendered HTML, and interactivity is added only where needed.
+SXO ships a tiny, framework-free reactivity library, exposed as the `sxo/client` export. It powers the **islands pattern**: pages are server-rendered HTML, and interactivity is added only where needed.
 
 ## Client Entries
 

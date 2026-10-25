@@ -68,11 +68,12 @@ function InstallTabs({ componentName = "sxo", commands = {}, className, ...rest 
     const managers = ["pnpm", "npm", "yarn", "bun"];
 
     /** @type {Object<string, string>} */
+    // AIDEV-NOTE: reflect the single-`sxo`-package contract — components are added via the CLI, never npm-installed from a scope
     const defaultCommands = {
-        pnpm: `pnpm add @sxo/${componentName}`,
-        npm: `npm install @sxo/${componentName}`,
-        yarn: `yarn add @sxo/${componentName}`,
-        bun: `bun add @sxo/${componentName}`,
+        pnpm: `pnpx sxo add ${componentName}`,
+        npm: `npx sxo add ${componentName}`,
+        yarn: `yarn sxo add ${componentName}`,
+        bun: `bunx sxo add ${componentName}`,
     };
 
     /** @type {Object<string, string>} */

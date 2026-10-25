@@ -1,5 +1,5 @@
-// Main entry point for @sxo/client — public barrel re-exporting define, ReactiveComponent, createContext
-// biome-ignore lint/performance/noBarrelFile: intentional public API barrel for @sxo/client
+// Main entry point for the `sxo/client` export — public barrel re-exporting define, ReactiveComponent, createContext
+// biome-ignore lint/performance/noBarrelFile: intentional public API barrel for the sxo/client export
 export {
     type Bind,
     type Context as DefineContext,

@@ -1,7 +1,7 @@
 import path from "node:path";
 import process from "node:process";
 
-import { resolveConfig } from "@sxo/server/config";
+import { resolveConfig } from "sxo/server/config";
 import { absoluteScript, pathExists, prepareFlags } from "../cli-helpers.js";
 import { getAliasRuntimeOptions } from "../runtime-options.js";
 import { spawnRuntime } from "../spawn.js";

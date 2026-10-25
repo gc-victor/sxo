@@ -13,10 +13,18 @@
     "@utils/*",
     "@components/*",
     "@pages/*",
-    // @sxo/cli is consumed only through its `sxo` bin in
-    // packages/components package scripts; fallow does not count bin usage
-    // as an import.
-    "@sxo/cli"
+    // Root monolith-publish dependencies (see
+    // .plans/2026-10-25-1853-publish-only-sxo-findings-action-plan.md):
+    // npm pack ships packages/{cli,server,client} under this root manifest, and npm
+    // resolves the tarball's dependencies only from it — the nested @sxo/*
+    // manifests are never installed (they are excluded from the tarball).
+    // Fallow attributes each bare import to the workspace package that
+    // declares it and cannot observe the pack contract, so it reports these
+    // as unused here.
+    "@sxo/cli",
+    "alien-signals",
+    "cac",
+    "esbuild"
   ],
 
   // TestReactiveComponent exposes test bridges (testSetState, etc.) around
@@ -55,7 +63,10 @@
     "scripts/test/test-silent-report.js"
   ],
 
+  // Fallow cannot connect these files to their real @utils/* alias importers.
+  // Keep the exceptions file-scoped so other utility findings remain visible.
   "ignoreFindings": [
-    "packages/components/src/utils/**"
+    "packages/components/src/utils/cn.js",
+    "packages/components/src/utils/escape-html.js"
   ]
 }

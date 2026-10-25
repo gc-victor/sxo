@@ -2,7 +2,7 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 
-import { resolveConfig } from "@sxo/server/config";
+import { resolveConfig } from "sxo/server/config";
 import { ensureDir, prepareFlags } from "../cli-helpers.js";
 import { log } from "../ui.js";
 

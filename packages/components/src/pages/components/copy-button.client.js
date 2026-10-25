@@ -1,12 +1,12 @@
 /**
  * @fileoverview Client-side reactive behavior for copy-button component.
  *
- * Uses @sxo/client define() to add copy functionality.
+ * Uses sxo/client define() to add copy functionality.
  *
  * @module ui/copy-button.client
  */
 
-import { define } from "@sxo/client";
+import { define } from "sxo/client";
 
 /**
  * Define the copy-button custom element with reactive copy functionality.

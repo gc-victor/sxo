@@ -52,7 +52,7 @@
  * - Runtime updates aria-selected and tabindex based on active state.
  *
  */
-import { define } from "@sxo/client";
+import { define } from "sxo/client";
 
 function activeTabIndex(triggers) {
     const activeElement = document.activeElement;

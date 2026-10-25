@@ -27,7 +27,14 @@
         "./cloudflare": "./packages/server/src/server/prod/cloudflare.js",
         "./dev-node": "./packages/server/src/server/dev/node.js",
         "./dev-bun": "./packages/server/src/server/dev/bun.js",
-        "./dev-deno": "./packages/server/src/server/dev/deno.js"
+        "./dev-deno": "./packages/server/src/server/dev/deno.js",
+        "./server/config": "./packages/server/src/config/resolve.js",
+        "./server/config/aliases": "./packages/server/src/config/aliases.js",
+        "./server/constants": "./packages/server/src/constants.js",
+        "./server/shared/runtime": "./packages/server/src/server/shared/runtime.js",
+        "./server/shared/file-readers": "./packages/server/src/server/shared/file-readers.js",
+        "./server/utils/route-match": "./packages/server/src/server/utils/route-match.js",
+        "./server/generate": "./packages/server/src/generate/generate.js"
     },
     "repository": {
         "type": "git",
@@ -64,6 +71,14 @@
         "test:client:watch": "pnpm run --filter @sxo/client test:watch",
         "test:runtimes": "bash scripts/test-runtimes.sh",
         "knip": "knip"
+    },
+    "dependencies": {
+        "alien-signals": "^3.2.1",
+        "cac": "^7.0.0",
+        "esbuild": "^0.28.0",
+        "pino": "^10.3.1",
+        "pino-http": "^11.0.0",
+        "pino-pretty": "^13.1.3"
     },
     "devDependencies": {
         "@biomejs/biome": "^2.4.15",

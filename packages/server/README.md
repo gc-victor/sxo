@@ -1,31 +1,25 @@
-# @sxo/server
+# SXO server (internal)
 
 Server runtime for [SXO](https://github.com/gc-victor/sxo) — dev/prod servers, the Web Standard SSR handler, config resolution, static generation, and platform adapters for Node.js, Bun, Deno, and Cloudflare Workers.
 
-## Installation
+> **Internal workspace package.** This package is not published to npm and never needs to be installed. All of its surfaces ship inside the [`sxo`](https://www.npmjs.com/package/sxo) package as subpath exports.
 
-```shell
-npm install @sxo/server
-```
+## Public surfaces
 
-> Most users should install [`sxo`](https://www.npmjs.com/package/sxo) instead — it bundles the CLI and re-exports this runtime. Install `@sxo/server` directly only when building a custom server or adapter.
+The stable, documented surfaces of this package are available as `sxo/*` subpath exports of the root package:
 
-## Exports
+| Export | Purpose |
+| ------ | ------- |
+| `sxo/dev-node`, `sxo/dev-bun`, `sxo/dev-deno` | Platform dev adapters invoked by the CLI |
+| `sxo/runtime` | Web Standard `Request`/`Response` SSR handler |
+| `sxo/cloudflare` | Cloudflare Workers adapter factory (`createHandler`) |
 
-| Subpath | Purpose |
-| ------- | ------- |
-| `@sxo/server` | Dev server core |
-| `@sxo/server/runtime` | Web Standard `Request`/`Response` SSR handler |
-| `@sxo/server/cloudflare` | Cloudflare Workers adapter factory (`createHandler`) |
-| `@sxo/server/dev-node`, `/dev-bun`, `/dev-deno` | Platform dev adapters |
-| `@sxo/server/config` | Config resolution (flags > file > env > defaults) |
-| `@sxo/server/config/aliases` | Path alias resolution (tsconfig paths / package imports / auto-discovery) |
-| `@sxo/server/generate` | Static generation (pre-render static routes to HTML) |
+Additional internal `sxo/server/*` subpaths resolve the modules the CLI consumes (config resolution, aliases, constants, static generation, shared runtime utilities). They are implementation details, not documented API, and may change.
 
 Example — Cloudflare Workers:
 
 ```javascript
-import { createHandler } from "@sxo/server/cloudflare";
+import { createHandler } from "sxo/cloudflare";
 import middleware from "./src/middleware.js";
 
 export default await createHandler({

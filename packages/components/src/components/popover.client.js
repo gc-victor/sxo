@@ -41,7 +41,7 @@
  * @version 1.0.0
  */
 
-import { define } from "@sxo/client";
+import { define } from "sxo/client";
 
 function focusNextPopoverElement(event, focusableElements) {
     const activeElement = /** @type {HTMLElement} */ (document.activeElement);

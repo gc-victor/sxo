@@ -27,7 +27,7 @@
  *
  * @license MIT
  */
-import { define } from "@sxo/client";
+import { define } from "sxo/client";
 
 function setToastText(clone, selector, text) {
     const element = clone.querySelector(selector);

@@ -1,6 +1,7 @@
 {
     "name": "@sxo/server",
     "version": "0.10.1",
+    "private": true,
     "description": "SXO server runtime — dev/prod servers, SSR handler, config resolution, and platform adapters for Node.js, Bun, Deno, and Cloudflare Workers.",
     "keywords": [
         "sxo",

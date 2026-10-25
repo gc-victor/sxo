@@ -576,7 +576,9 @@ SXO supports multiple deployment platforms beyond the standard CLI server. Adapt
 | `sxo/runtime` | Web Standard core handler (`createCoreHandler()`) for custom platforms — no Node APIs, bring your own `routes` and `modules` |
 | `sxo/dev-node` / `sxo/dev-bun` / `sxo/dev-deno` | Runtime-specific dev adapters invoked by the CLI |
 
-Advanced internals — config resolution, resolved constants, route matching, and the pre-renderer — are exposed as subpath exports of the published `@sxo/server` package (e.g. `@sxo/server/config`, `@sxo/server/constants`, `@sxo/server/generate`), not via `sxo/*`.
+Advanced internals — config resolution, aliases, resolved constants, the pre-renderer, and shared runtime utilities — are resolved through internal `sxo/server/*` subpath exports used by the CLI itself. They are implementation details, not part of the documented API, and may change. Rely on the exports listed above.
+
+All of this is subpath exports of the root `sxo` package itself: all first-party code — CLI, server, and client — ships inside the single published `sxo` artifact. There is no separate `@sxo/server` or `@sxo/client` npm package.
 
 ### 1. Node.js Adapter
 
@@ -720,7 +722,7 @@ The separate `head` export is no longer supported.
 
 ## Client-Side Reactivity
 
-SXO ships a tiny, framework-free reactivity library, exposed as the `sxo/client` export (also published standalone as `@sxo/client`). It powers the "islands" pattern: pages are server-rendered HTML, and interactivity is added only where needed via per-route client entries (`<route>/client/index.(ts|tsx|js|jsx)`). The public API includes `define`, `ReactiveComponent`, `createContext`, and `swapFragment`. `swapFragment` fetches a fragment URL and reconciles its HTML with the live DOM.
+SXO ships a tiny, framework-free reactivity library, exposed as the `sxo/client` export. It powers the "islands" pattern: pages are server-rendered HTML, and interactivity is added only where needed via per-route client entries (`<route>/client/index.(ts|tsx|js|jsx)`). The public API includes `define`, `ReactiveComponent`, `createContext`, and `swapFragment`. `swapFragment` fetches a fragment URL and reconciles its HTML with the live DOM.
 
 ### `define(tag, definition)`
 
@@ -1288,7 +1290,7 @@ pnpm test
 Additional suites:
 
 ```shell
-pnpm run test:client     # @sxo/client unit tests (vitest)
+pnpm run test:client     # client unit tests (vitest)
 pnpm run test:e2e        # SXOUI component end-to-end tests (Playwright)
 pnpm run test:runtimes   # Smoke tests across Node, Bun, and Deno (requires curl, bun, deno)
 ```
@@ -1320,13 +1322,7 @@ Serve behind a reverse proxy (optional). Add your own middleware for:
 
 ## Releasing & Publishing
 
-The npm artifact is the root `sxo` package (CLI + server + client source, published by `.github/workflows/publish.yml` on a merged `release/<version>` branch). Two workspace packages must be published **before** the root:
-
-1. `@sxo/server` — `cd packages/server && npm publish --provenance --access public`
-2. `@sxo/client` — `cd packages/client && npm publish --provenance --access public`
-3. Root `sxo` — automatic via the release branch (or `npm publish` from the repo root)
-
-All three manifests share the same `version`. Internal package dependencies use pnpm workspace ranges so local installs link the workspace packages and `pnpm pack` rewrites the ranges to publishable semver versions.
+The npm artifact is the root `sxo` package (CLI + server + client source, published by `.github/workflows/publish.yml` on a merged `release/<version>` branch). It is the **only** published package: `packages/{cli,server,client}` are private, internal workspace packages and are never published or installed from the registry.
 
 Pre-publish checks:
 
@@ -1335,7 +1331,7 @@ pnpm pack --dry-run         # no "workspace:" in package/package.json, contains 
 pnpm pack                   # then install the tarball in a temp dir and run: sxo --version, sxo build
 ```
 
-The workflow gates itself: `publish.yml` validates the packed tarball (no `workspace:` ranges, WASM present, installable, `sxo --version` real, fixture build passes) before publishing.
+The workflow gates itself: `publish.yml` validates the packed tarball (no `workspace:` ranges, no scoped `@sxo/*` dependencies, all required runtime dependencies declared in the root manifest, every subpath export resolves, WASM present, installable, CLI banner real, fixture build passes) before publishing.
 
 ## Documentation
 

@@ -15,7 +15,7 @@ import path from "node:path";
 import process from "node:process";
 import { pathToFileURL } from "node:url";
 
-import { detectRuntime } from "@sxo/server/shared/runtime";
+import { detectRuntime } from "sxo/server/shared/runtime";
 import { wireOutput } from "./output-handler.js";
 import { forwardSignals, terminate as terminateProcess } from "./signal-handler.js";
 

@@ -36,7 +36,7 @@
         "tailwind:watch": "pnpm run tailwind --watch"
     },
     "dependencies": {
-        "@sxo/client": "workspace:*",
+        "sxo": "workspace:*",
         "turndown": "^7.2.4"
     },
     "devDependencies": {

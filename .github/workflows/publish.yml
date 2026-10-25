@@ -57,7 +57,9 @@ jobs:
       - name: Pack
         id: pack
         run: |
-          TARBALL=$(npm pack)
+          VERSION=$(node -p "require('./package.json').version")
+          TARBALL="sxo-${VERSION}.tgz"
+          pnpm pack --out "$TARBALL"
           echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -96,14 +98,7 @@ jobs:
         run: |
           set -euo pipefail
           TAR="${{ github.workspace }}/$TARBALL"
-          if tar -xOf "$TAR" package/package.json | grep -q "workspace:"; then
-            echo "::error::tarball manifest still contains a workspace:* specifier"
-            exit 1
-          fi
-          if ! tar tzf "$TAR" | grep -q "packages/cli/jsx-transformer/jsx_transformer_bg.wasm"; then
-            echo "::error::tarball is missing jsx_transformer_bg.wasm"
-            exit 1
-          fi
+          node scripts/publish/check-manifests.mjs "$TAR"
 
       - name: Install tarball into fixture
         shell: bash
@@ -113,6 +108,14 @@ jobs:
           cd /tmp/fixture
           node -e "const p = require('./package.json'); p.dependencies.sxo = 'file:${{ github.workspace }}/${TARBALL}'; require('fs').writeFileSync('package.json', JSON.stringify(p, null, 4))"
           npm install --no-audit --no-fund
+
+      - name: Verify export resolutions
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp scripts/publish/check-exports.mjs /tmp/fixture/check-exports.mjs
+          cd /tmp/fixture
+          node check-exports.mjs
 
       - name: Verify CLI version
         shell: bash

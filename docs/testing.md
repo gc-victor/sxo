@@ -11,7 +11,7 @@ pnpm test
 Additional suites:
 
 ```shell
-pnpm run test:client     # @sxo/client unit tests (vitest)
+pnpm run test:client     # client unit tests (vitest)
 pnpm run test:e2e        # SXOUI component end-to-end tests (Playwright)
 pnpm run test:runtimes   # Smoke tests across Node, Bun, and Deno (requires curl, bun, deno)
 ```

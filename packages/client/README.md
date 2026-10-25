@@ -1,23 +1,17 @@
-# @sxo/client
+# SXO client (internal)
 
 Client-side reactivity for [SXO](https://github.com/gc-victor/sxo) — a tiny, framework-free library for web-component islands. Server-render your pages with JSX, then add interactivity only where needed.
 
 Powered by [alien-signals](https://github.com/stackblitz/alien-signals). No React, no virtual DOM.
 
-## Installation
-
-```shell
-npm install @sxo/client
-```
-
-> Already using the `sxo` package? The same library is re-exported as `sxo/client` — no extra install needed.
+> **Internal workspace package.** This library is not published to npm. Install `sxo` and import it as `sxo/client`.
 
 ## Usage
 
 Register a custom element with declarative state, refs, events, and computed values:
 
 ```javascript
-import { define } from "@sxo/client";
+import { define } from "sxo/client";
 
 define("rc-counter", ({ $state, $on }) => {
     $state.count = 0;

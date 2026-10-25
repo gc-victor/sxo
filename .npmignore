@@ -15,3 +15,10 @@ packages/**/test-utils.js
 packages/**/test-utils.ts
 packages/**/target/
 packages/**/node_modules/
+
+# Nested workspace manifests are not part of the published surface: the root
+# manifest is the single authoritative dependency declaration, and nested
+# manifests would otherwise ship unrewritten workspace: specifiers. The
+# two-level packages/cli/jsx-transformer/package.json stays because it is a
+# module-boundary manifest (no name, no dependencies).
+packages/*/package.json

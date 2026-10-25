@@ -18,7 +18,7 @@
  *
  * @license MIT
  */
-import { define } from "@sxo/client";
+import { define } from "sxo/client";
 
 define("el-sidebar", ({ $element, $state, $effect }) => {
     const breakpoint = 768;

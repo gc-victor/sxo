@@ -22,7 +22,7 @@
  *
  * @license MIT
  */
-import { define } from "@sxo/client";
+import { define } from "sxo/client";
 
 function findAccordionDetails(event) {
     const target = event.target;

@@ -2,7 +2,7 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 // Import file reader for unified file reading
-import { createFileReader } from "@sxo/server/shared/file-readers";
+import { createFileReader } from "sxo/server/shared/file-readers";
 // Import WASM-powered JSX transformer
 import { jsx } from "../../jsx-transformer/jsx_transformer.js";
 
@@ -14,7 +14,7 @@ const fileReader = createFileReader();
 const HELPERS_VIRTUAL_MODULE = "virtual:jsx-helpers";
 
 /**
- * @typedef {import("@sxo/server/shared/file-readers").FileReader} FileReader
+ * @typedef {import("sxo/server/shared/file-readers").FileReader} FileReader
  */
 
 /**

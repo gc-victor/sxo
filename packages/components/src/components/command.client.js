@@ -12,7 +12,7 @@
  * @license MIT
  */
 
-import { define } from "@sxo/client";
+import { define } from "sxo/client";
 
 define("el-command", function Command({ $element, $state }) {
     $state.activeIndex = -1;

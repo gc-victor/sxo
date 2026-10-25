@@ -1,7 +1,7 @@
 import path from "node:path";
 import process from "node:process";
 
-import { resolveConfig } from "@sxo/server/config";
+import { resolveConfig } from "sxo/server/config";
 import { pathExists, prepareFlags } from "../cli-helpers.js";
 import { createSpinner, log } from "../ui.js";
 import { getErrorMessage, routesJsonExists, routesJsonRelative } from "./utils.js";
@@ -21,7 +21,7 @@ export async function handleGenerateCommand(flags, inject = {}) {
         const impl = {
             resolveConfig: inject.resolveConfig ?? resolveConfig,
             pathExists: inject.pathExists ?? pathExists,
-            importGenerate: inject.importGenerate ?? (async () => import("@sxo/server/generate")),
+            importGenerate: inject.importGenerate ?? (async () => import("sxo/server/generate")),
         };
 
         const root = path.resolve(process.cwd());

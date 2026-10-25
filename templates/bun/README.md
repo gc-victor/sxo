@@ -97,7 +97,7 @@ The page will automatically be available at `/blog`.
 
 - [SXO GitHub Repository](https://github.com/gc-victor/sxo)
 - [basecoat-css Documentation](https://basecoat-css.vercel.app/)
-- [@sxo/client](https://github.com/gc-victor/sxo) — Client-side interactivity
+- [sxo/client](https://github.com/gc-victor/sxo) — Client-side interactivity
 
 ## Adding More Components
 

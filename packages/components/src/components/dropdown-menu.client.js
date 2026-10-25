@@ -23,7 +23,7 @@
  *
  * @license MIT
  */
-import { define } from "@sxo/client";
+import { define } from "sxo/client";
 
 function activeMenuItemIndex(items) {
     const activeElement = document.activeElement;

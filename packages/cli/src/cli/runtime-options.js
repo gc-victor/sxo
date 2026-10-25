@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 
-import { detectRuntime } from "@sxo/server/shared/runtime";
+import { detectRuntime } from "sxo/server/shared/runtime";
 
 /**
  * Returns Node runtime options for loading project aliases.

@@ -11,7 +11,7 @@
  * @license MIT
  */
 
-import { define } from "@sxo/client";
+import { define } from "sxo/client";
 
 define("el-drawer", function Drawer({ $element, $on, $state }) {
     /** @type {HTMLElement|null} */

@@ -15,8 +15,8 @@
 import path from "node:path";
 
 import { fileURLToPath } from "node:url";
-import { createFileReader } from "@sxo/server/shared/file-readers";
 import cac from "cac";
+import { createFileReader } from "sxo/server/shared/file-readers";
 import { registerCommonOptions } from "./cli-helpers.js";
 import { handleAddCommand } from "./commands/add.js";
 import { handleBuildCommand } from "./commands/build.js";

@@ -11,7 +11,7 @@
  * @license MIT
  */
 
-import { define } from "@sxo/client";
+import { define } from "sxo/client";
 
 function readInputNumber(input, name, fallback) {
     return parseFloat(input?.getAttribute(name) ?? fallback);

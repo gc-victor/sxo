@@ -2,7 +2,7 @@
  * @fileoverview Dialog reactive component using native <dialog> showModal()
  */
 
-import { define } from "@sxo/client";
+import { define } from "sxo/client";
 
 define("el-dialog", ({ $element, $on }) => {
     /**

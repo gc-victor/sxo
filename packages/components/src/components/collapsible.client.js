@@ -10,7 +10,7 @@
  * @license MIT
  */
 
-import { define } from "@sxo/client";
+import { define } from "sxo/client";
 
 define("el-collapsible", function Collapsible({ $element, $on, $state }) {
     /** @type {HTMLElement|null} */
