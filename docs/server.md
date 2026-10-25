@@ -20,7 +20,7 @@ One contract across dev, prod, and all platform adapters:
 - Return a `Response` to **short-circuit** the request.
 - Return nothing to continue to the next middleware or the route handler.
 
-`src/middleware.js` may export a single function or an **array** of functions (a chain):
+Middleware is discovered at `src/middleware.{js,ts,mjs}` (checked in that order, first match wins). It may export a single function or an **array** of functions (a chain):
 
 ```javascript
 // src/middleware.js
@@ -40,6 +40,16 @@ function healthCheck(request) {
 
 export default [logging, healthCheck];
 ```
+
+Named exports are also supported:
+
+```javascript
+export const middlewares = [logging, healthCheck]; // array
+export const middleware = [logging, healthCheck];  // alias
+export const mw = logging;                         // single function
+```
+
+Resolution is `default ?? middlewares ?? middleware ?? mw`. A non-array export is wrapped as a single middleware; non-function entries are filtered out. Load failures are logged and treated as an empty chain. Functions run in array order, before route handling.
 
 Middleware runs **before** static assets and routing, so it can implement APIs, auth, redirects, CORS, rate limiting, security headers, compression, and logging.
 
@@ -146,9 +156,9 @@ Use cases: custom page rendering, A/B testing, multi-tenant pages by hostname, d
 For requests not handled by middleware or static assets:
 
 1. The route is matched against `dist/server/routes.json`. Dynamic values are validated (`^[A-Za-z0-9._-]{1,200}$`).
-2. The page module is resolved (`module.default || module.jsx`) and **awaited** with the params object — render functions may be async.
+2. The page module is resolved (`module.default || module.jsx`) and **awaited** with `(params, request)` — render functions may be async.
 3. Built assets for the route (client entry, `global.css`) are injected into the HTML.
 4. Cache headers: generated pages `public, max-age=300`; SSR pages `public, max-age=0, must-revalidate`.
 5. No match → custom `404` page (or minimal fallback); render throw → `500`.
 
-Security headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`) are added to all responses automatically. Everything else (CSP, HSTS, auth, rate limiting) is yours via middleware — see [Security](security.md).
+In production, responses carry `X-Content-Type-Options`, `X-Frame-Options`, and `Referrer-Policy` automatically; the dev server does not add security headers. Customize them with the `securityHeaders` config key or `SECURITY_HEADERS` env, and see [Security](security.md#configuring-security-headers) for the protected-header override policy. Everything else (CSP, HSTS, auth, rate limiting) is yours via middleware or the `securityHeaders` config.

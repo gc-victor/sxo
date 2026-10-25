@@ -7,12 +7,31 @@ SXO provides **foundational security controls** and leaves application-specific 
 What SXO provides automatically:
 
 - **Path traversal protection** — static serving is confined to `dist/client`; `../`-style attempts are rejected (403/404)
-- **Security headers** — `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` on all responses
+- **Security headers** — `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` on production responses (the dev server does not add security headers)
 - **HTML escaping utility** — `escapeHtml()` is used internally for error pages and injected content
 - **Route slug validation** — dynamic parameter values must match `^[A-Za-z0-9._-]{1,200}$`
 - **Static asset security** — MIME type restrictions, no directory listing
 - **Secure file serving** — ETag/caching controls, `dist/server` never exposed
 - **Node timeouts** — `HEADER_TIMEOUT_MS` / `REQUEST_TIMEOUT_MS` (default 120s) bound slow-loris style abuse
+
+## Configuring Security Headers
+
+Production responses carry these headers by default: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`. CSP and HSTS are deliberately not set (they need per-application tuning and HTTPS).
+
+Add your own via the `securityHeaders` config key:
+
+```json
+{
+  "securityHeaders": {
+    "Content-Security-Policy": "default-src 'self'",
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains"
+  }
+}
+```
+
+Or via the `SECURITY_HEADERS` environment variable (same JSON shape).
+
+**Protected headers**: middleware responses are merged into the outgoing response, but `Content-Security-Policy`, `Strict-Transport-Security`, `X-Frame-Options`, `X-Content-Type-Options`, and `Referrer-Policy` set by middleware are ignored unless you opt in with `allowMiddlewareSecurityOverride` (config) or `ALLOW_MIDDLEWARE_SECURITY_OVERRIDE=true` (env). `Set-Cookie` is always appended, never replaced.
 
 ## Your Responsibility (via Middleware)
 

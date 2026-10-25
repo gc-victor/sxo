@@ -2,6 +2,8 @@
 
 Guides and reference for building applications with SXO.
 
+- [Project README](../README.md) — project overview, quick start, and full table of contents
+
 ## Start here
 
 - [Getting Started](getting-started.md)

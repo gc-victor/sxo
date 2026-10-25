@@ -14,7 +14,7 @@ sxo add card
 sxo add dialog
 ```
 
-They land in the components directory (default `src/components/`, configurable via `--components-dir` / `COMPONENTS_DIR`) — you own the code and can modify it.
+They land in the components directory (default `src/components/`, configurable via the `COMPONENTS_DIR` env or the `componentsDir` config key) — you own the code and can modify it.
 
 ## Available Components
 

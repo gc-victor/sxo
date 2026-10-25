@@ -6,12 +6,17 @@ A page module can export:
 
 | Export | Type | Required | Description |
 | ------ | ---- | -------- | ----------- |
-| `default` | `(params) => JSX` or string | Yes\* | Page render function |
-| `jsx` | `(params) => JSX` or string | Yes\* | Named alternative |
+| `default` | `(params, request) => JSX \| string \| Response` | Yes\* | Page render function |
+| `jsx` | `(params, request) => JSX \| string \| Response` | Yes\* | Named alternative |
 
 \* Exactly one of `default` or `jsx` must be provided; resolution is `module.default || module.jsx`.
 
-The render function receives the route params object (see [Routing](routing.md)) and may be **async** — its result is awaited:
+Render function arguments:
+
+- `params` — route parameters (`{}` for static routes, `{ slug: "..." }` for `/blog/[slug]`; see [Routing](routing.md)).
+- `request` — the incoming Web Standard `Request` (URL, method, headers, cookies). Error pages (404/500) are rendered with `{}` and no request.
+
+The render function may be **async** — its result is awaited:
 
 ```jsx
 // src/pages/index.jsx
@@ -31,6 +36,14 @@ export default async () => {
   );
 };
 ```
+
+### Return values
+
+- A full `<html>...</html>` document (JSX or string) — route assets are injected and `<!doctype html>` is prepended.
+- Any other string — sent as-is with `Content-Type: text/html; charset=utf-8`.
+- A `Response` — full control over status, headers, and body (useful for redirects, cookies, or non-HTML output). HTML document responses (`Content-Type: text/html` and a body starting with `<html`) still get route assets injected and a doctype prepended; non-HTML responses are returned untouched.
+
+> **`sxo/runtime` caveat**: the Web Standard core handler (`createCoreHandler` from `sxo/runtime`) calls render functions with `params` only and does not honor a page-returned `Response`. The Node, Bun, Deno, and Cloudflare adapters support both. See [Deployment](deployment.md#custom-platforms-sxoruntime).
 
 ## Full HTML Documents
 
@@ -100,10 +113,11 @@ Location precedence:
 Rules:
 
 - Same export shape as pages (`default` or `jsx`); must return a full `<html>` document.
+- Extension mismatch (known issue): the build also bundles flat `404.ts`/`404.js`, but runtime resolution only accepts `.tsx`/`.jsx`, so those files are built and never served. Use `.tsx` or `.jsx`.
 - Folder-based error pages support client entries (`PAGES_DIR/404/client/index.js`), built and injected like regular routes. Flat-file error pages receive assets from the first available regular route.
 - Fallback: with no custom page, the server responds with a minimal HTML error document carrying the correct status, `Content-Type: text/html; charset=utf-8`, and cache headers.
 - Cache-Control: 404 → `public, max-age=0, must-revalidate`; 500 → `no-store`.
 - HEAD requests return headers only.
-- Error pages are included in the server build but never pre-rendered by `sxo generate`.
+- Build and generation: the server build includes 404/500 SSR modules. Flat-file error pages are never pre-rendered by `sxo generate`; folder-based error pages (`404/index.*`, `500/index.*`) are currently treated as static routes and pre-rendered to `dist/client/404/index.html`, marked `generated: true`. That is a known issue: the generate filter only checks for dynamic segments and lacks an error-page exclusion.
 
 On Cloudflare Workers, error pages are passed explicitly to `createHandler` — see [Deployment](deployment.md).

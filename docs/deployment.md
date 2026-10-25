@@ -20,7 +20,7 @@ All adapters share the same Web Standard core (`Request`/`Response`), so behavio
 npx sxo start
 ```
 
-The CLI auto-detects the runtime (`globalThis.Bun` / `globalThis.Deno`, falling back to Node) and loads the matching adapter. HTTP/2 support and timeouts; tune with `HEADER_TIMEOUT_MS` and `REQUEST_TIMEOUT_MS` (see [Configuration](configuration.md)). No graceful shutdown — SIGINT/SIGTERM terminate immediately.
+The CLI auto-detects the runtime (`globalThis.Bun` / `globalThis.Deno`, falling back to Node) and loads the matching adapter. Request/header timeouts; tune with `HEADER_TIMEOUT_MS` and `REQUEST_TIMEOUT_MS` (see [Configuration](configuration.md)). No graceful shutdown — SIGINT/SIGTERM terminate immediately.
 
 ### Bun
 
@@ -91,6 +91,32 @@ pnpm deploy   # wrangler deploy
 ```
 
 See [`examples/workers`](../examples/workers) for the full setup, including the post-build import generation script.
+
+### Custom platforms (`sxo/runtime`)
+
+For platforms without a built-in adapter, `sxo/runtime` exposes the Web Standard core handler:
+
+```javascript
+import { readFile } from "node:fs/promises";
+import { createCoreHandler } from "sxo/runtime";
+import * as home from "./dist/server/index.js";
+
+// This Node example uses readFile; use your platform's equivalent if needed.
+const routes = JSON.parse(await readFile("./dist/server/routes.json", "utf8"));
+
+const handle = createCoreHandler({
+  routes,
+  modules: { "src/pages/index.jsx": home }, // keyed by each route's `jsx` path
+  publicPath: "/",
+  middleware: [],
+});
+
+const response = await handle(request, env);
+```
+
+`createCoreHandler({ routes, modules, publicPath?, middleware? })` returns an async `(request, env?) => Response | null` function. It runs middleware, matches routes, and SSRs pages. It does not serve static assets. It returns `null` for unmatched routes and routes marked `generated: true`; your platform must serve generated HTML and other static assets, and handle unmatched routes (for example, with its own 404).
+
+> **Caveat**: the core handler calls render functions with `params` only and does not honor a page-returned `Response`. The Node, Bun, Deno, and Cloudflare adapters support both.
 
 ## Examples
 

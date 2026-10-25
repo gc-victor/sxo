@@ -64,7 +64,7 @@ src/pages/about/
     └── index.js       # client entry for this route only
 ```
 
-The client entry is bundled and injected only on that route. Extension precedence: `.ts` > `.tsx` > `.js` > `.jsx`. See [Client](client.md).
+The client entry is bundled and injected only on that route. Every `<clientDir>/index.*` and `<clientDir>/*.index.*` file is collected; all matching variants are added, with no extension precedence. Entries in the root-level `<pagesDir>/<clientDir>/` (e.g. `src/pages/client/index.js`) are shared and injected on every route. See [Client](client.md).
 
 ## Special Files (Not Routable)
 

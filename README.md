@@ -34,6 +34,7 @@ A **fast**, minimal architecture convention and CLI for building websites with s
 - [Testing](#testing)
 - [Deployment](#deployment)
 - [Releasing & Publishing](#releasing--publishing)
+- [Documentation](#documentation)
 - [Acknowledgements](#acknowledgements)
 - [Contributing](#contributing)
 - [License](#license)
@@ -1325,16 +1326,36 @@ The npm artifact is the root `sxo` package (CLI + server + client source, publis
 2. `@sxo/client` — `cd packages/client && npm publish --provenance --access public`
 3. Root `sxo` — automatic via the release branch (or `npm publish` from the repo root)
 
-All three manifests share the same `version`. Workspace manifests declare **real semver ranges** (not `workspace:*`); `pnpm-workspace.yaml` sets `linkWorkspacePackages: true` so development still links the local workspace copies while `npm pack` ships publishable versions with no `workspace:*` leakage.
+All three manifests share the same `version`. Internal package dependencies use pnpm workspace ranges so local installs link the workspace packages and `pnpm pack` rewrites the ranges to publishable semver versions.
 
 Pre-publish checks:
 
 ```shell
-npm pack --dry-run          # no "workspace:" in package/package.json, contains jsx_transformer_bg.wasm
-npm pack                    # then install the tarball in a temp dir and run: sxo --version, sxo build
+pnpm pack --dry-run         # no "workspace:" in package/package.json, contains jsx_transformer_bg.wasm
+pnpm pack                   # then install the tarball in a temp dir and run: sxo --version, sxo build
 ```
 
-The workflow gates itself: `publish.yml` validates the packed tarball (no `workspace:*`, WASM present, installable, `sxo --version` real, fixture build passes) before publishing.
+The workflow gates itself: `publish.yml` validates the packed tarball (no `workspace:` ranges, WASM present, installable, `sxo --version` real, fixture build passes) before publishing.
+
+## Documentation
+
+Deep guides live in the [`docs/`](./docs/) directory — the canonical home for topic-specific references beyond this README.
+
+- [Getting Started](./docs/getting-started.md) — why SXO, installation, your first project
+- [Architecture](./docs/architecture.md) — project model, entry discovery, aliases, request pipeline
+- [Build & Assets](./docs/build-and-assets.md) — outputs, manifest, static generation, asset serving
+- [CLI](./docs/cli.md) — commands and flags
+- [Routing](./docs/routing.md) — directory routes and dynamic parameters
+- [Pages](./docs/pages.md) — page module API, HTML documents, error pages, escaping
+- [Client](./docs/client.md) — reactivity islands and `sxo/client`
+- [Server](./docs/server.md) — middleware contract, JSON APIs, SSR pipeline
+- [Components (SXOUI)](./docs/components.md) — the component library and `sxo add`
+- [Configuration](./docs/configuration.md) — config files, flags, env vars, precedence
+- [Deployment](./docs/deployment.md) — platform adapters and pre-deploy checklist
+- [Testing](./docs/testing.md) — framework suites and testing your app
+- [Security](./docs/security.md) — built-in protections, responsibilities, checklist; deep guide in [SECURITY.md](./SECURITY.md)
+
+Start with the [Getting Started guide](./docs/getting-started.md), browse the [Documentation Map](./docs/README.md) for the full index, or follow the [docs index](./docs/index.md) for a suggested reading order. The [Todo App tutorial](./docs/tutorials/todo-app.md) walks through a complete app end to end.
 
 ## Acknowledgements
 

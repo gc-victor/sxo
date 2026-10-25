@@ -3,7 +3,7 @@
 ## Why SXO
 
 - **Server-side JSX**, zero client framework by default.
-- **Directory-based routing** that stays explicit (route = folder with `index.(jsx|tsx)`).
+- **Directory-based routing** that stays explicit (route = folder with `index.(tsx|jsx|ts|js)`).
 - **Composable HTML ergonomics** using plain functions.
 - **Blazing-fast builds** via esbuild and a Rust/WASM JSX transform step.
 - **Single CLI** covering dev, build, start & clean.

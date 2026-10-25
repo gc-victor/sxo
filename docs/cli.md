@@ -28,7 +28,7 @@ Templates include Tailwind CSS v4 + basecoat-css preconfigured, path aliases, an
 
 ## `sxo add <component>`
 
-Installs an SXOUI component into the components directory (default `src/components`, override with `--components-dir` or `COMPONENTS_DIR`):
+Installs an SXOUI component into the components directory (default `src/components`; set `COMPONENTS_DIR` or the `componentsDir` config key to override):
 
 ```shell
 sxo add button
@@ -61,6 +61,8 @@ Removes the output directory. `-y` skips confirmation.
 
 Pre-renders static routes after a successful build and marks them `generated: true` in the manifest. Only routes without dynamic parameters are generated; dynamic routes are always SSR'd per request. See [Build & Assets](build-and-assets.md#static-generation).
 
+Command-specific flags: `--out-dir <dir>`, `--public-path <path>`, `--client-dir <name>` (plus `--verbose` and `--no-color`).
+
 ## Flags
 
 ```shell
@@ -70,7 +72,6 @@ Pre-renders static routes after a successful build and marks them `generated: tr
 --open / --no-open          # Auto-open browser on dev ready (toggle)
 --public-path <path>        # Public base URL for assets. Default: "/"; "" allowed (relative URLs)
 --client-dir <name>         # Per-route client entry subdirectory name. Default: client
---components-dir <path>     # Components directory for 'sxo add'. Default: src/components
 --loaders <ext=loader>      # esbuild server loaders (dev/build); repeatable or comma-separated
 --verbose                   # Verbose logging
 --no-color                  # Disable ANSI colors (useful in CI)

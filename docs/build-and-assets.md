@@ -36,11 +36,12 @@ One entry per route, including per-route assets:
 | `jsx` | Source page module relative path |
 | `hash` | `true` in dev (cache-busting semantics) |
 | `path` | Route path (omitted for the root route) |
+| `isErrorPage` | Present and `true` only for folder-based 404/500 pages; these entries have no `path` and are not routable |
 | `generated` | If `true`, prod serves the built HTML as-is (skips SSR) with `Cache-Control: public, max-age=300` |
 
 Non-generated/dynamic pages are SSR'd per request with `Cache-Control: public, max-age=0, must-revalidate`.
 
-**Manifest reuse**: on rebuild, if every referenced `jsx` file still exists *and* no new route `index.*` appeared, the existing manifest is reused with `global.css` refreshed.
+The manifest is rewritten on every `sxo build`; there is no reuse step.
 
 ## Static Generation
 
@@ -52,11 +53,18 @@ Non-generated/dynamic pages are SSR'd per request with `Cache-Control: public, m
 - Sets `generated: true` in the manifest; the flag persists in `dist/server/routes.json`.
 - **Idempotent**: reruns skip routes already marked generated.
 - Requires `dist/server/routes.json` — run `sxo build` first.
+- Non-document responses (fragments) are skipped.
 
 Production server behavior:
 
 - **Generated pages**: sent directly (no SSR), `Cache-Control: public, max-age=300`.
 - **Non-generated/dynamic pages**: SSR per request, assets injected, `Cache-Control: public, max-age=0, must-revalidate`.
+
+Notes:
+
+- Dynamic routes (paths containing `[param]`) are never generated.
+- Flat-file error pages (`404.*`, `500.*`) are never pre-rendered. Folder-based error pages (`404/index.*`, `500/index.*`) are **not** excluded and get pre-rendered like static routes (known issue: the generate filter only checks for dynamic segments).
+- The manifest's `generated` flag is persisted to `dist/server/routes.json`.
 
 > Do not generate routes that render live data (database-backed pages) — the snapshot would go stale. Generate marketing/static routes only.
 

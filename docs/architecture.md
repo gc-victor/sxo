@@ -8,10 +8,11 @@
    - Optional `middleware.js` defining the user middleware chain
 2. **Pages directory** (default `src/pages`) containing:
    - `global.css` (optional)
-   - Route directories, each with an `index.(tsx|jsx)`
+   - Route directories, each with an `index.(tsx|jsx|ts|js)`
 3. **Entry point discovery**
    - Each directory containing an `index.*` page file becomes a route.
-   - An optional `<clientDir>/index.(ts|tsx|js|jsx)` inside that route directory is added as a client entry (default `clientDir` is `client`; precedence: `.ts` > `.tsx` > `.js` > `.jsx`).
+   - Every `<clientDir>/index.*` and `<clientDir>/*.index.*` file inside that route directory is collected as a client entry (default `clientDir` is `client`). All matching variants are added; there is no extension precedence.
+   - Root-level `<clientDir>/index.*` / `*.index.*` files (e.g. `src/pages/client/index.js`) are added to every route, so shared interactive components work on every page.
    - `global.css`, if present, is added as a shared stylesheet entry for every route.
 4. **Build**
    - Client bundle → `dist/client` (public)
@@ -42,7 +43,7 @@ Middleware runs first and can handle any request itself (JSON APIs, auth, redire
 
 SXO is a multi-runtime library:
 
-- **Node.js** — full-featured production server with HTTP/2 support and timeouts. No graceful-shutdown handling; SIGINT/SIGTERM terminate immediately.
+- **Node.js** — full-featured production server with request/header timeouts. No graceful-shutdown handling; SIGINT/SIGTERM terminate immediately.
 - **Bun** — native file I/O optimizations; same signal behavior.
 - **Deno** — secure-by-default with native TypeScript support; same signal behavior.
 - **Cloudflare Workers** — edge deployment via a factory entry point (`sxo/cloudflare`).
@@ -78,7 +79,6 @@ A typical `src` layout yields:
 ## Performance & DX
 
 - Rust/WASM JSX transform reduces parse overhead.
-- Entry manifest reuse avoids unnecessary directory traversal.
 - Dual builds isolate server SSR bundles from public output.
 - Hot replace patches fragments and assets without a full reload.
 - A readiness probe prevents races on browser auto-open.

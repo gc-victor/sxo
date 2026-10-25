@@ -12,7 +12,7 @@ Command defaults for `open`: dev `true`, build/start `false`.
 
 ## Config File
 
-`sxo.config.json` or `sxo.config.js` (ESM `export default`) in the project root:
+`sxo.config.mjs`, `sxo.config.js`, `sxo.config.cjs`, or `sxo.config.json` in the project root (`.mjs`/`.js` use ESM `export default`; `.cjs` uses `module.exports`):
 
 ```json
 {
@@ -35,19 +35,18 @@ export default {
   open: false,
   pagesDir: "src/pages",
   outDir: "dist",
-  client: {
+  build: {
     minify: process.env.NODE_ENV === "production",
     sourcemap: process.env.NODE_ENV === "development" ? "inline" : false,
   },
-  i18n: {
-    defaultLang: "en",
-    supportedLangs: ["en", "es"],
-    langsDir: "src/langs",
+  securityHeaders: {
+    "Content-Security-Policy": "default-src 'self'",
   },
+  allowMiddlewareSecurityOverride: false,
 };
 ```
 
-### `build` / `client` property
+### `build` property
 
 Accepts esbuild options for the **client build only**. SXO defaults: `minify: true`, `sourcemap: isDev ? "inline" : false`.
 
@@ -62,11 +61,12 @@ The **server build** uses its own hardcoded defaults (`minify: true`, `sourcemap
 --open / --no-open          # Auto-open browser on dev ready
 --public-path <path>        # Public base URL for assets. Default: "/"; "" preserved (relative URLs)
 --client-dir <name>         # Per-route client entry subdirectory. Default: client
---components-dir <path>     # Components dir for 'sxo add'. Default: src/components
 --loaders <ext=loader>      # esbuild server loaders (dev/build); repeatable or comma-separated
 --verbose                   # Verbose logging
 --no-color                  # Disable ANSI colors
 ```
+
+The components directory for `sxo add` has no CLI flag; set `COMPONENTS_DIR` or the `componentsDir` config key instead.
 
 ## Environment Variables
 
@@ -86,6 +86,8 @@ Recognized (read from the process environment):
 | `NO_COLOR` | Disable colorized output | unset |
 | `HEADER_TIMEOUT_MS` | Node `server.headersTimeout` in ms; non-negative integer | Node default |
 | `REQUEST_TIMEOUT_MS` | Node `server.requestTimeout` in ms | `120000` |
+| `SECURITY_HEADERS` | Extra security headers applied to production responses, as a JSON object (e.g., `{"Content-Security-Policy":"default-src 'self'"}`) | unset |
+| `ALLOW_MIDDLEWARE_SECURITY_OVERRIDE` | When `true`, middleware may override protected security headers | `false` |
 
 Loaders can also be set per invocation:
 
@@ -102,8 +104,8 @@ Derived / injected by SXO:
 | `OUTPUT_DIR_SERVER` | `<outDir>/server` |
 | `SXO_RESOLVED_CONFIG` | JSON blob of the resolved config |
 | `DEV` | `"true"` in dev, else `"false"` |
-| `SXO_COMMAND` | Current command (`dev\|build\|start\|clean`) |
-| `BUILD` | Custom esbuild client config propagated to the child build process (dev/build) |
-| `LOADERS` | Server loaders map propagated to the child build process (dev/build) |
+| `SXO_COMMAND` | Current command (`dev\|build\|start\|clean\|generate\|add`) |
+| `BUILD` | Custom esbuild client config propagated to the child build process (dev/build/generate) |
+| `LOADERS` | Server loaders map propagated to the child build process (dev/build/generate) |
 | `PUBLIC_PATH` | Propagated to the build (defaults to `/`; empty string preserved) |
 | `CLIENT_DIR` | Configured per-route client entry subdirectory name |

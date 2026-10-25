@@ -2,6 +2,8 @@
 
 SXO is a server-side JSX framework: directory-based routing, full-HTML page components, framework-free client islands, esbuild-speed builds, and one CLI for dev, build, and production — on Node.js, Bun, Deno, or Cloudflare Workers.
 
+New to SXO? Start with the [project README](../README.md) for the overview, quick start, and full table of contents, or jump straight into the [Getting Started guide](getting-started.md).
+
 ## Documentation Map
 
 | Document | What it covers |
