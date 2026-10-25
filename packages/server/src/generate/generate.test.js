@@ -149,6 +149,34 @@ test("generate (core): handles various error and edge cases", async (t) => {
         ),
     );
 
+    await t.test("generation continues after a route fails and records both outcomes", () =>
+        runTest(
+            async ({ deps, store }) => {
+                const res = await generateCore(deps);
+
+                assert.equal(res.ok, false);
+                assert.equal(res.generated, 1);
+                assert.equal(res.skipped, 0);
+                assert.equal(res.failed, 1);
+                assert.equal(store.has("/mock/dist/client/about/index.html"), true);
+                const updatedRoutes = JSON.parse(store.get(routeFile));
+                assert.equal(updatedRoutes[1].generated, true);
+            },
+            {
+                [routeFile]: JSON.stringify([
+                    { filename: "index.html", jsx: "src/pages/index.jsx" },
+                    { path: "about", filename: "about/index.html", jsx: "src/pages/about/index.jsx" },
+                ]),
+            },
+            {
+                "src/pages/index.jsx": () => {
+                    throw new Error("page failed");
+                },
+                "src/pages/about/index.jsx": () => "<html><head></head><body>About</body></html>",
+            },
+        ),
+    );
+
     await t.test("invalid SSR export (loadModule throws) -> ok:false and reports error", () =>
         runTest(
             async ({ deps, errors }) => {

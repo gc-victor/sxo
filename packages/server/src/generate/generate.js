@@ -66,9 +66,24 @@ export function isDynamicRoute(route) {
  * @returns {Promise<GenerateResult>}
  */
 export async function generateCore(deps) {
-    const { routesFile, outputDirClient, publicPath: rawPublicPath, readText, writeFile, mkdirp, loadModule } = deps;
+    const preparation = await prepareRoutes(deps);
+    if (preparation.result) return preparation.result;
 
-    // Read and validate manifest
+    const { routes, staticRoutes } = preparation;
+    console.log(`generate: Preparing ${staticRoutes.length} page(s)...`);
+
+    const normalizedPublicPath = normalizePublicPath(deps.publicPath);
+    const counts = await generateStaticRoutes(staticRoutes, deps, normalizedPublicPath);
+    const writeError = await persistGeneratedRoutes(routes, deps);
+    const ok = counts.failed === 0 && writeError === null;
+
+    console.log(
+        `generate: done. generated=${counts.generated} skipped=${counts.skipped} failed=${counts.failed} total=${staticRoutes.length}`,
+    );
+    return { ok, ...counts, total: staticRoutes.length, writeError };
+}
+
+async function prepareRoutes({ routesFile, readText }) {
     let routes;
     try {
         const txt = await readText(routesFile);
@@ -78,97 +93,83 @@ export async function generateCore(deps) {
         routes = JSON.parse(txt);
     } catch {
         console.error(`generate: Missing or invalid manifest. Did you run "build"? Expected: ${routesFile}`);
-        return { ok: false, generated: 0, skipped: 0, total: 0 };
+        return { result: { ok: false, generated: 0, skipped: 0, total: 0 } };
     }
 
     if (!Array.isArray(routes)) {
         console.error("generate: routes manifest is not an array");
-        return { ok: false, generated: 0, skipped: 0, total: 0 };
+        return { result: { ok: false, generated: 0, skipped: 0, total: 0 } };
     }
 
-    // Filter static routes
-    const candidates = routes.filter((r) => r && typeof r === "object" && typeof r.filename === "string" && typeof r.jsx === "string");
-    const staticRoutes = candidates.filter((r) => !isDynamicRoute(r));
-
+    const candidates = routes.filter(
+        (route) => route && typeof route === "object" && typeof route.filename === "string" && typeof route.jsx === "string",
+    );
     if (candidates.length === 0) {
         console.log("generate: No routes found in manifest.");
-        return { ok: true, generated: 0, skipped: 0, total: 0 };
+        return { result: { ok: true, generated: 0, skipped: 0, total: 0 } };
     }
 
+    const staticRoutes = candidates.filter((route) => !isDynamicRoute(route));
     if (staticRoutes.length === 0) {
         console.log("generate: No static routes to generate (all appear dynamic).");
-        return { ok: true, generated: 0, skipped: 0, total: candidates.length };
+        return { result: { ok: true, generated: 0, skipped: 0, total: candidates.length } };
     }
 
-    let generated = 0;
-    let skipped = 0;
-    let failed = 0;
+    return { routes, staticRoutes };
+}
 
-    console.log(`generate: Preparing ${staticRoutes.length} page(s)...`);
+async function generateStaticRoutes(routes, deps, publicPath) {
+    const counts = { generated: 0, skipped: 0, failed: 0 };
+    for (const route of routes) {
+        const result = await generateStaticRoute(route, deps, publicPath);
+        counts[result]++;
+    }
+    return counts;
+}
 
-    const normalizedPublicPath = normalizePublicPath(rawPublicPath);
-
-    for (const route of staticRoutes) {
-        const label = `/${route.path ?? ""}`.replace(/\/$/, "") || "/";
-        try {
-            // Skip when already generated per manifest flag
-            if (route.generated === true) {
-                skipped++;
-                console.log(`- ${label} (skipped: already-generated-flag)`);
-                continue;
-            }
-
-            // SSR the route's module
-            const jsxFn = await loadModule(route.jsx);
-
-            const params = {}; // static routes: empty params
-            const content = await jsxFn(params);
-
-            // It is a fragment not a full page
-            if (!/^<html[\s>]/i.test(content)) {
-                skipped++;
-                console.log(`- ${label} (skipped: fragment, not html file generated)`);
-                continue;
-            }
-            let out = content;
-
-            // Inject assets from routes.json (client-relative paths) with PUBLIC_PATH normalization
-            if (route.assets && typeof route.assets === "object") {
-                out = injectAssets(out, route.assets, normalizedPublicPath);
-            }
-
-            // Prepend doctype
-            out = `<!doctype html>\n${out}`;
-
-            // Write to client HTML file
-            const htmlPath = path.join(outputDirClient, route.filename);
-            await mkdirp(path.dirname(htmlPath));
-            await writeFile(htmlPath, out);
-
-            // Mark as generated in manifest
-            route.generated = true;
-
-            generated++;
-            console.log(`- ${label} \u2713`);
-        } catch (e) {
-            failed++;
-            const msg = e && typeof e === "object" && "message" in e ? e.message : String(e);
-            console.error(`- ${label} \u2717 ${msg}`);
+async function generateStaticRoute(route, { outputDirClient, loadModule, mkdirp, writeFile }, publicPath) {
+    const label = `/${route.path ?? ""}`.replace(/\/$/, "") || "/";
+    try {
+        if (route.generated === true) {
+            console.log(`- ${label} (skipped: already-generated-flag)`);
+            return "skipped";
         }
-    }
 
-    // Persist updated manifest with generated flags
-    let writeError = null;
+        const jsxFn = await loadModule(route.jsx);
+        const content = await jsxFn({});
+        if (!/^<html[\s>]/i.test(content)) {
+            console.log(`- ${label} (skipped: fragment, not html file generated)`);
+            return "skipped";
+        }
+
+        let output = content;
+        if (route.assets && typeof route.assets === "object") {
+            output = injectAssets(output, route.assets, publicPath);
+        }
+        output = `<!doctype html>\n${output}`;
+
+        const htmlPath = path.join(outputDirClient, route.filename);
+        await mkdirp(path.dirname(htmlPath));
+        await writeFile(htmlPath, output);
+        route.generated = true;
+        console.log(`- ${label} \u2713`);
+        return "generated";
+    } catch (error) {
+        const message = error && typeof error === "object" && "message" in error ? error.message : String(error);
+        console.error(`- ${label} \u2717 ${message}`);
+        return "failed";
+    }
+}
+
+async function persistGeneratedRoutes(routes, { routesFile, writeFile }) {
     try {
         await writeFile(routesFile, JSON.stringify(routes, null, 2));
-    } catch (e) {
-        writeError = e && typeof e === "object" && "message" in e ? String(e.message) : String(e);
-        console.error(`generate: failed to persist generated flags to routes.json: ${writeError}`);
+        return null;
+    } catch (error) {
+        const message = error && typeof error === "object" && "message" in error ? String(error.message) : String(error);
+        console.error(`generate: failed to persist generated flags to routes.json: ${message}`);
+        return message;
     }
-
-    const ok = failed === 0 && writeError === null;
-    console.log(`generate: done. generated=${generated} skipped=${skipped} failed=${failed} total=${staticRoutes.length}`);
-    return { ok, generated, skipped, failed, total: staticRoutes.length, writeError };
 }
 
 /**
