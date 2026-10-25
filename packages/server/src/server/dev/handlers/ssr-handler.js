@@ -114,6 +114,20 @@ export function createSSRHandler(config) {
         return renderMarkupResult(page, isHead, decodedPathname, route);
     }
 
+    function enhanceHtmlPage(page, decodedPathname, route, quote) {
+        const normalizedPublicPath = publicPath === "/" ? publicPath : publicPath.replace(/\/$/, "");
+        if (route?.assets) {
+            page = injectAssets(page, route.assets, normalizedPublicPath);
+        }
+        const hotReplaceScript = `
+            <script type="module">
+                import { hotReplace } from "/hot-replace.js";
+                hotReplace(${quote}${decodedPathname}${quote});
+            </script>
+        `;
+        return page.replace(/<\/head>/i, `${hotReplaceScript}\n</head>`);
+    }
+
     async function renderResponseResult(result, isHead, decodedPathname, route) {
         const contentType = result.headers.get(HTTP_HEADER_CONTENT_TYPE) || "";
         if (!contentType.includes("text/html")) {
@@ -122,17 +136,7 @@ export function createSSRHandler(config) {
 
         let page = await result.text();
         if (/^<html[\s>]/i.test(page)) {
-            const normalizedPublicPath = publicPath === "/" ? publicPath : publicPath.replace(/\/$/, "");
-            if (route?.assets) {
-                page = injectAssets(page, route.assets, normalizedPublicPath);
-            }
-            const hotReplaceScript = `
-            <script type="module">
-                import { hotReplace } from "/hot-replace.js";
-                hotReplace("${decodedPathname}");
-            </script>
-        `;
-            page = page.replace(/<\/head>/i, `${hotReplaceScript}\n</head>`);
+            page = enhanceHtmlPage(page, decodedPathname, route, '"');
         }
 
         if (isHead) {
@@ -148,18 +152,7 @@ export function createSSRHandler(config) {
             return new Response(isHead ? null : page, { status: 200, headers });
         }
 
-        const normalizedPublicPath = publicPath === "/" ? publicPath : publicPath.replace(/\/$/, "");
-        if (route?.assets) {
-            page = injectAssets(page, route.assets, normalizedPublicPath);
-        }
-
-        const hotReplaceScript = `
-            <script type="module">
-                import { hotReplace } from "/hot-replace.js";
-                hotReplace('${decodedPathname}');
-            </script>
-        `;
-        page = page.replace(/<\/head>/i, `${hotReplaceScript}\n</head>`);
+        page = enhanceHtmlPage(page, decodedPathname, route, "'");
 
         const headers = { [HTTP_HEADER_CONTENT_TYPE]: MIME_TYPE_HTML_UTF8 };
         return new Response(isHead ? null : `<!doctype html>\n${page}`, { status: 200, headers });
@@ -243,8 +236,8 @@ export function createSSRHandler(config) {
                 [HTTP_HEADER_CACHE_CONTROL]: "no-store",
             };
             return new Response(isHead ? null : `<!doctype html>\n${page}`, { status, headers });
-        } catch (err) {
-            logger.error({ err: /** @type {Error} */ (err) }, "Failed to render custom 500 page");
+        } catch (renderError) {
+            logger.error({ err: /** @type {Error} */ (renderError) }, "Failed to render custom 500 page");
         }
 
         return createDefault500Response(err, isHead, status);
