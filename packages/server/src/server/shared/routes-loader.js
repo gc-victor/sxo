@@ -69,6 +69,32 @@ export function validateRoutes(data, source = "routes.json") {
     return data;
 }
 
+async function loadRoutesAttempt(routesPath, readFile, source) {
+    let content;
+    if (readFile) {
+        content = await readFile(routesPath);
+    } else {
+        const text = await defaultFileReader.readText(routesPath);
+        if (text === null) {
+            throw new Error(`Failed to read routes file: ${routesPath}`);
+        }
+        content = text;
+    }
+
+    return validateRoutes(JSON.parse(content), source);
+}
+
+function handleRoutesLoadError(err, attemptIndex, retries, onError) {
+    const error = err instanceof Error ? err : new Error(String(err));
+    if (onError) onError(error, attemptIndex + 1);
+
+    if (attemptIndex === retries - 1) {
+        const message = `Failed to load routes after ${retries} attempts: ${error.message}`;
+        logger.error(message);
+        throw new Error(message);
+    }
+}
+
 /**
  * Load and validate routes manifest with retry support.
  *
@@ -109,34 +135,9 @@ export async function loadRoutesManifest(routesPath, options = {}) {
 
     for (let i = 0; i < retries; i++) {
         try {
-            // Use custom reader if provided, otherwise default to unified fileReader
-            let content;
-            if (readFile) {
-                content = await readFile(routesPath);
-            } else {
-                const text = await defaultFileReader.readText(routesPath);
-                if (text === null) {
-                    throw new Error(`Failed to read routes file: ${routesPath}`);
-                }
-                content = text;
-            }
-
-            const data = JSON.parse(content);
-            return validateRoutes(data, source);
+            return await loadRoutesAttempt(routesPath, readFile, source);
         } catch (err) {
-            const error = err instanceof Error ? err : new Error(String(err));
-            // Invoke error callback if provided
-            if (onError) {
-                onError(error, i + 1);
-            }
-
-            // On last retry, throw the error
-            if (i === retries - 1) {
-                const msg = `Failed to load routes after ${retries} attempts: ${error.message}`;
-                logger.error(msg);
-                throw new Error(msg);
-            }
-
+            handleRoutesLoadError(err, i, retries, onError);
             // Wait before retrying (file may still be written by esbuild)
             await new Promise((resolve) => setTimeout(resolve, 100));
         }

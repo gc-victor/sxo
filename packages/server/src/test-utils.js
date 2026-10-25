@@ -10,7 +10,7 @@ import path from "node:path";
  * @param {any} err - Error object from failed symlink operation
  * @returns {boolean} True if the error indicates a Windows symlink privilege issue
  */
-export function isWindowsSymlinkPrivilegeError(err) {
+function isWindowsSymlinkPrivilegeError(err) {
     if (!err || typeof err !== "object") {
         return false;
     }

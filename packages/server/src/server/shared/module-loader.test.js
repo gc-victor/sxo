@@ -343,6 +343,24 @@ describe("loadModulesWithFallback", () => {
         assert.equal(typeof modules["src/pages/index.jsx"].default, "function");
     });
 
+    it("loads fallback modules in route order", async () => {
+        const individualImports = [];
+        const importer = async (url) => {
+            if (url.includes("modules.js")) throw new Error("Bundle not found");
+            individualImports.push(url);
+            return { default: () => "<html></html>" };
+        };
+
+        await loadModulesWithFallback({
+            modulesPath: "./dist/server/modules.js",
+            routes: createRoutes(["index.jsx", "about.jsx"]),
+            importer,
+        });
+
+        assert.ok(individualImports[0].endsWith("index.js"));
+        assert.ok(individualImports[1].endsWith("about.js"));
+    });
+
     it("calls onError for failed individual module loads during fallback", async () => {
         const errors = [];
         const importer = async (url) => {

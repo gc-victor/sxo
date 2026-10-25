@@ -55,51 +55,31 @@ import { logger } from "../utils/logger.js";
  */
 export async function loadErrorPages(options) {
     const { resolve404Page, resolve500Page, loadJsxModule, onError, redactErrors = false } = options;
-
-    let render404 = null;
-    let render500 = null;
-
-    // Generic error message for production mode (no sensitive details)
-    const generic404Msg = "Failed to load custom 404 page";
-    const generic500Msg = "Failed to load custom 500 page";
-
-    // Load 404 page
-    const error404Path = resolve404Page();
-    if (error404Path) {
-        try {
-            render404 = await loadJsxModule(error404Path);
-        } catch (e) {
-            const isRedacted = redactErrors;
-            const msg = isRedacted ? generic404Msg : `Failed to load custom 404 page: ${e instanceof Error ? e.message : String(e)}`;
-            // Always log full error object for internal debugging (structured logging)
-            logger.error({ err: e }, msg);
-            if (onError) {
-                // In prod mode, pass a redacted error to prevent leakage via onError callback
-                const redactedErr = isRedacted ? new Error(generic404Msg) : e instanceof Error ? e : new Error(String(e));
-                onError(redactedErr, "404");
-            }
-            // Continue with null (fallback to default 404)
-        }
-    }
-
-    // Load 500 page
-    const error500Path = resolve500Page();
-    if (error500Path) {
-        try {
-            render500 = await loadJsxModule(error500Path);
-        } catch (e) {
-            const isRedacted = redactErrors;
-            const msg = isRedacted ? generic500Msg : `Failed to load custom 500 page: ${e instanceof Error ? e.message : String(e)}`;
-            // Always log full error object for internal debugging (structured logging)
-            logger.error({ err: e }, msg);
-            if (onError) {
-                // In prod mode, pass a redacted error to prevent leakage via onError callback
-                const redactedErr = isRedacted ? new Error(generic500Msg) : e instanceof Error ? e : new Error(String(e));
-                onError(redactedErr, "500");
-            }
-            // Continue with null (fallback to default 500)
-        }
-    }
-
+    const render404 = await loadErrorPage("404", resolve404Page, loadJsxModule, onError, redactErrors);
+    const render500 = await loadErrorPage("500", resolve500Page, loadJsxModule, onError, redactErrors);
     return { render404, render500 };
+}
+
+async function loadErrorPage(page, resolvePage, loadJsxModule, onError, redactErrors) {
+    const pagePath = resolvePage();
+    if (!pagePath) return null;
+
+    try {
+        return await loadJsxModule(pagePath);
+    } catch (error) {
+        const genericMessage = `Failed to load custom ${page} page`;
+        const message = redactErrors ? genericMessage : `${genericMessage}: ${error instanceof Error ? error.message : String(error)}`;
+        logger.error({ err: error }, message);
+
+        if (onError) {
+            onError(toCallbackError(error, genericMessage, redactErrors), page);
+        }
+        return null;
+    }
+}
+
+function toCallbackError(error, genericMessage, redactErrors) {
+    if (redactErrors) return new Error(genericMessage);
+    if (error instanceof Error) return error;
+    return new Error(String(error));
 }

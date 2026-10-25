@@ -25,7 +25,7 @@
  *
  * @type {string[]}
  */
-export const PROTECTED_SECURITY_HEADERS = [
+const PROTECTED_SECURITY_HEADERS = [
     "content-security-policy",
     "strict-transport-security",
     "x-frame-options",
@@ -45,7 +45,7 @@ export const PROTECTED_SECURITY_HEADERS = [
  * isProtectedHeader("Cache-Control")   // false
  * ```
  */
-export function isProtectedHeader(headerName) {
+function isProtectedHeader(headerName) {
     const normalized = String(headerName).toLowerCase();
     return PROTECTED_SECURITY_HEADERS.includes(normalized);
 }

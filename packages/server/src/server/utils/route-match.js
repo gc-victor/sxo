@@ -177,49 +177,51 @@ export function buildPatternRegex(rawPattern) {
  * @param {{validateSlug?: boolean}} [options]
  * @returns {{route: object, params: Record<string,string>} | {invalid: true} | null}
  */
+function matchRootRoute(clean, route) {
+    if (clean === "" || clean === "index.html") {
+        return { route, params: Object.create(null) };
+    }
+    return null;
+}
+
+function matchDynamicRoute(match, paramNames, route, validateSlug) {
+    /** @type {Record<string, string>} */
+    const params = Object.create(null);
+
+    for (let i = 0; i < paramNames.length; i++) {
+        const value = match[i + 1];
+        if (validateSlug && !SLUG_REGEX.test(value)) {
+            return { invalid: true };
+        }
+        params[paramNames[i]] = value;
+    }
+
+    return { route, params };
+}
+
+function matchRoute(clean, route, validateSlug) {
+    const rawPattern = (route.path || "").replace(/\/+$/, "");
+    if (!rawPattern) return matchRootRoute(clean, route);
+
+    // Fast path: explicit "<pattern>/index.html"
+    if (clean === `${rawPattern}/index.html`) {
+        return { route, params: Object.create(null) };
+    }
+
+    const { regex, paramNames } = buildPatternRegex(rawPattern);
+    const match = clean.match(regex);
+    if (!match) return null;
+    return matchDynamicRoute(match, paramNames, route, validateSlug);
+}
+
 export function routeMatch(url, files, options = {}) {
     const validateSlug = options.validateSlug !== false;
-    // SLUG_REGEX validates parameter VALUES (not names) - ensures safe URL segments
-    const slugRegex = SLUG_REGEX;
-
     const clean = normalizeIncoming(url);
     if (clean === null) return null;
 
-    for (const f of files) {
-        const rawPattern = (f.path || "").replace(/\/+$/, ""); // trim trailing slash (except root)
-        if (!rawPattern) {
-            // Root route
-            if (clean === "") {
-                return { route: f, params: Object.create(null) };
-            }
-            if (clean === "index.html") {
-                return { route: f, params: Object.create(null) };
-            }
-            continue;
-        }
-
-        // Fast path: explicit "<pattern>/index.html"
-        if (clean === `${rawPattern}/index.html`) {
-            return { route: f, params: Object.create(null) };
-        }
-
-        const { regex, paramNames } = buildPatternRegex(rawPattern);
-        const match = clean.match(regex);
-        if (match) {
-            /** @type {Record<string, string>} */
-            const params = Object.create(null);
-
-            // Map each captured group to its parameter name
-            for (let i = 0; i < paramNames.length; i++) {
-                const value = match[i + 1]; // match[0] is full match, params start at match[1]
-                if (validateSlug && !slugRegex.test(value)) {
-                    return { invalid: true };
-                }
-                params[paramNames[i]] = value;
-            }
-
-            return { route: f, params };
-        }
+    for (const route of files) {
+        const result = matchRoute(clean, route, validateSlug);
+        if (result) return result;
     }
 
     return null;

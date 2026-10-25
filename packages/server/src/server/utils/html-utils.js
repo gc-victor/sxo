@@ -19,6 +19,30 @@ export function escapeHtml(str) {
     return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
+function formatAggregateErrors(errors) {
+    let result = `\n\nAggregateError with ${errors.length} error(s):`;
+    for (let i = 0; i < errors.length; i++) {
+        result += `\n  [${i}]: ${String(errors[i])}`;
+    }
+    return result;
+}
+
+function describeCauseStep(current) {
+    if (typeof AggregateError !== "undefined" && current instanceof AggregateError && current.errors) {
+        const message = formatAggregateErrors(current.errors);
+        if (current.cause) {
+            return { message, cause: current.cause, depth: 0 };
+        }
+        return { message, cause: undefined, depth: 0 };
+    }
+
+    return {
+        message: `\n\nCaused by: ${String(current)}`,
+        cause: current.cause,
+        depth: 1,
+    };
+}
+
 /**
  * Walk the cause chain of an error, returning a human-readable string.
  * Returns empty string for null/undefined/primitive inputs.
@@ -32,20 +56,10 @@ function errorChain(err) {
     let current = /** @type {Error | undefined} */ (err && typeof err === "object" ? err.cause : undefined);
     let depth = 0;
     while (current && depth < 10) {
-        if (typeof AggregateError !== "undefined" && current instanceof AggregateError && current.errors) {
-            result += `\n\nAggregateError with ${current.errors.length} error(s):`;
-            for (let i = 0; i < current.errors.length; i++) {
-                result += `\n  [${i}]: ${String(current.errors[i])}`;
-            }
-            if (current.cause) {
-                current = /** @type {Error | undefined} */ (current.cause);
-                continue;
-            }
-            break;
-        }
-        result += `\n\nCaused by: ${String(current)}`;
-        current = /** @type {Error | undefined} */ (current.cause);
-        depth++;
+        const step = describeCauseStep(current);
+        result += step.message;
+        current = /** @type {Error | undefined} */ (step.cause);
+        depth += step.depth;
     }
     return result;
 }

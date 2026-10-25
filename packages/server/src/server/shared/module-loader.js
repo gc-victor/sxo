@@ -128,6 +128,32 @@ export async function loadAllModules(routes, { importer, bustCache = false, cach
     );
 }
 
+async function loadIndividualModules(routes, importer, onError, isDev) {
+    /** @type {Record<string, {default?: Function, jsx?: Function}>} */
+    const modules = {};
+    const cache = new Map();
+
+    for (const route of routes) {
+        if (!route.jsx) continue;
+        try {
+            const fn = await loadJsxModule(route.jsx, {
+                importer,
+                cache,
+                returnErrorStub: false,
+                isDev,
+            });
+            modules[route.jsx] = { default: fn };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            if (onError) {
+                onError(`Failed to load SSR module ${route.jsx}: ${errorMessage}`);
+            }
+        }
+    }
+
+    return modules;
+}
+
 /**
  * Load modules from bundled modules.js or fall back to individual JSX loading.
  *
@@ -151,40 +177,16 @@ export async function loadModulesWithFallback({ modulesPath, routes, importer, o
         throw new Error("loadModulesWithFallback: routes array is required");
     }
 
-    /** @type {Record<string, {default?: Function, jsx?: Function}>} */
-    let modules = {};
-
     // Try to load from modules.js bundle first
     try {
         const modulesModule = await importer(modulesPath);
-        modules = modulesModule.default || modulesModule;
-        return modules;
+        return modulesModule.default || modulesModule;
     } catch {
         // Fall back to loading JSX modules individually
         if (onWarn) {
             onWarn("modules.js not found, falling back to individual module loading");
         }
-
-        const cache = new Map();
-        for (const route of routes) {
-            if (route.jsx) {
-                try {
-                    const fn = await loadJsxModule(route.jsx, {
-                        importer,
-                        cache,
-                        returnErrorStub: false,
-                        isDev,
-                    });
-                    modules[route.jsx] = { default: fn };
-                } catch (e) {
-                    const errorMessage = e instanceof Error ? e.message : String(e);
-                    if (onError) {
-                        onError(`Failed to load SSR module ${route.jsx}: ${errorMessage}`);
-                    }
-                }
-            }
-        }
     }
 
-    return modules;
+    return loadIndividualModules(routes, importer, onError, isDev);
 }

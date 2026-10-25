@@ -251,6 +251,21 @@ describe("static handler (Parameterized Tests)", () => {
             assert.strictEqual(response.headers.get("ETag"), etag);
         });
 
+        test("should ignore If-None-Match for methods other than GET and HEAD", async () => {
+            const mtime = new Date("2024-01-01T00:00:00.000Z");
+            const files = createFileMap([{ path: "/dist/client/app.js", content: "js", mtime }]);
+            const handler = createHandlerWithFiles(files);
+            const response = await handler(
+                createRequest("http://localhost/app.js", {
+                    method: "POST",
+                    headers: { "If-None-Match": "*" },
+                }),
+            );
+
+            assert.strictEqual(response.status, 200);
+            assert.strictEqual(await response.text(), "js");
+        });
+
         test("should return 304 for If-None-Match wildcard", async () => {
             const mtime = new Date("2024-01-01T00:00:00.000Z");
             const files = createFileMap([{ path: "/dist/client/app.js", content: "js", mtime }]);

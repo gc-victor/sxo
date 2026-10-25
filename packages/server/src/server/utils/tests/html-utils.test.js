@@ -20,6 +20,24 @@ test("renderErrorHtml handles non-string input (object)", () => {
     assert.ok(out.includes("✘ [ERROR]: [object Object]"), "Object coerced via String()");
 });
 
+test("renderErrorHtml includes standard causes in order", () => {
+    const root = new Error("root");
+    const outer = new Error("outer", { cause: root });
+
+    assert.ok(renderErrorHtml(outer).includes("Error: outer\n\nCaused by: Error: root"));
+});
+
+test("renderErrorHtml includes aggregate errors and their cause", () => {
+    const aggregate = new AggregateError([new Error("first"), "second"], "aggregate", { cause: new Error("root") });
+    const outer = new Error("outer", { cause: aggregate });
+
+    assert.ok(
+        renderErrorHtml(outer).includes(
+            "Error: outer\n\nAggregateError with 2 error(s):\n  [0]: Error: first\n  [1]: second\n\nCaused by: Error: root",
+        ),
+    );
+});
+
 test("renderErrorHtml handles undefined input", () => {
     const out = renderErrorHtml(undefined);
     assert.ok(out.includes("✘ [ERROR]: "), "Base prefix retained");

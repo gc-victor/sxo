@@ -58,6 +58,15 @@ describe("getErrorPageAssets", () => {
         });
     });
 
+    it("returns copies of the selected asset arrays", () => {
+        const assets = { css: ["404/style.css"], js: ["404/script.js"] };
+        const result = getErrorPageAssets(() => [createRoute({ jsx: "pages/404/index.tsx", isErrorPage: true, assets })], "404");
+
+        result.css.push("extra.css");
+        result.js.push("extra.js");
+        deepStrictEqual(assets, { css: ["404/style.css"], js: ["404/script.js"] });
+    });
+
     it("returns error-page-specific js when page has js only and no css", () => {
         const routes = [
             createRoute({

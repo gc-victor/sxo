@@ -88,6 +88,21 @@ describe("loadErrorPages", () => {
         assert.equal(render500, mock500);
     });
 
+    test("converts non-Error loader failures before calling onError", async () => {
+        const errorsCalled = [];
+        const result = await loadErrorPages({
+            resolve404Page: () => null,
+            resolve500Page: () => "/pages/500.jsx",
+            loadJsxModule: async () => {
+                throw "load failure";
+            },
+            onError: (error, page) => errorsCalled.push({ message: error.message, page }),
+        });
+
+        assert.equal(result.render500, null);
+        assert.deepEqual(errorsCalled, [{ message: "load failure", page: "500" }]);
+    });
+
     test("calls onError callback when loading fails", async () => {
         const errorsCalled = [];
 

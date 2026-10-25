@@ -139,27 +139,13 @@ export function createStaticHandler(options) {
             });
         }
 
-        // Check for precompressed variants (skip in dev mode)
-        let sendPath = absPath;
-        let contentEncoding = null;
-        let compressible = false;
-
-        if (!skipCompression) {
-            const acceptEncoding = request.headers.get("Accept-Encoding") || "";
-            const canBr = acceptsEncoding(acceptEncoding, "br");
-            const canGzip = acceptsEncoding(acceptEncoding, "gzip");
-            compressible = isCompressible(ext);
-
-            if (compressible) {
-                if (canBr && (await fileReader.exists(`${absPath}.br`))) {
-                    sendPath = `${absPath}.br`;
-                    contentEncoding = "br";
-                } else if (canGzip && (await fileReader.exists(`${absPath}.gz`))) {
-                    sendPath = `${absPath}.gz`;
-                    contentEncoding = "gzip";
-                }
-            }
-        }
+        const { sendPath, contentEncoding, compressible } = await selectCompressedVariant({
+            request,
+            absPath,
+            ext,
+            fileReader,
+            skipCompression,
+        });
 
         // Check if file exists and get stats (for ETag)
         const stat = await fileReader.stat(sendPath);
@@ -174,50 +160,26 @@ export function createStaticHandler(options) {
         // Generate ETag from file stats (for the actual file being served, compressed or uncompressed)
         const etag = weakEtagFromStat(stat);
 
-        // Check If-None-Match for cache validation
         if (etag) {
-            const ifNoneMatch = request.headers.get(HTTP_HEADER_IF_NONE_MATCH);
-            if (matchesIfNoneMatch(ifNoneMatch, etag, request.method)) {
-                // Client has current version, return 304
-                const headers304 = new Headers({
-                    [HTTP_HEADER_CACHE_CONTROL]: effectiveCacheControl,
-                    ETag: etag,
-                });
-
-                // Include Vary: Accept-Encoding when compression is enabled and file is compressible
-                if (!skipCompression && compressible) {
-                    headers304.set("Vary", "Accept-Encoding");
-                }
-
-                // For compressed variants, include Content-Encoding to avoid cache key mismatches
-                if (contentEncoding) {
-                    headers304.set(HTTP_HEADER_CONTENT_ENCODING, contentEncoding);
-                }
-
-                return new Response(null, {
-                    status: HTTP_STATUS_NOT_MODIFIED,
-                    headers: headers304,
-                });
-            }
+            const notModified = createNotModifiedResponse({
+                request,
+                etag,
+                cacheControl: effectiveCacheControl,
+                skipCompression,
+                compressible,
+                contentEncoding,
+            });
+            if (notModified) return notModified;
         }
 
-        // Build response headers
-        const headers = new Headers({
-            [HTTP_HEADER_CONTENT_TYPE]: mimeType,
-            [HTTP_HEADER_CACHE_CONTROL]: effectiveCacheControl,
+        const headers = createResponseHeaders({
+            mimeType,
+            cacheControl: effectiveCacheControl,
+            etag,
+            skipCompression,
+            compressible,
+            contentEncoding,
         });
-
-        if (etag) {
-            headers.set("ETag", etag);
-        }
-
-        if (!skipCompression && compressible) {
-            headers.set("Vary", "Accept-Encoding");
-        }
-
-        if (contentEncoding) {
-            headers.set(HTTP_HEADER_CONTENT_ENCODING, contentEncoding);
-        }
 
         // Handle HEAD requests
         if (request.method === HTTP_METHOD_HEAD) {
@@ -227,31 +189,7 @@ export function createStaticHandler(options) {
             });
         }
 
-        // Read file content with fallback for compressed variants
-        let content = await fileReader.read(sendPath);
-
-        // If compressed variant read fails, fall back to uncompressed version
-        if (content === null && contentEncoding !== null) {
-            console.error(`Failed to read compressed file: ${sendPath}, falling back to uncompressed: ${absPath}`);
-
-            // Check if uncompressed file exists and can be read
-            const uncompressedStat = await fileReader.stat(absPath);
-            if (uncompressedStat !== null) {
-                // Update sendPath to uncompressed file
-                sendPath = absPath;
-                const uncompressedEtag = weakEtagFromStat(uncompressedStat);
-                if (uncompressedEtag) {
-                    headers.set("ETag", uncompressedEtag);
-                }
-
-                // Remove Content-Encoding header since we're serving uncompressed
-                headers.delete(HTTP_HEADER_CONTENT_ENCODING);
-                contentEncoding = null;
-
-                // Try reading uncompressed file
-                content = await fileReader.read(sendPath);
-            }
-        }
+        const content = await readStaticFile({ fileReader, sendPath, absPath, contentEncoding, headers });
 
         if (content === null) {
             return null;
@@ -262,6 +200,94 @@ export function createStaticHandler(options) {
             headers,
         });
     };
+}
+
+/**
+ * Select a precompressed file when the request accepts an available variant.
+ * @param {{ request: Request, absPath: string, ext: string, fileReader: FileReader, skipCompression?: boolean }} options
+ * @returns {Promise<{ sendPath: string, contentEncoding: string | null, compressible: boolean }>}
+ */
+async function selectCompressedVariant({ request, absPath, ext, fileReader, skipCompression }) {
+    if (skipCompression) {
+        return { sendPath: absPath, contentEncoding: null, compressible: false };
+    }
+
+    const compressible = isCompressible(ext);
+    if (!compressible) {
+        return { sendPath: absPath, contentEncoding: null, compressible };
+    }
+
+    const acceptEncoding = request.headers.get("Accept-Encoding") || "";
+    if (acceptsEncoding(acceptEncoding, "br") && (await fileReader.exists(`${absPath}.br`))) {
+        return { sendPath: `${absPath}.br`, contentEncoding: "br", compressible };
+    }
+
+    if (acceptsEncoding(acceptEncoding, "gzip") && (await fileReader.exists(`${absPath}.gz`))) {
+        return { sendPath: `${absPath}.gz`, contentEncoding: "gzip", compressible };
+    }
+
+    return { sendPath: absPath, contentEncoding: null, compressible };
+}
+
+/**
+ * Build a 304 response when the request validator matches the selected file.
+ * @param {{ request: Request, etag: string, cacheControl: string, skipCompression?: boolean, compressible: boolean, contentEncoding: string | null }} options
+ * @returns {Response | null}
+ */
+function createNotModifiedResponse({ request, etag, cacheControl, skipCompression, compressible, contentEncoding }) {
+    const ifNoneMatch = request.headers.get(HTTP_HEADER_IF_NONE_MATCH);
+    if (!matchesIfNoneMatch(ifNoneMatch, etag, request.method)) {
+        return null;
+    }
+
+    const headers = new Headers({ [HTTP_HEADER_CACHE_CONTROL]: cacheControl, ETag: etag });
+    if (!skipCompression && compressible) {
+        headers.set("Vary", "Accept-Encoding");
+    }
+    if (contentEncoding) {
+        headers.set(HTTP_HEADER_CONTENT_ENCODING, contentEncoding);
+    }
+
+    return new Response(null, { status: HTTP_STATUS_NOT_MODIFIED, headers });
+}
+
+/**
+ * Build headers shared by successful static file responses.
+ * @param {{ mimeType: string, cacheControl: string, etag: string | null, skipCompression?: boolean, compressible: boolean, contentEncoding: string | null }} options
+ * @returns {Headers}
+ */
+function createResponseHeaders({ mimeType, cacheControl, etag, skipCompression, compressible, contentEncoding }) {
+    const headers = new Headers({
+        [HTTP_HEADER_CONTENT_TYPE]: mimeType,
+        [HTTP_HEADER_CACHE_CONTROL]: cacheControl,
+    });
+    if (etag) headers.set("ETag", etag);
+    if (!skipCompression && compressible) headers.set("Vary", "Accept-Encoding");
+    if (contentEncoding) headers.set(HTTP_HEADER_CONTENT_ENCODING, contentEncoding);
+    return headers;
+}
+
+/**
+ * Read the selected static file and fall back to the original when compression fails.
+ * @param {{ fileReader: FileReader, sendPath: string, absPath: string, contentEncoding: string | null, headers: Headers }} options
+ * @returns {Promise<Uint8Array | null>}
+ */
+async function readStaticFile({ fileReader, sendPath, absPath, contentEncoding, headers }) {
+    const content = await fileReader.read(sendPath);
+    if (content !== null || contentEncoding === null) {
+        return content;
+    }
+
+    console.error(`Failed to read compressed file: ${sendPath}, falling back to uncompressed: ${absPath}`);
+    const uncompressedStat = await fileReader.stat(absPath);
+    if (uncompressedStat === null) {
+        return null;
+    }
+
+    const uncompressedEtag = weakEtagFromStat(uncompressedStat);
+    if (uncompressedEtag) headers.set("ETag", uncompressedEtag);
+    headers.delete(HTTP_HEADER_CONTENT_ENCODING);
+    return fileReader.read(absPath);
 }
 
 /**

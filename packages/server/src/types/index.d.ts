@@ -49,14 +49,7 @@ declare global {
      */
     type Command = "dev" | "build" | "start" | "preview" | "clean" | "add" | "generate";
 
-    /**
-     * Merged configuration object before finalization.
-     *
-     * Represents intermediate state after merging defaults, environment variables,
-     * file config, and CLI flags. All properties are optional to allow partial
-     * configurations from each source.
-     */
-    interface ConfigObject {
+    type ConfigOptions = {
         port?: number;
         pagesDir?: string;
         outDir?: string;
@@ -72,7 +65,16 @@ declare global {
         command?: Command;
         allowMiddlewareSecurityOverride?: boolean;
         securityHeaders?: Record<string, string> | null;
-    }
+    };
+
+    /**
+     * Merged configuration object before finalization.
+     *
+     * Represents intermediate state after merging defaults, environment variables,
+     * file config, and CLI flags. All properties are optional to allow partial
+     * configurations from each source.
+     */
+    interface ConfigObject extends ConfigOptions {}
 
     /**
      * Final resolved configuration with required fields.
@@ -107,23 +109,7 @@ declare global {
      * Represents parsed command-line flags that may override config from other sources.
      * All properties are optional since CLI flags are sparse by design.
      */
-    interface FlagConfig {
-        port?: number;
-        pagesDir?: string;
-        outDir?: string;
-        open?: boolean;
-        verbose?: boolean;
-        color?: boolean;
-        publicPath?: string;
-        clientDir?: string;
-        componentsDir?: string;
-        // biome-ignore lint/suspicious/noExplicitAny: esbuild config can be any object
-        build?: Record<string, any>;
-        loaders?: Record<string, string>;
-        command?: Command;
-        allowMiddlewareSecurityOverride?: boolean;
-        securityHeaders?: Record<string, string> | null;
-    }
+    interface FlagConfig extends ConfigOptions {}
 
     /**
      * Environment-derived configuration type definition.

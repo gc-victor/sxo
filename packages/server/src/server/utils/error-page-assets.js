@@ -9,6 +9,17 @@
  * @module server/utils/error-page-assets
  */
 
+function hasAssets(assets) {
+    return assets && ((Array.isArray(assets.css) && assets.css.length > 0) || (Array.isArray(assets.js) && assets.js.length > 0));
+}
+
+function copyAssets(assets) {
+    return {
+        css: [...assets.css],
+        js: assets.js ? [...assets.js] : [],
+    };
+}
+
 /**
  * Extract CSS/JS assets for a specific error page from the route manifest.
  *
@@ -19,37 +30,16 @@
 export function getErrorPageAssets(getRoutes, pageName) {
     try {
         const routes = getRoutes();
-        // Try error-page-specific assets first (folder-based error pages with client entries)
-        for (const route of routes) {
-            if (
-                route.isErrorPage &&
-                new RegExp(`/${pageName}/`, "i").test(route.jsx) &&
-                route.assets &&
-                ((Array.isArray(route.assets.css) && route.assets.css.length > 0) ||
-                    (Array.isArray(route.assets.js) && route.assets.js.length > 0))
-            ) {
-                return {
-                    css: [...route.assets.css],
-                    js: route.assets.js ? [...route.assets.js] : [],
-                };
-            }
-        }
+        const errorPage = routes.find(
+            (route) => route.isErrorPage && new RegExp(`/${pageName}/`, "i").test(route.jsx) && hasAssets(route.assets),
+        );
+        if (errorPage) return copyAssets(errorPage.assets);
+
         // Fall back to first regular route's assets (backward compat for flat file error pages)
-        for (const route of routes) {
-            if (
-                !route.isErrorPage &&
-                route.assets &&
-                ((Array.isArray(route.assets.css) && route.assets.css.length > 0) ||
-                    (Array.isArray(route.assets.js) && route.assets.js.length > 0))
-            ) {
-                return {
-                    css: [...route.assets.css],
-                    js: route.assets.js ? [...route.assets.js] : [],
-                };
-            }
-        }
+        const fallbackRoute = routes.find((route) => !route.isErrorPage && hasAssets(route.assets));
+        return fallbackRoute ? copyAssets(fallbackRoute.assets) : null;
     } catch {
         // Routes not yet available (early startup) — skip asset injection
+        return null;
     }
-    return null;
 }

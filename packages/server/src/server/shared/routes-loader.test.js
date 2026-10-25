@@ -4,6 +4,7 @@
 
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
+import { withTempProject, writeFile } from "../../test-utils.js";
 import { loadRoutesManifest, validateRoutes } from "./routes-loader.js";
 
 describe("validateRoutes", () => {
@@ -71,6 +72,15 @@ describe("loadRoutesManifest", () => {
         });
 
         assert.deepEqual(routes, mockRoutes);
+    });
+
+    test("loads routes with the default file reader", async () => {
+        await withTempProject(async (dir) => {
+            const expectedRoutes = [{ filename: "index.html", jsx: "src/pages/index.jsx" }];
+            const routesPath = await writeFile(dir, "routes.json", JSON.stringify(expectedRoutes));
+
+            assert.deepEqual(await loadRoutesManifest(routesPath), expectedRoutes);
+        });
     });
 
     test("retries on JSON parse error", async (t) => {

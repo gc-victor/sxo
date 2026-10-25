@@ -20,6 +20,34 @@ import {
 } from "./http-constants.js";
 import { withSecurityHeaders } from "./security-headers.js";
 
+async function renderCustomErrorResponse({ status, cacheControl, renderFn, securityHeaders, assets, publicPath }, isHead) {
+    try {
+        let page = await renderFn({});
+        const isHtml = /^<html[\s>]/i.test(page);
+        if (isHtml && assets) {
+            const normalized = normalizePublicPath(publicPath);
+            page = injectAssets(page, assets, normalized);
+        }
+
+        const headers = withSecurityHeaders(
+            {
+                [HTTP_HEADER_CONTENT_TYPE]: MIME_TYPE_HTML_UTF8,
+                [HTTP_HEADER_CACHE_CONTROL]: cacheControl,
+            },
+            securityHeaders ?? undefined,
+        );
+        return new Response(isHead ? null : isHtml ? `<!doctype html>\n${page}` : page, {
+            status,
+            headers,
+        });
+    } catch (err) {
+        if (logger?.error) {
+            logger.error({ err }, `Failed to render custom ${status} page`);
+        }
+        return null;
+    }
+}
+
 /**
  * Build standardized error response.
  *
@@ -54,29 +82,11 @@ async function buildErrorResponse(
     const isHead = request?.method === HTTP_METHOD_HEAD;
 
     if (renderCustom && renderFn) {
-        try {
-            let page = await renderFn({});
-            const isHtml = /^<html[\s>]/i.test(page);
-            if (isHtml && assets) {
-                const normalized = normalizePublicPath(publicPath);
-                page = injectAssets(page, assets, normalized);
-            }
-            const headers = withSecurityHeaders(
-                {
-                    [HTTP_HEADER_CONTENT_TYPE]: MIME_TYPE_HTML_UTF8,
-                    [HTTP_HEADER_CACHE_CONTROL]: cacheControl,
-                },
-                securityHeaders ?? undefined,
-            );
-            return new Response(isHead ? null : isHtml ? `<!doctype html>\n${page}` : page, {
-                status,
-                headers,
-            });
-        } catch (err) {
-            if (logger?.error) {
-                logger.error({ err }, `Failed to render custom ${status} page`);
-            }
-        }
+        const customResponse = await renderCustomErrorResponse(
+            { status, cacheControl, renderFn, securityHeaders, assets, publicPath },
+            isHead,
+        );
+        if (customResponse) return customResponse;
     }
 
     const headers = withSecurityHeaders(
