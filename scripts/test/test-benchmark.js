@@ -17,70 +17,14 @@
  */
 
 import { spawn } from "node:child_process";
-import { existsSync, readdirSync, statSync } from "node:fs";
-import { dirname, relative, resolve } from "node:path";
+import { relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { expandArgsToTestFiles, findTestFiles, projectRoot, waitForChild } from "./test-helpers.js";
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const projectRoot = resolve(__dirname, "..", "..");
 
 // Set test environment
 process.env.NODE_ENV = "test";
-
-/**
- * Find all .test.js files in src/
- * @param {string} dir - Directory to search
- * @param {string[]} files - Accumulator
- * @returns {string[]} Test file paths
- */
-function findTestFiles(dir, files = []) {
-    const entries = readdirSync(dir, { withFileTypes: true });
-
-    for (const entry of entries) {
-        if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
-
-        const fullPath = resolve(dir, entry.name);
-
-        if (entry.isDirectory()) {
-            findTestFiles(fullPath, files);
-        } else if (entry.name.endsWith(".test.js")) {
-            files.push(fullPath);
-        }
-    }
-
-    return files;
-}
-
-/**
- * Expand directories in arguments to test files.
- * Automaps source files (.js) to test files (.test.js) if they exist.
- * @param {string[]} args - File or directory paths
- * @returns {string[]} List of test files
- */
-function expandArgsToTestFiles(args) {
-    const files = [];
-
-    for (const arg of args) {
-        const fullPath = resolve(arg);
-        const isDir = existsSync(fullPath) && statSync(fullPath).isDirectory();
-
-        if (isDir) {
-            findTestFiles(fullPath, files);
-            continue;
-        }
-
-        // For .js files, prefer the corresponding .test.js if it exists
-        if (fullPath.endsWith(".js") && !fullPath.endsWith(".test.js")) {
-            const testFile = fullPath.replace(/\.js$/, ".test.js");
-            files.push(existsSync(testFile) ? testFile : fullPath);
-        } else {
-            files.push(fullPath);
-        }
-    }
-
-    return [...new Set(files)];
-}
 
 /**
  * Parse CLI arguments
@@ -254,13 +198,7 @@ async function main() {
         stdio: "inherit",
     });
 
-    const exitCode = await new Promise((resolve) => {
-        child.on("close", (code) => resolve(code || 0));
-        child.on("error", (err) => {
-            console.error(`Error: ${err.message}`);
-            resolve(1);
-        });
-    });
+    const exitCode = await waitForChild(child);
 
     process.exit(exitCode);
 }

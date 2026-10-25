@@ -10,89 +10,23 @@
  */
 
 import { spawn } from "node:child_process";
-import { existsSync, readdirSync, statSync } from "node:fs";
-import { dirname, relative, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const projectRoot = resolve(__dirname, "..", "..");
+import { existsSync, statSync } from "node:fs";
+import { relative, resolve } from "node:path";
+import { expandArgsToTestFiles, findTestFiles, projectRoot, waitForChild } from "./test-helpers.js";
 
 // Set test environment
 process.env.NODE_ENV = "test";
 
 /**
- * Find all .test.js files in src/
- * @param {string} dir - Directory to search
- * @param {string[]} files - Accumulator
- * @returns {string[]} Test file paths
- */
-function findTestFiles(dir, files = []) {
-    const entries = readdirSync(dir, { withFileTypes: true });
-
-    for (const entry of entries) {
-        if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
-
-        const fullPath = resolve(dir, entry.name);
-
-        if (entry.isDirectory()) {
-            findTestFiles(fullPath, files);
-        } else if (entry.name.endsWith(".test.js")) {
-            files.push(fullPath);
-        }
-    }
-
-    return files;
-}
-
-function findDirectoryTestFiles(fullPath) {
-    return existsSync(fullPath) && statSync(fullPath).isDirectory()
-        ? findTestFiles(fullPath)
-        : null;
-}
-
-function findSiblingTestFile(fullPath) {
-    if (!fullPath.endsWith(".js") || fullPath.endsWith(".test.js")) return null;
-
-    const testFile = fullPath.replace(/\.js$/, ".test.js");
-    return existsSync(testFile) ? testFile : null;
-}
-
-function expandArgumentToTestFiles(arg) {
-    const fullPath = resolve(arg);
-    const directoryFiles = findDirectoryTestFiles(fullPath);
-    if (directoryFiles !== null) return directoryFiles;
-    return [findSiblingTestFile(fullPath) ?? fullPath];
-}
-
-/**
- * Expand directories in arguments to test files.
- * Automaps source files (.js) to test files (.test.js) if they exist.
- * @param {string[]} args - File or directory paths
- * @returns {string[]} List of test files
- */
-function expandArgsToTestFiles(args) {
-    const files = args.flatMap(expandArgumentToTestFiles);
-    return [...new Set(files)];
-}
-
-/**
  * Run command and return exit code
  */
 function runCommand(command, args) {
-    return new Promise((resolve) => {
-        const child = spawn(command, args, {
-            cwd: projectRoot,
-            stdio: "inherit",
-            env: process.env,
-        });
-
-        child.on("close", (code) => resolve(code || 0));
-        child.on("error", (err) => {
-            console.error(`Error: ${err.message}`);
-            resolve(1);
-        });
+    const child = spawn(command, args, {
+        cwd: projectRoot,
+        stdio: "inherit",
+        env: process.env,
     });
+    return waitForChild(child);
 }
 
 /**

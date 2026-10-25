@@ -10,6 +10,7 @@
  */
 
 import { handleTestFail } from "./test-fail.js";
+import { formatTestSummary } from "./test-helpers.js";
 
 /**
  * Parse TEST_FILTERS environment variable with resilience to malformed input.
@@ -182,26 +183,6 @@ async function* formatFailureEvent(event, summary) {
     summary.failedTests = counters.failedTests;
 }
 
-async function* formatTestSummary(summary, startTime) {
-    yield "\n";
-    yield `${"━".repeat(60)}\n`;
-    yield "Test Summary\n";
-    yield `${"━".repeat(60)}\n`;
-    yield `Total:   ${summary.totalTests}\n`;
-    yield `Passed:  ${summary.passedTests}\n`;
-    yield `Failed:  ${summary.failedTests}\n`;
-    yield `Skipped: ${summary.skippedTests}\n`;
-    yield `Duration: ${Date.now() - startTime}ms\n`;
-    yield `${"━".repeat(60)}\n`;
-
-    if (summary.failedTests > 0) {
-        yield `\n❌ ${summary.failedTests} test(s) failed\n`;
-    } else if (summary.totalTests > 0) {
-        yield `\n✅ All ${summary.passedTests} test(s) passed\n`;
-    }
-    yield "\n";
-}
-
 /**
  * Custom reporter generator function
  * @param {AsyncIterable<Object>} source - Test event stream
@@ -216,7 +197,7 @@ export default async function* customReporter(source) {
                 yield* formatDiagnostic(event.data.message);
                 break;
             case "test:coverage":
-                yield* formatTestSummary(summary, startTime);
+                yield* formatTestSummary(summary, startTime, true);
                 yield `${formatCoverageTable(event.data)}\n`;
                 break;
             case "test:fail":

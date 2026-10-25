@@ -13,6 +13,7 @@
  */
 
 import { handleTestFail } from "./test-fail.js";
+import { formatTestSummary } from "./test-helpers.js";
 
 /**
  * Custom silent reporter generator function
@@ -53,21 +54,5 @@ export default async function* silentReporter(source) {
         }
     }
 
-    yield "\n";
-    yield `${"━".repeat(60)}\n`;
-    yield "Test Summary\n";
-    yield `${"━".repeat(60)}\n`;
-    yield `Total:   ${totalTests}\n`;
-    yield `Passed:  ${passedTests}\n`;
-    yield `Failed:  ${failedTests}\n`;
-    yield `Skipped: ${skippedTests}\n`;
-    const duration = Date.now() - startTime;
-    yield `Duration: ${duration}ms\n`;
-    yield `${"━".repeat(60)}\n`;
-
-    if (failedTests > 0) {
-        yield `\n❌ ${failedTests} test(s) failed\n`;
-    } else if (totalTests > 0) {
-        yield `\n✅ All ${passedTests} test(s) passed\n`;
-    }
+    yield* formatTestSummary({ totalTests, passedTests, failedTests, skippedTests }, startTime);
 }
