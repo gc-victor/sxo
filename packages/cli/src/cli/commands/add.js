@@ -27,7 +27,7 @@ const SAFE_COMPONENT = /^[a-z0-9][a-z0-9-]*$/;
  * @returns {Promise<boolean>} True if at least one file was installed, false otherwise
  * @throws {Error} If file operations fail
  */
-export async function addComponent(component, componentsDir) {
+async function addComponent(component, componentsDir) {
     // Validate component name to prevent path traversal
     if (!SAFE_COMPONENT.test(component)) {
         throw new Error(`Invalid component name: ${component}`);

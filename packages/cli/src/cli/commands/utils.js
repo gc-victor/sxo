@@ -18,7 +18,7 @@ export function getErrorMessage(e) {
  * @param {ResolvedConfig} cfg - Resolved config with outDir
  * @returns {string} Absolute path to routes.json
  */
-export function routesJsonPath(cfg) {
+function routesJsonPath(cfg) {
     return path.join(cfg.outDir, "server", "routes.json");
 }
 

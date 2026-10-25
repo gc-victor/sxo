@@ -20,7 +20,7 @@ import { wireOutput } from "./output-handler.js";
 import { forwardSignals, terminate as terminateProcess } from "./signal-handler.js";
 
 // Re-export terminate for backward compatibility
-export { forwardSignals, terminateProcess as terminate, wireOutput };
+export { terminateProcess as terminate };
 
 /**
  * @typedef {Object} SpawnOptions
