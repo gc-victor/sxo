@@ -84,7 +84,7 @@ export async function* formatTestSummary(summary, startTime, blankLineAfterSumma
  */
 export function waitForChild(child) {
     return new Promise((resolve) => {
-        child.on("close", (code) => resolve(code || 0));
+        child.on("close", (code) => resolve(code ?? 1));
         child.on("error", (err) => {
             console.error(`Error: ${err.message}`);
             resolve(1);

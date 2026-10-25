@@ -103,11 +103,11 @@ const REPORTERS = {
 };
 
 async function main() {
-    const srcDir = resolve(projectRoot, "packages");
-    const srcDirs = [
+    const testDirs = [
         resolve(projectRoot, "packages", "cli", "src"),
         resolve(projectRoot, "packages", "server", "src"),
         resolve(projectRoot, "packages", "client", "src"),
+        resolve(projectRoot, "scripts", "test"),
     ];
     const { mode, paths } = parseArgs(process.argv.slice(2));
 
@@ -127,7 +127,7 @@ async function main() {
 
     // Resolve test files
     const testFiles = validPaths.length === 0
-        ? srcDirs.flatMap((dir) => findTestFiles(dir))
+        ? testDirs.flatMap((dir) => findTestFiles(dir))
         : expandArgsToTestFiles(validPaths);
     if (testFiles.length === 0) {
         console.error("Error: No test files found");
