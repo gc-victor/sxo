@@ -1,10 +1,9 @@
-import { existsSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 
 import { resolveConfig } from "@sxo/server/config";
-import { detectRuntime } from "@sxo/server/shared/runtime";
 import { absoluteScript, pathExists, prepareFlags } from "../cli-helpers.js";
+import { getAliasRuntimeOptions } from "../runtime-options.js";
 import { spawnRuntime } from "../spawn.js";
 import { log } from "../ui.js";
 import { getCliScriptPaths, getErrorMessage, routesJsonExists, routesJsonRelative } from "./utils.js";
@@ -44,18 +43,11 @@ export async function handleStartCommand(flags, inject = {}) {
             return;
         }
 
-        const runtimeOptions = [];
-        if (detectRuntime() === "node" && existsSync(RESOLVE_ALIASES_HOOK)) {
-            const tsconfigPath = path.join(root, "tsconfig.json");
-            if (existsSync(tsconfigPath)) {
-                runtimeOptions.push("--import", RESOLVE_ALIASES_HOOK);
-            }
-        }
         const { wait } = impl.spawnRuntime(absoluteScript(root, SERVER_PROD_FILE), {
             cwd: root,
             env: { ...cfg.env, NODE_ENV: "production" },
             stdio: "inherit",
-            runtimeOptions,
+            runtimeOptions: getAliasRuntimeOptions(root, RESOLVE_ALIASES_HOOK),
         });
 
         const result = await wait;

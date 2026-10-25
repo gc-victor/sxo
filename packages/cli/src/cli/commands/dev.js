@@ -1,12 +1,11 @@
-import { existsSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 
 import { resolveConfig } from "@sxo/server/config";
-import { detectRuntime } from "@sxo/server/shared/runtime";
 import { convertToPosixSlashes } from "../../shared/path-utils.js";
 import { absoluteScript, ensureDir, getUrl, prepareFlags, validatePagesFolder } from "../cli-helpers.js";
 import { openWhenReady } from "../open.js";
+import { getAliasRuntimeOptions } from "../runtime-options.js";
 import { runRuntime, spawnRuntime } from "../spawn.js";
 import { createSpinner, log } from "../ui.js";
 import { getCliScriptPaths, getErrorMessage } from "./utils.js";
@@ -38,17 +37,6 @@ async function prebuildDevServer(cfg, root, impl) {
     return true;
 }
 
-function getDevRuntimeOptions(root) {
-    const options = [];
-    if (detectRuntime() === "node" && existsSync(RESOLVE_ALIASES_HOOK)) {
-        const tsconfigPath = path.join(root, "tsconfig.json");
-        if (existsSync(tsconfigPath)) {
-            options.push("--import", RESOLVE_ALIASES_HOOK);
-        }
-    }
-    return options;
-}
-
 async function openDevBrowser(cfg, child, impl) {
     if (!cfg.open) return;
 
@@ -73,7 +61,7 @@ async function startDevServer(cfg, root, impl) {
         cwd: root,
         env: cfg.env,
         stdio: "inherit",
-        runtimeOptions: getDevRuntimeOptions(root),
+        runtimeOptions: getAliasRuntimeOptions(root, RESOLVE_ALIASES_HOOK),
     });
 
     await openDevBrowser(cfg, child, impl);
