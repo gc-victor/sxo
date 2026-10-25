@@ -122,7 +122,7 @@ function decodePathname(pathname) {
     } catch {
         return null;
     }
-    return decodedPath.includes("\0") ? null : decodedPath;
+    return decodedPath.includes("\0") || decodedPath.includes("\\") ? null : decodedPath;
 }
 
 function hasTraversalSegment(segments) {

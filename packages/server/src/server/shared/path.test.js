@@ -156,6 +156,11 @@ describe("validateAndNormalizePath", () => {
         assert.equal(validateAndNormalizePath("/%252e%252e/etc/passwd"), null);
     });
 
+    it("should reject Windows separators before platform-specific resolution", () => {
+        assert.equal(validateAndNormalizePath("/assets\\..\\..\\server\\modules.js"), null);
+        assert.equal(validateAndNormalizePath("/assets%5c..%5c..%5cserver%5cmodules.js"), null);
+    });
+
     it("should handle encoded path segments", () => {
         assert.equal(validateAndNormalizePath("/%2e%2e/test"), null);
     });
