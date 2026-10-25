@@ -23,6 +23,8 @@ import { createFileWatcher } from "./shared/file-watcher.js";
 import { createEsbuildSpawner } from "./shared/process-spawner.js";
 import { performInitialSetup } from "./shared/server-lifecycle.js";
 
+const HOT_REPLACE_PATHS = new Set(["/hot-replace", "/hot-replace.js"]);
+
 const { config, handler, createDebouncedEsbuild, createDebouncedReloadMiddleware } = await performInitialSetup({
     platform: "deno",
     spawnEsbuild: createEsbuildSpawner(
@@ -62,36 +64,28 @@ const handleStaticRequest = createStaticHandler({
 Deno.addSignalListener("SIGINT", () => Deno.exit(0));
 Deno.addSignalListener("SIGTERM", () => Deno.exit(0));
 
+async function handleDenoRequest(request, pathname) {
+    const staticResponse = hasFileExtension(pathname) ? await handleStaticRequest(request) : null;
+    return staticResponse || handler(request);
+}
+
+function logDenoRequest(method, pathname, status) {
+    if (HOT_REPLACE_PATHS.has(pathname)) return;
+    if (status >= 500) {
+        logger.error(`${method} ${pathname} ${status}`);
+    } else if (status >= 400) {
+        logger.warn(`${method} ${pathname} ${status}`);
+    } else {
+        logger.info(`${method} ${pathname} ${status}`);
+    }
+}
+
 Deno.serve({
     port: config.port,
     handler: async (/** @type {Request} */ request) => {
-        const url = new URL(request.url);
-        const pathname = url.pathname;
-
-        let response;
-        if (hasFileExtension(pathname)) {
-            const staticResponse = await handleStaticRequest(request);
-            if (staticResponse) {
-                response = staticResponse;
-            }
-        }
-
-        if (!response) {
-            response = await handler(request);
-        }
-
-        // Log request (skip SSE and hot-replace.js to reduce noise)
-        if (pathname !== "/hot-replace" && pathname !== "/hot-replace.js") {
-            const status = response.status;
-            if (status >= 500) {
-                logger.error(`${request.method} ${pathname} ${status}`);
-            } else if (status >= 400) {
-                logger.warn(`${request.method} ${pathname} ${status}`);
-            } else {
-                logger.info(`${request.method} ${pathname} ${status}`);
-            }
-        }
-
+        const pathname = new URL(request.url).pathname;
+        const response = await handleDenoRequest(request, pathname);
+        logDenoRequest(request.method, pathname, response.status);
         return response;
     },
 });

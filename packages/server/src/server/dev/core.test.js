@@ -342,6 +342,13 @@ describe("runEsbuild", () => {
         }
     });
 
+    test("removes warning blocks without hiding following build errors", async () => {
+        const stderr = "▲ [WARNING] unused import\n  details\n\n✘ [ERROR] build failed";
+        const result = await runEsbuild({ spawnEsbuild: async () => stderr });
+
+        strictEqual(result, "build failed");
+    });
+
     test("propagates unexpected execution failures", async (t) => {
         const scenarios = [
             { name: "with Error instance", error: new Error("Spawn failed") },

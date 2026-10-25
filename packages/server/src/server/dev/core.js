@@ -152,58 +152,50 @@ export function isMiddlewareFile(filename) {
  */
 export async function runEsbuild({ spawnEsbuild, colors = {}, filename }) {
     try {
-        // Call platform-specific spawn function
         const stderr = await spawnEsbuild();
-
-        // Log warnings, then strip them from the output so they don't
-        // masquerade as build errors that block route loading.
-        const lines = stderr.split("\n");
-        const filteredLines = [];
-        let inWarning = false;
-
-        for (const line of lines) {
-            if (line.includes("▲ [WARNING]")) {
-                inWarning = true;
-                logger.warn(line.trim());
-            } else if (inWarning) {
-                // Continuation lines of a warning block are indented or
-                // blank. Stop skipping when we hit a non-indented line.
-                if (line.length === 0 || /^\s/.test(line)) {
-                    logger.warn(line.trimEnd());
-                } else {
-                    inWarning = false;
-                    filteredLines.push(line);
-                }
-            } else {
-                filteredLines.push(line);
-            }
-        }
-
-        // Clean error message (remove common prefixes)
-        const cleaned = filteredLines
-            .join("\n")
-            .replace(/✘ \[ERROR\] /g, "")
-            .replace(/\[plugin jsx-transform\]/g, "")
-            .trim();
-
-        // Log filename with optional colors
-        if (filename && colors.yellow && colors.reset) {
-            logger.info(`${colors.yellow}${filename}${colors.reset}`);
-        } else if (filename) {
-            logger.info(filename);
-        }
-
-        // Log errors if present
-        if (cleaned) {
-            const resetCode = colors.reset || "";
-            logger.error(`${resetCode}${cleaned}`);
-        }
-
+        const cleaned = cleanEsbuildOutput(stderr);
+        logEsbuildOutput(cleaned, filename, colors);
         return cleaned;
     } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         logger.error(`esbuild execution failed: ${message}`);
         throw err;
+    }
+}
+
+function cleanEsbuildOutput(stderr) {
+    const filteredLines = [];
+    let inWarning = false;
+
+    for (const line of stderr.split("\n")) {
+        if (line.includes("▲ [WARNING]")) {
+            inWarning = true;
+            logger.warn(line.trim());
+        } else if (inWarning && (line.length === 0 || /^\s/.test(line))) {
+            logger.warn(line.trimEnd());
+        } else {
+            inWarning = false;
+            filteredLines.push(line);
+        }
+    }
+
+    return filteredLines
+        .join("\n")
+        .replace(/✘ \[ERROR\] /g, "")
+        .replace(/\[plugin jsx-transform\]/g, "")
+        .trim();
+}
+
+function logEsbuildOutput(cleaned, filename, colors) {
+    if (filename && colors.yellow && colors.reset) {
+        logger.info(`${colors.yellow}${filename}${colors.reset}`);
+    } else if (filename) {
+        logger.info(filename);
+    }
+
+    if (cleaned) {
+        const resetCode = colors.reset || "";
+        logger.error(`${resetCode}${cleaned}`);
     }
 }
 

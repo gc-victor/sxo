@@ -130,6 +130,24 @@ describe("handleSSR", () => {
     });
 
     describe("successful rendering", () => {
+        test("should enhance HTML Response results and preserve their status and headers", async () => {
+            const handler = createHandler({
+                getRoutes: () => [createMockRoute({ path: "response" })],
+                loadJsxModule: async () => () =>
+                    new Response("<html><head></head><body>Response page</body></html>", {
+                        status: 201,
+                        headers: { "Content-Type": "text/html; charset=utf-8", "X-Page": "custom" },
+                    }),
+            });
+            const response = await handler.handleSSR(makeRequest("/response"), false);
+            const body = await response.text();
+
+            assertStatus(response, 201);
+            strictEqual(response.headers.get("X-Page"), "custom");
+            strictEqual(body.includes('hotReplace("/response")'), true);
+            strictEqual(body.startsWith("<!doctype html>"), false);
+        });
+
         test("should return HTML response with correct headers", async () => {
             const handler = createHandler();
             const response = await handler.handleSSR(makeRequest(), false);
@@ -315,6 +333,18 @@ describe("handle500", () => {
         const body = await response.text();
 
         strictEqual(body.includes("Specific error message"), true);
+    });
+
+    test("should preserve the invalid-route status on a custom 500 page", async () => {
+        const handler = createHandler({
+            getRoutes: () => [createMockRoute({ path: "blog/[slug]" })],
+            resolve500Page: () => "/pages/500.tsx",
+            loadJsxModule: async () => () => "<html><body>Custom error</body></html>",
+        });
+        const response = await handler.handleSSR(makeRequest("/blog/%20"), false);
+
+        assertStatus(response, 400);
+        strictEqual((await response.text()).includes("Custom error"), true);
     });
 
     test("should render custom 500 page when resolver returns a valid path", async () => {

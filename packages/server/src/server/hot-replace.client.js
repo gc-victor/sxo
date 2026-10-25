@@ -48,7 +48,7 @@ delete gt.__customElementVersions;
  * @param {Element | EventTarget | null} el
  * @returns {el is Element & {dataset: DOMStringMap}}
  */
-function hasDataset(el) {
+export function hasDataset(el) {
     return el !== null && "dataset" in el;
 }
 
@@ -57,7 +57,7 @@ function hasDataset(el) {
  * @param {Element | null} el
  * @returns {DatasetLike | null}
  */
-function getDataset(el) {
+export function getDataset(el) {
     return hasDataset(el) ? el.dataset : null;
 }
 
@@ -73,7 +73,7 @@ function getDataset(el) {
  * @param {string} base64 - Base64-encoded string
  * @returns {string} Decoded Unicode string
  */
-function base64DecodeUnicode(base64) {
+export function base64DecodeUnicode(base64) {
     const binString = atob(base64);
     const bytes = Uint8Array.from(binString, (m) => m.codePointAt(0) ?? 0);
     return new TextDecoder().decode(bytes);
@@ -170,7 +170,7 @@ function onHotMessage(e) {
  * @param {unknown} data
  * @returns {data is { body: string; assets: { js: string[]; css: string[] }; publicPath: string }}
  */
-function isValidPayload(data) {
+export function isValidPayload(data) {
     return typeof data === "object" && data !== null && "body" in data;
 }
 

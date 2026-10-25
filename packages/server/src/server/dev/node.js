@@ -26,6 +26,7 @@ import { createEsbuildSpawner } from "./shared/process-spawner.js";
 
 const YELLOW = "\x1b[33m";
 const RESET = "\x1b[0m";
+const HOT_REPLACE_PATHS = new Set(["/hot-replace", "/hot-replace.js"]);
 
 /** @type {import('fs').FSWatcher | null} */
 let fileWatcher = null;
@@ -123,20 +124,25 @@ const debouncedEsbuild = debounce(async (/** @type {string} */ filename) => {
     }
 }, 250);
 
-const debouncedReloadMiddleware = debounce(async (/** @type {string} */ filename) => {
-    if (isMiddlewareFile(filename)) {
-        try {
-            const mw = await (await import("../middleware.js")).loadUserDefinedMiddlewares();
-            if (Array.isArray(mw)) {
-                userMiddlewares = mw;
-                logger.info("Middleware reloaded");
-            }
-        } catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
-            logger.error(`Failed to reload middleware: ${message}`);
-        }
+async function reloadUserMiddleware(/** @type {string} */ filename) {
+    if (!isMiddlewareFile(filename)) return;
+
+    try {
+        const mw = await (await import("../middleware.js")).loadUserDefinedMiddlewares();
+        if (!Array.isArray(mw)) return;
+        userMiddlewares = mw;
+        logger.info("Middleware reloaded");
+    } catch (error) {
+        logMiddlewareReloadError(error);
     }
-}, 500);
+}
+
+function logMiddlewareReloadError(error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error(`Failed to reload middleware: ${message}`);
+}
+
+const debouncedReloadMiddleware = debounce(reloadUserMiddleware, 500);
 
 try {
     fileWatcher = fs.watch(resolvedSrcDir, { recursive: true }, (_, /** @type {string | null} */ filename) => {
@@ -157,40 +163,34 @@ const handleStaticRequest = createStaticHandler({
     skipCompression: true,
 });
 
-httpServer = http.createServer(async (req, res) => {
+async function handleNodeRequest(req, res) {
     const url = new URL(req.url || "/", `http://localhost:${port}`);
     const pathname = url.pathname;
-
-    // Convert Node.js request to Web Standard Request (needed for static and dynamic handlers)
     const webRequest = toWebRequest(req, port);
 
     /** @type {Response | undefined} */
     let response;
     if (hasFileExtension(pathname)) {
-        const staticResponse = await handleStaticRequest(webRequest);
-        if (staticResponse) {
-            response = staticResponse;
-        }
+        response = await handleStaticRequest(webRequest);
     }
+    if (!response) response = await handler(webRequest);
 
-    if (!response) {
-        response = await handler(webRequest);
-    }
-
-    // Log request (skip SSE and hot-replace.js to reduce noise)
-    if (pathname !== "/hot-replace" && pathname !== "/hot-replace.js") {
-        const status = response.status;
-        if (status >= 500) {
-            logger.error(`${req.method} ${pathname} ${status}`);
-        } else if (status >= 400) {
-            logger.warn(`${req.method} ${pathname} ${status}`);
-        } else {
-            logger.info(`${req.method} ${pathname} ${status}`);
-        }
-    }
-
+    logNodeRequest(req.method, pathname, response.status);
     await fromWebResponse(response, req, res);
-});
+}
+
+function logNodeRequest(method, pathname, status) {
+    if (HOT_REPLACE_PATHS.has(pathname)) return;
+    if (status >= 500) {
+        logger.error(`${method} ${pathname} ${status}`);
+    } else if (status >= 400) {
+        logger.warn(`${method} ${pathname} ${status}`);
+    } else {
+        logger.info(`${method} ${pathname} ${status}`);
+    }
+}
+
+httpServer = http.createServer((req, res) => handleNodeRequest(req, res));
 
 process.on("SIGINT", () => process.exit(0));
 process.on("SIGTERM", () => process.exit(0));

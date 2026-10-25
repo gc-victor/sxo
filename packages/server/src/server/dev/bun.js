@@ -24,6 +24,8 @@ import { createFileWatcher } from "./shared/file-watcher.js";
 import { createEsbuildSpawner } from "./shared/process-spawner.js";
 import { performInitialSetup } from "./shared/server-lifecycle.js";
 
+const HOT_REPLACE_PATHS = new Set(["/hot-replace", "/hot-replace.js"]);
+
 // Platform-specific text reader
 const bunTextReader = createTextReader(createFileReader());
 
@@ -61,36 +63,28 @@ const handleStaticRequest = createStaticHandler({
 process.on("SIGINT", () => process.exit(0));
 process.on("SIGTERM", () => process.exit(0));
 
+async function handleBunRequest(request, pathname) {
+    const staticResponse = hasFileExtension(pathname) ? await handleStaticRequest(request) : null;
+    return staticResponse || handler(request);
+}
+
+function logBunRequest(method, pathname, status) {
+    if (HOT_REPLACE_PATHS.has(pathname)) return;
+    if (status >= 500) {
+        logger.error(`${method} ${pathname} ${status}`);
+    } else if (status >= 400) {
+        logger.warn(`${method} ${pathname} ${status}`);
+    } else {
+        logger.info(`${method} ${pathname} ${status}`);
+    }
+}
+
 Bun.serve({
     port: config.port,
     async fetch(request) {
-        const url = new URL(request.url);
-        const pathname = url.pathname;
-
-        let response;
-        if (hasFileExtension(pathname)) {
-            const staticResponse = await handleStaticRequest(request);
-            if (staticResponse) {
-                response = staticResponse;
-            }
-        }
-
-        if (!response) {
-            response = await handler(request);
-        }
-
-        // Log request (skip SSE and hot-replace.js to reduce noise)
-        if (pathname !== "/hot-replace" && pathname !== "/hot-replace.js") {
-            const status = response.status;
-            if (status >= 500) {
-                logger.error(`${request.method} ${pathname} ${status}`);
-            } else if (status >= 400) {
-                logger.warn(`${request.method} ${pathname} ${status}`);
-            } else {
-                logger.info(`${request.method} ${pathname} ${status}`);
-            }
-        }
-
+        const pathname = new URL(request.url).pathname;
+        const response = await handleBunRequest(request, pathname);
+        logBunRequest(request.method, pathname, response.status);
         return response;
     },
     idleTimeout: 0, // Disable idle timeout for SSE connections
